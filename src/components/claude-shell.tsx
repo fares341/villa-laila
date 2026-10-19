@@ -840,6 +840,21 @@ export function ClaudeBottomBar({ lang }: { lang: string }) {
         {isAr ? 'الرحلات' : 'Tours'}
       </a>
       <a
+        href={href('events')}
+        onClick={(e) => {
+          if (isHomePage) {
+            e.preventDefault();
+            handleNavScroll('events');
+          }
+        }}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z" />
+          <path d="M14 6v12" strokeDasharray="2 2" />
+        </svg>
+        {isAr ? 'الفعاليات' : 'Events'}
+      </a>
+      <a
         href={href('films')}
         onClick={(e) => {
           if (isHomePage) {
