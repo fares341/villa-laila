@@ -15,10 +15,10 @@
   --color-bronze: #A88762;
   --color-ivory: #FBF7F1;
   --color-white: #FFFFFF;
-  --color-blue: #0798D0;
-  --color-blue-hover: #067FAE;
-  --color-whatsapp: #159447;
-  --color-whatsapp-hover: #117A3A;
+  --color-blue: #0872A3;
+  --color-blue-hover: #065F88;
+  --color-whatsapp: #117A3A;
+  --color-whatsapp-hover: #0E6E34;
   --color-text: #2F2925;
   --color-text-secondary: #76695D;
   --color-border: #ECE2D4;
@@ -122,23 +122,23 @@
 }
 .btn:active { transform: translateY(1px); }
 .btn[disabled], .btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; pointer-events: none; }
-.btn-gold { background: var(--color-gold); color: var(--color-text); }
-.btn-gold:hover { background: var(--color-gold-hover); }
-/* Booking CTAs (Check availability, Book, Pay): deep cocoa with a copper underline glow */
-.btn-book { background: var(--color-primary-dark); color: #fff; box-shadow: inset 0 -2px 0 var(--color-gold); }
-.btn-book:hover { background: var(--color-primary); }
-.btn-primary { background: var(--color-primary); color: #fff; }
-.btn-primary:hover { background: var(--color-primary-dark); }
-.btn-line { border-color: var(--color-border); background: var(--color-white); color: var(--color-primary-dark); }
-.btn-line:hover { border-color: var(--color-primary); background: var(--color-ivory); }
-.btn-wa { background: var(--color-whatsapp); color: #fff; }
-.btn-wa:hover { background: var(--color-whatsapp-hover); }
-.btn-blue { background: var(--color-blue); color: #fff; }
-.btn-blue:hover { background: var(--color-blue-hover); }
-.btn-light { background: #fff; color: var(--color-primary-dark); }
-.btn-light:hover { background: var(--color-ivory); }
-.btn-outline-light { border-color: rgba(255,255,255,.55); color: #fff; background: transparent; }
-.btn-outline-light:hover { background: rgba(255,255,255,.1); border-color: #fff; }
+/* Button colours — every filled button pairs its background with a text colour of at least 4.5:1 contrast.
+   Scoped with .vl-page so no inherited link/button colour can ever override the text colour. */
+.vl-page .btn-book, .vl-page .btn-primary { background: #4A3222; color: #FFFFFF; border-color: #4A3222; }           /* 11.9:1 */
+.vl-page .btn-book:hover, .vl-page .btn-primary:hover { background: #6B4A30; border-color: #6B4A30; color: #FFFFFF; } /* 7.9:1 */
+.vl-page .btn-gold { background: #E9C27E; color: #2F2925; border-color: #E9C27E; }                                    /* 8.5:1 — gold on dark areas */
+.vl-page .btn-gold:hover { background: #F0D29C; color: #2F2925; }
+.vl-page .btn-line { background: #FFFFFF; color: #4A3222; border-color: #D9CBB6; }
+.vl-page .btn-line:hover { background: var(--color-ivory); border-color: #4A3222; color: #4A3222; }
+.vl-page .btn-wa { background: #117A3A; color: #FFFFFF; border-color: #117A3A; }                                       /* 5.4:1 */
+.vl-page .btn-wa:hover { background: #0E6E34; border-color: #0E6E34; color: #FFFFFF; }
+.vl-page .btn-blue { background: #0872A3; color: #FFFFFF; border-color: #0872A3; }                                     /* 5.3:1 */
+.vl-page .btn-blue:hover { background: #065F88; border-color: #065F88; color: #FFFFFF; }
+.vl-page .btn-light { background: #FFFFFF; color: #4A3222; }
+.vl-page .btn-light:hover { background: var(--color-ivory); color: #4A3222; }
+.vl-page .btn-outline-light { border-color: rgba(255,255,255,.7); color: #FFFFFF; background: rgba(0,0,0,.12); }
+.vl-page .btn-outline-light:hover { background: rgba(255,255,255,.14); border-color: #FFFFFF; }
+.vl-page .btn:focus-visible { outline: 3px solid #E9C27E; outline-offset: 2px; }
 .btn-sm { min-height: 40px; padding: 0 16px; font-size: 14px; }
 .btn.loading { pointer-events: none; color: transparent !important; position: relative; }
 .btn.loading::after {
@@ -147,7 +147,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2.5px solid var(--color-text);
+  border: 2.5px solid #FFFFFF;
   border-right-color: transparent;
   animation: vl-spin .7s linear infinite;
 }
@@ -1183,7 +1183,7 @@
 /* ==========================================================================
    Events, event booking, tickets, room booking steps
    ========================================================================== */
-.btn-book.loading::after { border-color: #fff; border-right-color: transparent; }
+.vl-page .btn-gold.loading::after, .vl-page .btn-line.loading::after { border-color: #2F2925; border-right-color: transparent; }
 .vl-page .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 
 /* ---- home: events section ---- */
@@ -1301,7 +1301,7 @@
 .tk-save, .tk-note { font-size: 14px; color: var(--color-text-secondary); }
 .tk-note a { color: var(--color-primary); font-weight: 700; text-decoration: underline; }
 .tk-staff { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-radius: var(--r-sm); background: var(--color-primary-dark); color: #fff; font-weight: 700; }
-.tk-staff .btn { background: var(--color-gold); color: var(--color-text); }
+.vl-page .tk-staff .btn { background: #E9C27E; color: #2F2925; border-color: #E9C27E; }
 .tk-pay { background: #fff; border: 1px solid var(--color-border); border-radius: var(--r-lg); padding: clamp(18px, 3vw, 28px); display: grid; gap: 14px; scroll-margin-top: 90px; }
 .tk-pay h2 { font-size: 22px; color: var(--color-primary-dark); }
 .tk-due { color: var(--color-text-secondary); font-weight: 600; }
