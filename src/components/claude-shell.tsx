@@ -94,6 +94,17 @@ export function ClaudeHeader({ lang }: { lang: string }) {
             {isAr ? 'الرحلات' : 'Tours'}
           </a>
           <a
+            href={href('events')}
+            onClick={(e) => {
+              if (isHomePage) {
+                e.preventDefault();
+                handleNavClick('events');
+              }
+            }}
+          >
+            {isAr ? 'الفعاليات' : 'Events'}
+          </a>
+          <a
             href={href('films')}
             onClick={(e) => {
               if (isHomePage) {
@@ -160,7 +171,7 @@ export function ClaudeHeader({ lang }: { lang: string }) {
             )}
           </div>
 
-          <button className="btn btn-gold book-hdr" onClick={scrollToBook}>
+          <button className="btn btn-book book-hdr" onClick={scrollToBook}>
             {isAr ? 'احجز مباشرة' : 'Book direct'}
           </button>
         </div>
@@ -338,6 +349,19 @@ export function ClaudeFooter({ lang }: { lang: string }) {
                     }}
                   >
                     {isAr ? 'رحلات اليوم الواحد' : 'Day tours'}
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={href('events')}
+                    onClick={(e) => {
+                      if (isHomePage) {
+                        e.preventDefault();
+                        handleNavClick('events');
+                      }
+                    }}
+                  >
+                    {isAr ? 'فعاليات الفيلا' : 'Events at the villa'}
                   </a>
                 </li>
                 <li>

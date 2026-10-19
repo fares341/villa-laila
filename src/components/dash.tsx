@@ -19,6 +19,7 @@ const NAV: [string, NavItem[]][] = [
     ['/dashboard/pos', 'Point of Sale (POS)', 'pos.use'],
     ['/dashboard/inventory', 'Inventory & Stock (الجرد)', 'inventory.manage'],
     ['/dashboard/tours', 'Tours & Transfers', 'tours.manage'],
+    ['/dashboard/events', 'Events & InstaPay', 'tours.manage'],
     ['/dashboard/shifts', 'Cash Drawer & Shifts', 'shifts.manage'],
   ]],
   ['Money & stays', [

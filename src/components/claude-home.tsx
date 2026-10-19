@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { EventsSection, type EventCard } from './events-section';
 
 export type LiveRoomStatusMap = Record<
   string,
@@ -19,6 +20,7 @@ export type ClaudeHomeProps = {
   lang: string;
   currency?: string;
   initialRates?: LiveRoomStatusMap;
+  events?: EventCard[];
 };
 
 const icons = {
@@ -78,7 +80,7 @@ const icons = {
   ),
 };
 
-export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates }: ClaudeHomeProps) {
+export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events = [] }: ClaudeHomeProps) {
   const router = useRouter();
   const isAr = lang === 'ar';
 
@@ -226,7 +228,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates }: Clau
     }
     setSearchError(null);
     setSearchLoading(true);
-    router.push(`/${lang}/book?arrive=${encodeURIComponent(arrive)}&depart=${encodeURIComponent(depart)}&guests=${encodeURIComponent(guests)}`);
+    router.push(`/${lang}/book?checkIn=${encodeURIComponent(arrive)}&checkOut=${encodeURIComponent(depart)}&guests=${encodeURIComponent(guests)}`);
   };
 
   // Toggle favorite
@@ -855,7 +857,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates }: Clau
                 <option value="5">{isAr ? '5+ ضيوف' : '5+ guests'}</option>
               </select>
             </div>
-            <button className={`btn btn-gold ${searchLoading ? 'loading' : ''}`} type="submit">
+            <button className={`btn btn-book ${searchLoading ? 'loading' : ''}`} type="submit">
               <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <circle cx="11" cy="11" r="7" />
                 <path d="m20 20-3.5-3.5" />
@@ -981,6 +983,9 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates }: Clau
           </div>
         </div>
       </section>
+
+      {/* ================= EVENTS ================= */}
+      <EventsSection lang={lang} events={events} />
 
       {/* ================= ROOMS & DORMS ================= */}
       <section className="sec band-white" id="stay">
@@ -1200,7 +1205,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates }: Clau
                 </div>
 
                 <button
-                  className={`btn ${modalRoom.isAvailable === false ? 'btn-primary' : 'btn-gold'}`}
+                  className={`btn ${modalRoom.isAvailable === false ? 'btn-primary' : 'btn-book'}`}
                   onClick={() => {
                     setModalRoom(null);
                     scrollToBook();
@@ -1431,7 +1436,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates }: Clau
               </p>
             </div>
             <div className="cta-acts">
-              <button className="btn btn-gold" onClick={scrollToBook}>
+              <button className="btn btn-book" onClick={scrollToBook}>
                 {isAr ? 'احجز غرفتك الآن' : 'Check availability'}
               </button>
               <a

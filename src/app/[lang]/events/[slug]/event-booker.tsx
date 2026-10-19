@@ -1,0 +1,153 @@
+'use client';
+
+import React, { useMemo, useState } from 'react';
+import { useFormStatus } from 'react-dom';
+import { bookEventAction } from '../actions';
+
+type DateChip = { date: string; label: string; sub: string; left: number | null };
+type Method = 'paymob' | 'instapay' | 'cash';
+
+const fmt = (cents: number, cur: string, ar: boolean) => {
+  const v = (cents / 100).toLocaleString(ar ? 'ar-EG-u-nu-latn' : 'en-US', { maximumFractionDigits: 2 });
+  return ar && cur === 'EGP' ? `${v} ج.م` : `${cur} ${v}`;
+};
+
+function Submit({ label, busy }: { label: string; busy: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" className={`btn btn-book evb-submit ${pending ? 'loading' : ''}`} disabled={pending} aria-busy={pending}>
+      {pending ? busy : label}
+    </button>
+  );
+}
+
+export function EventBooker(props: {
+  lang: string; slug: string; dates: DateChip[]; initialDate: string;
+  options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; currency: string; methods: Method[];
+}) {
+  const { lang, slug, dates, options, priceCents, guestPriceCents, currency, methods } = props;
+  const ar = lang === 'ar';
+  const [date, setDate] = useState(props.initialDate);
+  const [qty, setQty] = useState(1);
+  const [option, setOption] = useState(options[0]?.key ?? '');
+  const [hotelGuest, setHotelGuest] = useState(false);
+  const [method, setMethod] = useState<Method>(methods[0]);
+
+  const left = dates.find((d) => d.date === date)?.left ?? null;
+  const maxQty = Math.max(1, Math.min(20, left ?? 20));
+  const unit = hotelGuest && guestPriceCents != null ? guestPriceCents : priceCents;
+  const total = unit * Math.min(qty, maxQty);
+  const chosen = useMemo(() => dates.find((d) => d.date === date), [dates, date]);
+
+  const M: Record<Method, { t: string; d: string; icon: React.ReactNode }> = {
+    paymob: {
+      t: ar ? 'بطاقة أو محفظة إلكترونية' : 'Card or mobile wallet',
+      d: ar ? 'فيزا، ماستركارد، ميزة، فودافون كاش… دفع آمن عبر Paymob والتذكرة تصلك فورًا.' : 'Visa, Mastercard, Meeza, Vodafone Cash… secure checkout by Paymob, ticket instantly.',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 10h19M6 15h4" /></svg>,
+    },
+    instapay: {
+      t: 'InstaPay',
+      d: ar ? 'حوّل من تطبيق البنك على عنوان InstaPay الخاص بنا، واكتب رقم العملية. نؤكد الدفع ونفعّل التذكرة.' : 'Transfer from your bank app to our InstaPay address and enter the reference. We confirm it and activate your ticket.',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg>,
+    },
+    cash: {
+      t: ar ? 'ادفع في المكان' : 'Pay at the villa',
+      d: ar ? 'احجز مكانك الآن وادفع كاش عند الحضور.' : 'Reserve your place now and pay cash when you arrive.',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><rect x="2.5" y="6" width="19" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></svg>,
+    },
+  };
+
+  return (
+    <form action={bookEventAction} className="evb">
+      <input type="hidden" name="lang" value={lang} />
+      <input type="hidden" name="slug" value={slug} />
+      <input type="hidden" name="date" value={date} />
+      <input type="hidden" name="quantity" value={Math.min(qty, maxQty)} />
+      <input name="website" tabIndex={-1} autoComplete="off" aria-hidden className="hp" />
+
+      <fieldset className="evb-step">
+        <legend><span className="evb-n">1</span>{ar ? 'اختر اليوم' : 'Choose a date'}</legend>
+        <div className="evb-dates" role="radiogroup" aria-label={ar ? 'اليوم' : 'Date'}>
+          {dates.map((d) => {
+            const full = d.left === 0;
+            return (
+              <button
+                type="button" key={d.date} role="radio" aria-checked={d.date === date} disabled={full}
+                className={`evb-date ${d.date === date ? 'on' : ''}`} onClick={() => { setDate(d.date); setQty((q) => Math.min(q, Math.max(1, d.left ?? 20))); }}
+              >
+                <b>{d.label}</b>
+                <small>{full ? (ar ? 'مكتمل' : 'Full') : d.left != null && d.left <= 5 ? (ar ? `باقي ${d.left}` : `${d.left} left`) : d.sub}</small>
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      <fieldset className="evb-step">
+        <legend><span className="evb-n">2</span>{ar ? 'عدد التذاكر' : 'Tickets'}</legend>
+        <div className="evb-qty">
+          <span>{ar ? 'عدد الأشخاص' : 'People'}</span>
+          <div className="evb-stepper">
+            <button type="button" aria-label={ar ? 'أقل' : 'Fewer'} onClick={() => setQty((q) => Math.max(1, q - 1))} disabled={qty <= 1}>−</button>
+            <output aria-live="polite" className="num">{Math.min(qty, maxQty)}</output>
+            <button type="button" aria-label={ar ? 'أكثر' : 'More'} onClick={() => setQty((q) => Math.min(maxQty, q + 1))} disabled={qty >= maxQty}>+</button>
+          </div>
+        </div>
+        {options.length > 0 && (
+          <div className="evb-opts" role="radiogroup" aria-label={ar ? 'النوع' : 'Option'}>
+            {options.map((o) => (
+              <label key={o.key} className={`evb-opt ${option === o.key ? 'on' : ''}`}>
+                <input type="radio" name="option" value={o.key} checked={option === o.key} onChange={() => setOption(o.key)} required />
+                {o.label}
+              </label>
+            ))}
+          </div>
+        )}
+        {guestPriceCents != null && (
+          <label className="evb-check">
+            <input type="checkbox" name="hotelGuest" checked={hotelGuest} onChange={(e) => setHotelGuest(e.target.checked)} />
+            <span>{ar ? `أنا مقيم في فيلا ليلى (سعر النزلاء ${fmt(guestPriceCents, currency, ar)})` : `I’m staying at Villa Layla (guest price ${fmt(guestPriceCents, currency, ar)})`}</span>
+          </label>
+        )}
+        {hotelGuest && (
+          <div className="evb-field">
+            <label htmlFor="evb-stay">{ar ? 'رقم حجز الإقامة' : 'Your booking reference'}</label>
+            <input id="evb-stay" name="stayRef" required placeholder="VL-XXXXXX" dir="ltr" autoCapitalize="characters" maxLength={20} />
+          </div>
+        )}
+      </fieldset>
+
+      <fieldset className="evb-step">
+        <legend><span className="evb-n">3</span>{ar ? 'بياناتك' : 'Your details'}</legend>
+        <div className="evb-field"><label htmlFor="evb-name">{ar ? 'الاسم بالكامل' : 'Full name'}</label><input id="evb-name" name="fullName" required minLength={2} maxLength={80} autoComplete="name" /></div>
+        <div className="evb-field"><label htmlFor="evb-email">{ar ? 'البريد الإلكتروني' : 'Email'}</label><input id="evb-email" name="email" type="email" required autoComplete="email" dir="ltr" /></div>
+        <div className="evb-field"><label htmlFor="evb-phone">{ar ? 'رقم الموبايل / واتساب' : 'Mobile / WhatsApp'}</label><input id="evb-phone" name="phone" type="tel" autoComplete="tel" dir="ltr" placeholder="+20 1xx xxx xxxx" /></div>
+      </fieldset>
+
+      <fieldset className="evb-step">
+        <legend><span className="evb-n">4</span>{ar ? 'الدفع' : 'Payment'}</legend>
+        <div className="evb-pay" role="radiogroup">
+          {methods.map((m) => (
+            <label key={m} className={`evb-method ${method === m ? 'on' : ''}`}>
+              <input type="radio" name="payMethod" value={m} checked={method === m} onChange={() => setMethod(m)} />
+              <span className="ic">{M[m].icon}</span>
+              <span><b>{M[m].t}</b><small>{M[m].d}</small></span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="evb-sum">
+        <div>
+          <small>{chosen ? `${chosen.label} · ${Math.min(qty, maxQty)} × ${fmt(unit, currency, ar)}` : ''}</small>
+          <b className="num" dir="ltr">{fmt(total, currency, ar)}</b>
+        </div>
+        <Submit
+          label={method === 'paymob' ? (ar ? 'ادفع واحصل على التذكرة' : 'Pay & get ticket') : method === 'instapay' ? (ar ? 'متابعة للدفع بـ InstaPay' : 'Continue to InstaPay') : (ar ? 'احجز مكاني' : 'Reserve my place')}
+          busy={ar ? 'جارٍ الحجز…' : 'Booking…'}
+        />
+      </div>
+      <p className="evb-fine">{ar ? 'بالضغط على الحجز توافق على سياسات فيلا ليلى. تذكرتك تُرسل لك بعد الدفع ويمكنك فتحها في أي وقت من الرابط.' : 'By booking you agree to Villa Layla’s policies. Your ticket opens right after payment and stays available from its link.'}</p>
+    </form>
+  );
+}

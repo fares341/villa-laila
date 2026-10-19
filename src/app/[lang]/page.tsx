@@ -4,6 +4,8 @@ import { getSetting } from '@/services/settings';
 import { syncHostelworldData, readCachedRates, getDefaultRates } from '@/services/hostelworld-sync';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs, ClaudeBottomBar } from '@/components/claude-shell';
 import { ClaudeHome } from '@/components/claude-home';
+import { listPublicEvents } from '@/services/events';
+import { toEventCard } from '@/services/event-view';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,11 +24,13 @@ export default async function Home({ params }: { params: Promise<{ lang: string 
     }
   }
 
+  const events = (await listPublicEvents()).map((e) => toEventCard(e, lang));
+
   return (
     <div className="vl-page min-h-screen flex flex-col bg-[#FBF7F1] text-[#2F2925]">
       <ClaudeHeader lang={lang} />
       <main id="main" className="flex-1">
-        <ClaudeHome lang={lang} currency={cur} initialRates={initialRates} />
+        <ClaudeHome lang={lang} currency={cur} initialRates={initialRates} events={events} />
       </main>
       <ClaudeFooter lang={lang} />
       <ClaudeFabs lang={lang} />

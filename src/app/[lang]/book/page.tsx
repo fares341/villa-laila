@@ -1,11 +1,15 @@
 import { notFound } from 'next/navigation';
 import { dict, isSiteLang, fill } from '@/i18n/site';
-import { SearchBar, Img, money, nm } from '@/components/site';
+import { Img, money, nm } from '@/components/site';
+import { ClaudeHeader, ClaudeFooter, ClaudeFabs } from '@/components/claude-shell';
 import { availabilityFor } from '@/services/availability';
-import { validateStay, todayLocal } from '@/lib/dates';
+import { validateStay, todayLocal, addDays } from '@/lib/dates';
 import { getSetting } from '@/services/settings';
 import { activeRules, requiredFacts } from '@/services/policy';
-import { submitBooking } from './actions';
+import { paymobEnabled } from '@/services/paymob';
+import { instapayEnabled } from '@/services/instapay';
+import { BookingSteps } from '@/components/booking-steps';
+import { BookingDetails } from './booking-details';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Book' };
@@ -15,69 +19,138 @@ export default async function Book({ params, searchParams }: { params: Promise<{
   if (!isSiteLang(lang)) notFound();
   const sp = await searchParams;
   const d = dict(lang);
+  const ar = lang === 'ar';
+  const L = (en: string, a: string) => (ar ? a : en);
+
+  // Accept both the old (checkIn/checkOut) and the home search (arrive/depart) parameter names.
+  const checkIn = sp.checkIn || sp.arrive;
+  const checkOut = sp.checkOut || sp.depart;
   const guests = Math.max(1, Math.min(40, parseInt(sp.guests ?? '2', 10) || 2));
   const maxNights = await getSetting<number>('max_nights');
-  const check = sp.checkIn && sp.checkOut ? validateStay(sp.checkIn, sp.checkOut, todayLocal(), maxNights) : null;
+  const today = todayLocal();
+  const check = checkIn && checkOut ? validateStay(checkIn, checkOut, today, maxNights) : null;
   const err = sp.error ? ((d.book.errors as any)[sp.error] ?? d.book.errors.generic) : null;
   const cur = await getSetting<string>('currency');
-  const avail = check?.ok ? await availabilityFor(sp.checkIn!, sp.checkOut!, guests) : [];
+  const avail = check?.ok ? await availabilityFor(checkIn!, checkOut!, guests) : [];
   const reqFacts = requiredFacts(await activeRules());
-  const needNationality = reqFacts.includes('nationality');
-  const needGov = reqFacts.includes('id_governorate');
   const nights = check?.ok ? avail[0]?.nights ?? 0 : 0;
+  const selected = check?.ok && sp.room ? avail.find((a) => a.code === sp.room && a.canFit && !a.priceMissing) : undefined;
+  const step = !check?.ok ? 1 : !selected ? 2 : 3;
+  const qs = (extra: Record<string, string>) => new URLSearchParams({ checkIn: checkIn ?? '', checkOut: checkOut ?? '', guests: String(guests), ...extra }).toString();
+
+  const methods = [
+    ...(paymobEnabled(cur) ? (['paymob'] as const) : []),
+    ...(instapayEnabled(cur) ? (['instapay'] as const) : []),
+    'hostel' as const,
+  ];
+
+  const dateErr = check && !check.ok
+    ? (d.book.errors as any)[check.code === 'order' ? 'invalid_dates' : check.code === 'past' ? 'past_date' : check.code === 'too_long' ? 'too_long' : 'invalid_dates']
+    : null;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-14">
-      <h1 className="text-5xl text-lapis-800">{d.book.title}</h1>
-      <p className="mt-3 text-lg text-lapis-600">{d.book.subtitle}</p>
-      <div className="mt-8"><SearchBar lang={lang} compact room={sp.room} defaults={{ checkIn: sp.checkIn, checkOut: sp.checkOut, guests }} /></div>
+    <div className="vl-page min-h-screen flex flex-col">
+      <ClaudeHeader lang={lang} />
+      <main id="main" className="flex-1">
+        <div className="wrap bk">
+          <header className="bk-hd">
+            <span className="kicker">{L('Book direct', 'احجز مباشرة')}</span>
+            <h1>{d.book.title}</h1>
+            <p>{L('Best rate when you book with us. Four quick steps.', 'أفضل سعر عند الحجز المباشر. أربع خطوات سريعة.')}</p>
+          </header>
 
-      {err && <p role="alert" className="mt-6 rounded-xl bg-bloom-50 p-4 text-bloom-700">{err}</p>}
-      {check && !check.ok && <p role="alert" className="mt-6 rounded-xl bg-bloom-50 p-4 text-bloom-700">{(d.book.errors as any)[check.code === 'order' ? 'invalid_dates' : check.code === 'past' ? 'past_date' : check.code === 'too_long' ? 'too_long' : 'invalid_dates']}</p>}
+          <BookingSteps lang={lang} current={step} />
 
-      {check?.ok && (
-        <form action={submitBooking} className="mt-10">
-          <input type="hidden" name="lang" value={lang} /><input type="hidden" name="checkIn" value={sp.checkIn} />
-          <input type="hidden" name="checkOut" value={sp.checkOut} /><input type="hidden" name="guests" value={guests} />
-          <p className="font-medium text-lapis-800">{fill(d.book.results, { checkin: sp.checkIn!, checkout: sp.checkOut!, nights, guests })}</p>
-          <fieldset className="mt-4 grid gap-4">
-            <legend className="sr-only">{d.book.title}</legend>
-            {[...avail].sort((x, y) => Number(y.code === sp.room) - Number(x.code === sp.room)).map((a) => (
-              <label key={a.roomTypeId} className={`grid grid-cols-[auto_4.5rem_1fr] items-center gap-3 sm:gap-4 rounded-2xl border-2 bg-white p-3 sm:p-4 sm:grid-cols-[auto_7rem_1fr_auto] ${a.canFit && !a.priceMissing ? 'cursor-pointer border-transparent has-[:checked]:border-bloom-600' : 'border-transparent opacity-55'}`}>
-                <input type="radio" name="roomTypeId" value={a.roomTypeId} required defaultChecked={sp.room === a.code && a.canFit && !a.priceMissing} disabled={!a.canFit || a.priceMissing} className="h-5 w-5 shrink-0 accent-bloom-600" />
-                <Img src={a.photos[0]} alt={nm(a.name, lang)} w={300} className="aspect-[4/3] w-full rounded-xl shrink-0" />
-                <span className="min-w-0">
-                  <span className="kufi block text-lg sm:text-xl font-semibold text-lapis-800 break-words">{nm(a.name, lang)}</span>
-                  <span className="mt-1 block text-xs sm:text-sm text-lapis-600">{a.kind === 'dorm' ? `${d.v2.who[a.gender as 'mixed']} · ${fill(d.book.bedsNeeded, { n: guests })}` : nm(a.details?.bed, lang)}</span>
-                  {!a.canFit && <span className="mt-1 block text-sm font-medium text-bloom-700">{d.v2.soldOut}</span>}
-                  {a.canFit && a.priceMissing && <span className="mt-1 block text-sm text-lapis-600">{d.v2.onRequest}</span>}
-                  <span className="mt-2 block sm:hidden">{a.canFit && a.totalCents != null && <b className="text-base sm:text-lg text-lapis-800">{money(a.totalCents, cur, lang)}</b>}</span>
-                </span>
-                <span className="hidden text-end sm:block">
-                  {a.canFit && a.totalCents != null && <><span className="block text-xs text-lapis-600">{d.book.total}</span><span className="kufi text-2xl font-semibold text-lapis-800">{money(a.totalCents, cur, lang)}</span>{a.demoPrice && <span className="mt-1 block text-[11px] font-medium text-amber-800">{d.v2.sample}</span>}</>}
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          {/* STEP 1 — dates */}
+          <form method="get" action={`/${lang}/book`} className="search bk-search" aria-label={L('Dates and guests', 'التواريخ والضيوف')}>
+            {sp.room && <input type="hidden" name="room" value={sp.room} />}
+            <div className="sf"><label htmlFor="bk-in">{d.search.checkin}</label><input id="bk-in" name="checkIn" type="date" required min={today} defaultValue={checkIn ?? addDays(today, 1)} /></div>
+            <div className="sf"><label htmlFor="bk-out">{d.search.checkout}</label><input id="bk-out" name="checkOut" type="date" required min={addDays(today, 1)} defaultValue={checkOut ?? addDays(today, 3)} /></div>
+            <div className="sf"><label htmlFor="bk-g">{d.search.guests}</label>
+              <select id="bk-g" name="guests" defaultValue={String(guests)}>
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <button className="btn btn-book" type="submit">{step === 1 ? d.search.check : L('Update', 'تحديث')}</button>
+          </form>
 
-          {avail.some((a) => a.canFit && !a.priceMissing) && (
-            <section className="mt-10 rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-8">
-              <h2 className="text-xl sm:text-2xl font-semibold text-lapis-800">{d.book.form.title}</h2>
-              <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2">
-                <div className="min-w-0"><label className="v-label" htmlFor="fn">{d.book.form.fullName}</label><input id="fn" name="fullName" required minLength={2} maxLength={80} autoComplete="name" className="v-field" /></div>
-                <div className="min-w-0"><label className="v-label" htmlFor="em">{d.book.form.email}</label><input id="em" name="email" type="email" required autoComplete="email" className="v-field" dir="ltr" /></div>
-                <div className="min-w-0"><label className="v-label" htmlFor="ph">{d.book.form.phone}</label><input id="ph" name="phone" type="tel" autoComplete="tel" className="v-field" dir="ltr" /></div>
-                {needNationality && <div className="min-w-0"><label className="v-label" htmlFor="na">{d.book.form.nationality}</label><input id="na" name="nationality" required className="v-field" /></div>}
-                {needNationality && needGov && <div className="min-w-0"><label className="v-label" htmlFor="gv">{d.book.form.idGovernorate}</label><input id="gv" name="idGovernorate" className="v-field" /></div>}
-                <div className="min-w-0 sm:col-span-2"><label className="v-label" htmlFor="no">{d.book.form.notes}</label><textarea id="no" name="notes" rows={3} maxLength={500} className="v-field" /></div>
+          {err && <p role="alert" className="form-msg bk-msg">{err}</p>}
+          {dateErr && <p role="alert" className="form-msg bk-msg">{dateErr}</p>}
+
+          {/* STEP 2 — room */}
+          {check?.ok && !selected && (
+            <section className="bk-sec" aria-labelledby="bk-rooms">
+              <h2 id="bk-rooms">{L('Choose your room', 'اختر غرفتك')}</h2>
+              <p className="bk-sub">{fill(d.book.results, { checkin: checkIn!, checkout: checkOut!, nights, guests })}</p>
+              <div className="bk-rooms">
+                {[...avail]
+                  .sort((x, y) => Number(y.canFit && !y.priceMissing) - Number(x.canFit && !x.priceMissing))
+                  .map((a) => {
+                    const ok = a.canFit && !a.priceMissing;
+                    return (
+                      <article key={a.roomTypeId} className={`bk-room ${ok ? '' : 'off'}`}>
+                        <Img src={a.photos[0]} alt={nm(a.name, lang)} w={600} className="bk-room-img" />
+                        <div className="bk-room-b">
+                          <span className="meta">{a.kind === 'dorm' ? `${(d.v2.who as any)[a.gender] ?? ''} · ${fill(d.book.bedsNeeded, { n: guests })}` : nm(a.details?.bed, lang)}</span>
+                          <h3>{nm(a.name, lang)}</h3>
+                          {!a.canFit && <span className="bk-flag">{d.v2.soldOut}</span>}
+                          {a.canFit && a.priceMissing && <span className="bk-flag">{d.v2.onRequest}</span>}
+                        </div>
+                        <div className="bk-room-p">
+                          {ok && a.totalCents != null && (
+                            <>
+                              <small>{fill(L('{n} night(s) total', 'إجمالي {n} ليلة'), { n: nights })}</small>
+                              <b className="num" dir="ltr">{money(a.totalCents, cur, lang)}</b>
+                              {a.demoPrice && <small className="bk-demo">{d.v2.sample}</small>}
+                              <a className="btn btn-primary btn-sm" href={`/${lang}/book?${qs({ room: a.code })}#details`}>{L('Select', 'اختر')}</a>
+                            </>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
               </div>
-              <input name="website" tabIndex={-1} autoComplete="off" aria-hidden className="hidden" />
-              <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-950">{d.book.note}</p>
-              <button className="v-btn v-btn-primary mt-5 w-full sm:w-auto" type="submit">{d.book.form.submit}</button>
+              {!avail.some((a) => a.canFit && !a.priceMissing) && (
+                <p className="bk-empty">{L('Nothing is free for these dates online. Try other dates or message us on WhatsApp.', 'لا يوجد متاح أونلاين في هذه التواريخ. جرّب تواريخ أخرى أو راسلنا على واتساب.')}{' '}
+                  <a href="https://wa.me/201040551515" target="_blank" rel="noopener noreferrer">WhatsApp</a></p>
+              )}
             </section>
           )}
-        </form>
-      )}
+
+          {/* STEP 3 + 4 — details and payment */}
+          {selected && (
+            <section className="bk-sec" id="details" aria-labelledby="bk-det">
+              <div className="bk-chosen">
+                <Img src={selected.photos[0]} alt={nm(selected.name, lang)} w={300} className="bk-chosen-img" />
+                <div>
+                  <small>{L('Your room', 'غرفتك')}</small>
+                  <h2 id="bk-det">{nm(selected.name, lang)}</h2>
+                  <p dir="ltr" className="num">{checkIn} → {checkOut} · {nights} {L('night(s)', 'ليلة')} · {guests} {L('guest(s)', 'ضيف')}</p>
+                </div>
+                <div className="bk-chosen-p">
+                  <b className="num" dir="ltr">{money(selected.totalCents!, cur, lang)}</b>
+                  <a href={`/${lang}/book?${qs({})}`}>{L('Change room', 'غيّر الغرفة')}</a>
+                </div>
+              </div>
+              <BookingDetails
+                lang={lang}
+                checkIn={checkIn!} checkOut={checkOut!} guests={guests}
+                roomTypeId={selected.roomTypeId} roomCode={selected.code}
+                total={money(selected.totalCents!, cur, lang)}
+                needNationality={reqFacts.includes('nationality')}
+                needGov={reqFacts.includes('nationality') && reqFacts.includes('id_governorate')}
+                methods={methods}
+                labels={{
+                  fullName: d.book.form.fullName, email: d.book.form.email, phone: d.book.form.phone,
+                  nationality: d.book.form.nationality, idGovernorate: d.book.form.idGovernorate, notes: d.book.form.notes,
+                }}
+              />
+            </section>
+          )}
+        </div>
+      </main>
+      <ClaudeFooter lang={lang} />
+      <ClaudeFabs lang={lang} />
     </div>
   );
 }

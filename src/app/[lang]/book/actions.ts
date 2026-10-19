@@ -9,18 +9,21 @@ import { rateLimit } from '@/lib/ratelimit';
 import { isSiteLang } from '@/i18n/site';
 import { q } from '@/lib/db';
 import { normalizeNationality } from '@/bot/flow';
+import { siteBase } from '@/lib/base-url';
+import { startReservationPaymob, submitReservationInstapay } from '@/services/online-payments';
 
 const schema = z.object({
   lang: z.string(), checkIn: z.string(), checkOut: z.string(), guests: z.coerce.number().int().min(1).max(40),
   roomTypeId: z.string().uuid(), fullName: z.string().trim().min(2).max(80), email: z.string().trim().email().max(120),
   phone: z.string().trim().max(30).optional(), nationality: z.string().trim().max(40).optional(), idGovernorate: z.string().trim().max(40).optional(), notes: z.string().trim().max(500).optional(),
+  payMethod: z.enum(['paymob', 'instapay', 'hostel']).default('hostel'),
   website: z.string().optional(), // honeypot
 });
 
 export async function submitBooking(formData: FormData) {
   const raw = Object.fromEntries(formData.entries()) as Record<string, string>;
   const lang = isSiteLang(raw.lang) ? raw.lang : 'en';
-  const back = (code: string) => redirect(`/${lang}/book?checkIn=${encodeURIComponent(raw.checkIn ?? '')}&checkOut=${encodeURIComponent(raw.checkOut ?? '')}&guests=${encodeURIComponent(raw.guests ?? '')}&error=${code}`);
+  const back = (code: string) => redirect(`/${lang}/book?checkIn=${encodeURIComponent(raw.checkIn ?? '')}&checkOut=${encodeURIComponent(raw.checkOut ?? '')}&guests=${encodeURIComponent(raw.guests ?? '')}${raw.room ? '&room=' + encodeURIComponent(raw.room) : ''}&error=${code}`);
   if (raw.website) redirect(`/${lang}`); // bot filled the honeypot
   const h = await headers();
   const ip = (h.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
@@ -44,5 +47,36 @@ export async function submitBooking(formData: FormData) {
     console.error('[website booking]', e);
     return back('generic');
   }
-  redirect(`/${lang}/booked/${ref}`);
+  if (v.payMethod === 'paymob') {
+    let url: string | null = null;
+    try { url = await startReservationPaymob(ref, await siteBase()); }
+    catch (e) { console.error('[booking paymob]', e); }
+    if (url) redirect(url);
+    redirect(`/${lang}/booked/${ref}?payment=unavailable`);
+  }
+  redirect(`/${lang}/booked/${ref}${v.payMethod === 'instapay' ? '?pay=instapay#pay' : ''}`);
+}
+
+export async function payReservationPaymobAction(formData: FormData) {
+  const lang = isSiteLang(String(formData.get('lang'))) ? String(formData.get('lang')) : 'en';
+  const ref = String(formData.get('ref') || '').toUpperCase().replace(/[^A-Z0-9-]/g, '');
+  let url: string | null = null;
+  try { url = await startReservationPaymob(ref, await siteBase()); }
+  catch (e) { console.error('[booking paymob retry]', e); }
+  if (url) redirect(url);
+  redirect(`/${lang}/booked/${ref}?payment=unavailable`);
+}
+
+export async function submitReservationInstapayAction(formData: FormData) {
+  const lang = isSiteLang(String(formData.get('lang'))) ? String(formData.get('lang')) : 'en';
+  const ref = String(formData.get('ref') || '').toUpperCase().replace(/[^A-Z0-9-]/g, '');
+  const name = String(formData.get('payerName') || '').trim().slice(0, 80);
+  const tref = String(formData.get('payerRef') || '').trim().slice(0, 60);
+  const h = await headers();
+  const ip = (h.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
+  if (!rateLimit('ipr:' + ip, 10, 10 * 60_000)) redirect(`/${lang}/booked/${ref}?error=rate_limit`);
+  if (name.length < 2 || tref.length < 3) redirect(`/${lang}/booked/${ref}?pay=instapay&error=instapay_input#pay`);
+  let failed = false;
+  try { await submitReservationInstapay(ref, name, tref); } catch (e) { console.error('[instapay room]', e); failed = true; }
+  redirect(`/${lang}/booked/${ref}?payment=${failed ? 'error' : 'submitted'}`);
 }
