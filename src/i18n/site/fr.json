@@ -1,0 +1,246 @@
+{
+  "meta": {
+    "title": "Villa Layla Hostel — Le Caire",
+    "description": "Réservez un lit ou une chambre privée à Villa Layla Hostel, au Caire, en Égypte. Disponibilités réelles, réservation directe."
+  },
+  "nav": {
+    "home": "Accueil",
+    "rooms": "Chambres",
+    "gallery": "Galerie",
+    "location": "Nous trouver",
+    "faq": "FAQ",
+    "policies": "Conditions",
+    "book": "Réserver",
+    "menu": "Menu"
+  },
+  "hero": {
+    "eyebrow": "Le Caire, Égypte",
+    "title": "Une villa où se sentir chez soi, au Caire.",
+    "subtitle": "Séjournez en dortoir partagé ou en chambre privée, rencontrez d’autres voyageurs et réservez directement chez nous : sans intermédiaire, avec de vraies disponibilités.",
+    "cta": "Voir les disponibilités",
+    "ctaSecondary": "Voir les chambres"
+  },
+  "search": {
+    "checkin": "Arrivée",
+    "checkout": "Départ",
+    "guests": "Personnes",
+    "check": "Voir les disponibilités"
+  },
+  "home": {
+    "whyTitle": "Réservez en direct, séjournez sereinement",
+    "why1Title": "Lits ou chambres privées",
+    "why1Body": "Choisissez un lit en dortoir partagé ou une chambre privée entière. Les tarifs sont indiqués par lit ou par chambre.",
+    "why2Title": "Disponibilités réelles",
+    "why2Body": "Ce que vous voyez est l’inventaire réel de l’hostel : nous ne proposons jamais un lit déjà pris.",
+    "why3Title": "Dans votre langue",
+    "why3Body": "Ce site et notre assistant Telegram fonctionnent en English, Español, Français et العربية.",
+    "spacesTitle": "La villa",
+    "spacesIntro": "Quelques-uns des espaces partagés par les voyageurs.",
+    "roomsTitle": "Où vous dormirez",
+    "roomsCta": "Toutes les chambres",
+    "telegramTitle": "Envie de discuter ?",
+    "telegramBody": "Réservez, posez vos questions ou prolongez votre séjour avec notre assistant Telegram — vous pouvez même envoyer un message vocal.",
+    "telegramCta": "Ouvrir Telegram"
+  },
+  "rooms": {
+    "title": "Chambres et lits",
+    "intro": "Les dortoirs partagés sont facturés par lit. Les chambres privées, par chambre.",
+    "perBed": "par lit / nuit",
+    "perRoom": "par chambre / nuit",
+    "from": "dès",
+    "priceTbc": "Tarif à confirmer",
+    "viewRoom": "Voir le détail",
+    "dorm": "Dortoir partagé",
+    "private": "Chambre privée",
+    "capacity": "Jusqu’à {n} personnes",
+    "bookThis": "Voir les dates pour cette chambre",
+    "amenities": "Équipements",
+    "noAmenities": "Le détail des équipements sera ajouté prochainement.",
+    "empty": "Les chambres apparaîtront ici dès que l’hostel les aura publiées."
+  },
+  "gallery": {
+    "title": "Galerie",
+    "intro": "Photos de la villa, des chambres et du jardin.",
+    "photoNeeded": "Photo à fournir par l’hostel"
+  },
+  "book": {
+    "title": "Réservez votre séjour",
+    "subtitle": "Choisissez vos dates pour voir ce qui est réellement disponible.",
+    "results": "Disponible du {checkin} au {checkout} · {nights} nuit(s) · {guests} personne(s)",
+    "total": "Total",
+    "bedsNeeded": "{n} lit(s)",
+    "select": "Demander cette option",
+    "soldOut": "Indisponible pour ces dates",
+    "priceTbc": "Tarif à confirmer par la réception",
+    "form": {
+      "title": "Vos coordonnées",
+      "fullName": "Nom complet",
+      "email": "E-mail",
+      "phone": "Téléphone / WhatsApp (facultatif)",
+      "nationality": "Nationalité",
+      "notes": "Quelque chose à nous signaler ? (facultatif)",
+      "submit": "Envoyer la demande de réservation",
+      "selected": "Sélectionné",
+      "idGovernorate": "Gouvernorat de votre carte d'identité (clients égyptiens uniquement)"
+    },
+    "note": "Ceci envoie une DEMANDE de réservation. Votre réservation n’est confirmée que lorsque la réception la confirme.",
+    "errors": {
+      "invalid_dates": "Vérifiez vos dates.",
+      "past_date": "La date d’arrivée est passée.",
+      "too_long": "Pour les longs séjours, contactez-nous directement.",
+      "no_availability": "Désolé, cette option vient d’être prise. Choisissez-en une autre.",
+      "no_rate": "Nous ne pouvons pas calculer le tarif de ces dates en ligne. Contactez-nous.",
+      "invalid_input": "Veuillez remplir tous les champs obligatoires.",
+      "rate_limit": "Trop de demandes. Réessayez plus tard.",
+      "generic": "Une erreur est survenue. Réessayez ou contactez-nous.",
+      "blocked_dorm": "Désolé, les dortoirs mixtes ne peuvent pas être réservés par des ressortissants égyptiens. Choisissez une chambre privée ou contactez la réception.",
+      "blocked_id": "Désolé, nous ne pouvons pas accueillir les clients dont la carte d'identité égyptienne a été délivrée au Caire, à Gizeh ou à Qalyubia.",
+      "policy_blocked": "Désolé, cette demande ne peut pas être acceptée selon notre politique d'accueil. Contactez la réception."
+    }
+  },
+  "booked": {
+    "title": "Demande reçue",
+    "lead": "Merci ! Votre demande de réservation est enregistrée.",
+    "warning": "Elle n’est PAS encore confirmée. La réception l’examinera et vous contactera. Les lits sont retenus pour vous jusqu’au {until}.",
+    "reference": "Votre référence",
+    "next": "La suite",
+    "step1": "La réception examine votre demande.",
+    "step2": "Vous recevez les instructions de paiement et la confirmation finale.",
+    "step3": "C’est seulement ensuite que votre réservation est confirmée.",
+    "review": "Votre demande nécessite une vérification supplémentaire de notre équipe.",
+    "home": "Retour à l’accueil"
+  },
+  "location": {
+    "title": "Nous trouver",
+    "city": "Le Caire, Égypte",
+    "addressTbc": "L’adresse exacte et l’itinéraire seront ajoutés par l’hostel.",
+    "contact": "Contact",
+    "phone": "Téléphone",
+    "email": "E-mail",
+    "whatsapp": "WhatsApp",
+    "contactTbc": "Coordonnées à confirmer par l’hostel. En attendant, utilisez notre assistant Telegram."
+  },
+  "faq": {
+    "title": "Questions fréquentes"
+  },
+  "policies": {
+    "title": "Conditions",
+    "cancellation": "Annulation",
+    "payment": "Paiement",
+    "rules": "Règlement intérieur",
+    "tbc": "L’hostel publiera bientôt cette politique. D’ici là, demandez à la réception avant de réserver.",
+    "howTitle": "Comment fonctionne la réservation",
+    "how": "Vous envoyez une demande basée sur les disponibilités réelles. La réception l’examine, vous indique comment payer et la confirme. Un paiement ne compte qu’une fois vérifié par la réception."
+  },
+  "footer": {
+    "tagline": "Villa Layla Hostel · Le Caire, Égypte",
+    "rights": "Tous droits réservés.",
+    "unverified": "Les contenus marqués « à confirmer » attendent l’approbation du propriétaire."
+  },
+  "common": {
+    "tbc": "À confirmer",
+    "back": "Retour",
+    "night": "nuit",
+    "photoPending": "Photo à venir"
+  },
+  "spaces": {
+    "garden": "Jardin",
+    "pool": "Piscine",
+    "common": "Espaces communs"
+  },
+  "v2": {
+    "place": "El Sayeda Zeinab, Le Caire",
+    "lead": "Une auberge dans une villa avec piscine au jardin. Des chambres privées qui ont chacune un nom, des dortoirs au lit, et une réception sur WhatsApp jour et nuit.",
+    "facts": {
+      "pool": "Piscine ouverte tous les jours",
+      "breakfast": "Petit-déjeuner de 8 h à 11 h",
+      "desk": "Réception de 8 h à 22 h",
+      "wa": "Réception WhatsApp 24 h/24",
+      "wifi": "Wi-Fi rapide partout",
+      "work": "Bureaux et coins calmes"
+    },
+    "privTitle": "Chambres privées",
+    "privLead": "Dix chambres, chacune avec son nom. La plupart pour deux ; la Triple pour trois.",
+    "dormTitle": "Dortoirs",
+    "dormLead": "On paie au lit. Dortoirs pour femmes, pour hommes et un dortoir mixte.",
+    "col": {
+      "dorm": "Dortoir",
+      "who": "Pour",
+      "beds": "Lits",
+      "price": "Par lit et par nuit"
+    },
+    "who": {
+      "female": "Femmes uniquement",
+      "male": "Hommes uniquement",
+      "mixed": "Tout le monde"
+    },
+    "from": "à partir de {p}",
+    "perNight": "par nuit",
+    "perBed": "par lit",
+    "perRoom": "par chambre",
+    "sleeps": "Pour {n}",
+    "bedsN": "{n} lits",
+    "onRequest": "Prix sur demande",
+    "sample": "Prix d’exemple",
+    "see": "Voir la chambre",
+    "book": "Réserver",
+    "allRooms": "Toutes les chambres",
+    "lifeTitle": "La vie à la villa",
+    "life": {
+      "pool": "Une piscine au jardin, ouverte tous les jours.",
+      "breakfast": "Petit-déjeuner servi de 8 h à 11 h chaque matin.",
+      "work": "Des bureaux et des coins calmes pour travailler.",
+      "tours": "Des excursions au départ de la villa chaque jour."
+    },
+    "toursTitle": "Excursions",
+    "toursLead": "Organisées chaque jour et réservées sur WhatsApp.",
+    "toursAsk": "Se renseigner",
+    "tours": {
+      "fayoum": "Oasis du Fayoum",
+      "desert": "Safari dans le Désert noir et blanc",
+      "giza": "Pyramides de Gizeh et Grand Musée égyptien",
+      "saqqara": "Saqqarah et Memphis",
+      "nile": "Dîner-croisière sur le Nil",
+      "islamic": "Le Caire islamique et copte",
+      "alex": "Alexandrie depuis Le Caire"
+    },
+    "igTitle": "Filmé par nos voyageurs",
+    "igLead": "Des reels publiés par des voyageurs sur leur séjour à la villa.",
+    "igMore": "Suivre @villalaylacairo",
+    "findTitle": "Nous trouver",
+    "directions": "Itinéraire",
+    "checkin": "Arrivée à partir de {t}",
+    "checkout": "Départ avant {t}",
+    "chatTitle": "Réserver par chat",
+    "chatLead": "Écrivez à notre assistant sur Telegram en français, anglais, espagnol ou arabe. Les messages vocaux fonctionnent aussi. Vous préférez une personne ? Écrivez à la réception sur WhatsApp à toute heure.",
+    "telegram": "Discuter sur Telegram",
+    "whatsapp": "Réception WhatsApp",
+    "nav": {
+      "rooms": "Chambres",
+      "dorms": "Dortoirs",
+      "tours": "Excursions",
+      "gallery": "Photos",
+      "find": "Nous trouver",
+      "faq": "FAQ",
+      "policies": "Conditions",
+      "book": "Réserver",
+      "menu": "Menu"
+    },
+    "photosTitle": "Photos",
+    "photosLead": "Chaque chambre et chaque coin de la villa.",
+    "roomsTitle": "Chambres et dortoirs",
+    "roomsLead": "Choisissez une chambre privée ou un lit en dortoir. Prix par nuit.",
+    "bedType": "Lit",
+    "bath": "Salle de bain",
+    "view": "Vue",
+    "features": "Dans la chambre",
+    "checkDates": "Vérifier les dates pour cette chambre",
+    "available": "{n} libres",
+    "soldOut": "Complet à ces dates",
+    "chooseThis": "Choisir",
+    "selected": "Votre choix",
+    "footerAddress": "Adresse",
+    "footerContact": "Contact",
+    "footerHours": "Horaires"
+  }
+}

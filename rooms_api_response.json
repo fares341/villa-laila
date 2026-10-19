@@ -1,0 +1,337 @@
+{
+  "success": true,
+  "rooms": [
+    {
+      "id": "390357",
+      "name": "Spacious 8-Bed Female Dormitory",
+      "description": "Bed in Female Dorm 1",
+      "category": "dorm",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126368/2126368/d413d906-7c4c-4b57-a9e1-454880f83e0b",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126362/2126362/3d7dc9be-0a9d-4a4e-9591-58ed1d25eb87",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126370/2126370/eaf955ec-f101-46d8-b626-161e44dba1e8"
+      ],
+      "features": [
+        "Air conditioned",
+        "Hairdryer",
+        "Linen and Towels Provided",
+        "Towels",
+        "Pool view",
+        "Shared bathroom"
+      ],
+      "maxOccupancy": 1,
+      "bathrooms": "shared",
+      "bedType": "Bunk bed",
+      "view": "Pool view"
+    },
+    {
+      "id": "390366",
+      "name": "Sheherazade",
+      "description": "King-Size Double Room with Private Bathroom",
+      "category": "private",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126388/2126388/033788c5-e7f0-4daa-a8ee-f8e512c018a7",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126389/2126389/cd2761af-6f0f-452f-8597-b56375dc606f",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126384/2126384/5ea3824f-b382-47ee-9ade-9a05c63903c5",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126387/2126387/5bd4e55b-199e-4fb7-b762-616a54abad7b",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126386/2126386/8019f313-63c3-47a1-af44-c47dfdb052fc"
+      ],
+      "features": [
+        "Air conditioned",
+        "Hairdryer",
+        "Linen and Towels Provided",
+        "Towels",
+        "Private bathroom"
+      ],
+      "maxOccupancy": 2,
+      "bathrooms": "1",
+      "bedType": "King bed"
+    },
+    {
+      "id": "390370",
+      "name": "Triple",
+      "description": "King Bed + Single Bed Shared Bathroom & Terrace",
+      "category": "private",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126401/2126401/2aaf0de2-7edc-4fb2-bf3f-20dd51c48fa3",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126403/2126403/7d0731f3-ad47-4b42-b243-2b53a1d9a243",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126402/2126402/9fb8950e-f9b0-4e82-8624-162999b628b6",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126396/2126396/966b9193-c498-4ded-bf63-e46f520870c7",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126400/2126400/f1814d61-b50b-4817-b94f-ab7cafa7d866",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126407/2126407/ff213972-0393-4718-98e7-4b0691ec1b17",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126408/2126408/e06c65f8-9690-4439-a5be-22d6bca4a269"
+      ],
+      "features": [
+        "Air conditioned",
+        "Hairdryer",
+        "Linen and Towels Provided",
+        "Towels",
+        "Shared bathroom"
+      ],
+      "maxOccupancy": 3,
+      "bathrooms": "shared",
+      "bedType": "King bed"
+    },
+    {
+      "id": "390372",
+      "name": "8 Bed Male Dormitory",
+      "description": "Bed in Dorm Room",
+      "category": "dorm",
+      "price": 17,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126418/2126418/b8ea57d8-fae1-4736-b637-68bf2e4c736f",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126417/2126417/3b08dd5b-22ca-416e-8fe0-f7a831491435",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126419/2126419/abb7f801-0bbc-434c-94f5-4e493abb91be",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126414/2126414/f4e65c84-cdc0-4820-a2e6-7c9f628587e2"
+      ],
+      "features": [
+        "Air conditioned",
+        "Hairdryer",
+        "Linen and Towels Provided",
+        "Towels",
+        "Shared bathroom"
+      ],
+      "maxOccupancy": 1,
+      "bathrooms": "shared",
+      "bedType": "Single bed",
+      "rateId": "793426"
+    },
+    {
+      "id": "390375",
+      "name": "Violet",
+      "description": "King-Size Double Room with Shared Bathroom",
+      "category": "private",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126429/2126429/0e8e55a5-5212-46e4-94fc-8447ab1fe9db",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126432/2126432/6e7b5576-2493-47d3-a664-63730d9563a7",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126428/2126428/52542935-ce5a-40fe-974a-357f6443fd4e",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126426/2126426/51c23851-66c5-409f-a81f-1eced8ed2db8",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126430/2126430/1bf7b970-a254-48cd-837c-9eda030791a4",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126438/2126438/0d92cfc5-50bc-4584-87fe-9c2f35929506"
+      ],
+      "features": [
+        "Air conditioned",
+        "Hairdryer",
+        "Linen and Towels Provided",
+        "Towels",
+        "Shared bathroom"
+      ],
+      "maxOccupancy": 2,
+      "bathrooms": "shared",
+      "bedType": "King bed"
+    },
+    {
+      "id": "391093",
+      "name": "10 Bed Mixed Dormitory",
+      "description": "10 Bed Mixed Dormitory - Bunk bed",
+      "category": "dorm",
+      "price": 17,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126446/2126446/2ab3201c-0e40-4d1a-944f-328648dc6bda",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126451/2126451/1cfd97d9-2783-4738-9b77-0756b334c556",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126450/2126450/6f9e02bb-9a87-42d9-81fb-bbea580e13c7",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126447/2126447/a2f70c07-10ae-4bf3-8673-e1e20d6a29bd"
+      ],
+      "features": [
+        "Shared bathroom"
+      ],
+      "maxOccupancy": 1,
+      "bathrooms": "shared",
+      "bedType": "Bunk bed",
+      "rateId": "794902"
+    },
+    {
+      "id": "391097",
+      "name": "Spacious 8-Bed Male Dormitory",
+      "description": "Spacious 8-Bed Male Dormitory - Bunk bed",
+      "category": "dorm",
+      "price": 18,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126469/2126469/d37d593d-9707-4354-896a-6f88d004d2e4",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126468/2126468/11b4406c-3bbe-41e9-a6c2-e42557861c4d",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126467/2126467/06a90edb-9439-4cbf-a6b2-8fe574d60ad7",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126466/2126466/cbb58fce-fc9f-4db1-8f6f-20ebd7938a2c",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126461/2126461/2d03ea66-34a8-4cef-879e-01400c290b45"
+      ],
+      "features": [
+        "Pool view",
+        "Shared bathroom"
+      ],
+      "maxOccupancy": 1,
+      "bathrooms": "shared",
+      "bedType": "Bunk bed",
+      "view": "Pool view",
+      "rateId": "794904"
+    },
+    {
+      "id": "391901",
+      "name": "6 Bed Female Dormitory",
+      "description": "Bed in Female Dorm",
+      "category": "dorm",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126454/2126454/ce2a6a57-368b-4cd8-ba54-af7f028ce926",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126457/2126457/e529f8e4-4aff-4872-9503-1d928e0970ea",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126455/2126455/09eab609-4348-41f0-b6ba-f5c4d6333e88",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126458/2126458/d8e1a98d-f749-4968-a27b-5d80cf8e1910"
+      ],
+      "features": [
+        "Courtyard view",
+        "Shared bathroom"
+      ],
+      "maxOccupancy": 1,
+      "bathrooms": "shared",
+      "bedType": "Double bed",
+      "view": "Courtyard view"
+    },
+    {
+      "id": "391967",
+      "name": "Islamic",
+      "description": "King-Size Double Room with Shared Bathroom",
+      "category": "private",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126477/2126477/3adf9b35-2584-42aa-a946-339c729fc5d7",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126478/2126478/68d5987f-db69-452d-bc4a-0cd9708930ec",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126474/2126474/81fb2a67-dee5-486d-8c59-22a44862f226",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126471/2126471/ca231fe9-a77a-4653-a1f8-5e049ddb87ca",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126472/2126472/71d0a301-bf69-4621-b273-a13f31b20ea3"
+      ],
+      "features": [
+        "Shared bathroom"
+      ],
+      "maxOccupancy": 2,
+      "bathrooms": "shared",
+      "bedType": "King bed"
+    },
+    {
+      "id": "391968",
+      "name": "Amira",
+      "description": "King-Size Double Room with Shared Bathroom",
+      "category": "private",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126484/2126484/4a450c72-1ca8-4349-9f50-1548977aa6c2",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126485/2126485/a92c034e-f318-401c-a2df-0fef47ada104",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126483/2126483/346ae365-b6c0-4f21-8b96-38ee7e314609",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126487/2126487/c97a2eb0-d87b-4123-b549-52bec727a503",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126481/2126481/d9f4c3ca-229a-4653-a20e-219412311e5d",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126492/2126492/f4fd5c6b-53ea-4967-8854-3ed1979b8cc9"
+      ],
+      "features": [
+        "Shared bathroom"
+      ],
+      "maxOccupancy": 2,
+      "bathrooms": "shared",
+      "bedType": "King bed"
+    },
+    {
+      "id": "428176",
+      "name": "Ibn Battuta",
+      "description": "Queen-Size Double Room with Private Bathroom",
+      "category": "private",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126498/2126498/0c6cbf2c-27cf-4210-a2e8-72f5ee1c2d55",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126499/2126499/cfd5dea1-de6e-4a3b-89ac-1cb46db34241",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126497/2126497/9b03da7e-8b7b-4a48-8054-5568dba23e5d",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126503/2126503/2b695ae3-ff55-49e0-ad83-9eacd4dd4609",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126504/2126504/1c1d6f18-58ca-4ca6-8b64-119ef170920b",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126514/2126514/0a870d3a-09b9-45b1-8368-0db9065fd992"
+      ],
+      "features": [
+        "Private bathroom"
+      ],
+      "maxOccupancy": 2,
+      "bathrooms": "1",
+      "bedType": "Queen bed"
+    },
+    {
+      "id": "428185",
+      "name": "French Lady",
+      "description": "King-Size Double Room with Private Bathroom",
+      "category": "private",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126531/2126531/f1aadc8d-2354-4e68-bb15-f3fc8c566dc8",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126529/2126529/3b8f9332-e829-4ef8-b1f3-c2fe12f194d3",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126527/2126527/e43faeef-788b-4794-b504-aaeb5e8019cd",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126526/2126526/033f90b3-286d-47b1-a363-db48d5415c5d",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126528/2126528/6fe6fee8-16e0-4613-9c9c-32229838a6b6"
+      ],
+      "features": [
+        "Private bathroom"
+      ],
+      "maxOccupancy": 2,
+      "bathrooms": "1",
+      "bedType": "King / Twin"
+    },
+    {
+      "id": "428186",
+      "name": "Folklore ",
+      "description": "Twin Room with Private External Bathroom and Pool Access",
+      "category": "private",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126543/2126543/50880502-92de-4f4d-8797-de4bc1254253",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126537/2126537/ad1e2b9f-63e8-4508-84ad-2eb85c3f0474",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126542/2126542/58273dd4-2b0a-48a4-9923-bd941c5a9b41",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126538/2126538/23d90115-d01d-433d-b281-80548cfc7530",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126536/2126536/4f8be223-26d8-4897-86a0-d7e1ae2d2d4f",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126547/2126547/633b6f62-a72f-45c6-870d-b57c1f692e3b"
+      ],
+      "features": [
+        "Pool view",
+        "Private bathroom"
+      ],
+      "maxOccupancy": 2,
+      "bathrooms": "1",
+      "bedType": "Single bed, Single bed",
+      "view": "Pool view"
+    },
+    {
+      "id": "428188",
+      "name": "Golden Room",
+      "description": "King-Size Double Room with Private Bathroom",
+      "category": "private",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126577/2126577/ff7371b5-b974-4a50-95a7-b23139fbff50",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126574/2126574/c08bdf33-1265-435a-b02a-4f5a9a8b7ebd",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126575/2126575/99517e7a-98ac-4b52-9b67-09b9ed651988",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126573/2126573/9f9dc2ed-d627-4756-a06a-03e8fe2a46a0"
+      ],
+      "features": [
+        "Private bathroom"
+      ],
+      "maxOccupancy": 2,
+      "bathrooms": "1",
+      "bedType": "King bed"
+    },
+    {
+      "id": "428189",
+      "name": "Mamluk",
+      "description": "King-Size Double Room with Private Bathroom",
+      "category": "private",
+      "price": 0,
+      "images": [
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126560/2126560/b3184152-d9ea-49cf-a782-2dfc3840d3ec",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126561/2126561/a1557524-f880-475b-a59f-53821dbbe07d",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126555/2126555/966b6017-d78b-4703-9b05-4d5c2ba396d7",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126559/2126559/ffd2d8eb-535f-48b8-ad56-2eda6fed6d2c",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126554/2126554/cc348b83-61e0-4dd1-af30-55458faa5e6d",
+        "https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126570/2126570/473d384f-2b0d-4300-9060-1da65c91651b"
+      ],
+      "features": [
+        "Private bathroom"
+      ],
+      "maxOccupancy": 2,
+      "bathrooms": "1",
+      "bedType": "King bed"
+    }
+  ]
+}

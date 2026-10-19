@@ -1,0 +1,1274 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>فيلا ليلى — واحتك الهادئة في قلب القاهرة</title>
+<meta name="description" content="فيلا تاريخية هادئة بمسبح في حديقتها في السيدة زينب، القاهرة. غرف خاصة ملكية، عنابر فاخرة بالسرير، رحلات يومية، واستقبال واتساب 24/7. احجز مباشرة.">
+<meta name="theme-color" content="#4A3222">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap">
+<style>
+/* Villa Layla brand system — cocoa brown + copper-gold taken from the key logo, warm ivory, white.
+   Blue = directions only. Green = WhatsApp only.
+   Rhythm: photo hero → ivory → white → ivory → white → brown (films) → ivory → photo CTA → light → brown footer. */
+:root{
+  --color-primary:#6B4A30;
+  --color-primary-dark:#4A3222;
+  --color-primary-hover:#5A3E28;
+  --color-gold:#D29A45;            /* logo copper-gold */
+  --color-gold-light:#E9C27E;      /* gold accents on dark brown */
+  --color-gold-hover:#BF8634;
+  --color-bronze:#A88762;
+  --color-ivory:#FBF7F1;
+  --color-white:#FFFFFF;
+  --color-blue:#0798D0;
+  --color-blue-hover:#067FAE;
+  --color-whatsapp:#159447;
+  --color-whatsapp-hover:#117A3A;
+  --color-text:#2F2925;
+  --color-text-secondary:#76695D;
+  --color-border:#ECE2D4;
+  --color-section-light:#F4ECE0;  /* warm sand band */
+  --color-tint:#F5EEE4;          /* ivory one step deeper, for chips & thumbnails */
+  --color-error:#B3261E;
+  --color-error-bg:#FDECEA;
+  --color-success-bg:#E8F7EE;
+
+  --shadow-sm:0 1px 2px rgba(81,64,47,.06);
+  --shadow:0 2px 6px rgba(81,64,47,.05),0 16px 36px -18px rgba(81,64,47,.28);
+  --overlay:rgba(36,28,20,.55);
+
+  --f-serif:var(--f);
+  --f:"Plus Jakarta Sans", "Almarai", "Segoe UI", Tahoma, system-ui, -apple-system, sans-serif;  /* Latin, numbers, prices, brand */
+  --f-ar:"Almarai", "Plus Jakarta Sans", Tahoma, "Segoe UI", sans-serif;  /* all Arabic text */
+  --r-lg:24px; --r:18px; --r-sm:12px; --r-btn:12px;
+  --btn-h:48px;
+  --wrap:1280px;
+  --gl:max(20px, env(safe-area-inset-left,0px));
+  --gr:max(20px, env(safe-area-inset-right,0px));
+  --ease:cubic-bezier(.22,.8,.24,1);
+  color-scheme:light;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+.btn>svg{width:18px;height:18px;flex:none}
+html{-webkit-text-size-adjust:100%}
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+.lenis.lenis-stopped{overflow:hidden}
+body{margin:0;background:var(--color-ivory);color:var(--color-text);font:400 16px/1.65 var(--f);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img,video{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;cursor:pointer}
+h1,h2,h3,h4{margin:0;font-family:var(--f);font-weight:800;letter-spacing:-.025em;line-height:1.08;color:var(--color-primary-dark);text-wrap:balance}
+p{margin:0}
+:focus-visible{outline:3px solid var(--color-gold);outline-offset:3px;border-radius:8px}
+.ar{font-family:var(--f-ar);direction:rtl;unicode-bidi:isolate;font-weight:700;letter-spacing:0}
+/* Arabic pages: <html lang="ar" dir="rtl"> switches the whole site to Almarai; numbers & Latin stay in Jakarta */
+:lang(ar){font-family:var(--f-ar);letter-spacing:0}
+html[lang="ar"] body{font-family:var(--f-ar)}
+html[lang="ar"] h1,html[lang="ar"] h2,html[lang="ar"] h3,html[lang="ar"] h4{font-family:var(--f-ar);font-weight:800;letter-spacing:0;line-height:1.3}
+html[lang="ar"] .num,html[lang="ar"] .price b,html[lang="ar"] .score b,html[lang="ar"] .plat b,html[lang="ar"] .foot-rate b,html[lang="ar"] .hrs dd{font-family:var(--f)}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:var(--wrap);margin-inline:auto;padding-left:var(--gl);padding-right:var(--gr)}
+.skip{position:absolute;left:-999px;top:10px;z-index:200;background:var(--color-primary-dark);color:#fff;padding:10px 16px;border-radius:10px;font-weight:700}
+.skip:focus{left:12px}
+svg.i{width:18px;height:18px;flex:none}
+
+/* ---------- buttons: one size, one radius, clear states ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--btn-h);padding:0 22px;border-radius:var(--r-btn);border:1.5px solid transparent;font-weight:700;font-size:15px;white-space:nowrap;transition:background .2s,border-color .2s,color .2s,transform .2s var(--ease)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled],.btn[aria-disabled="true"]{opacity:.5;cursor:not-allowed;pointer-events:none}
+.btn-gold{background:var(--color-gold);color:var(--color-text)}
+.btn-gold:hover{background:var(--color-gold-hover)}
+.btn-primary{background:var(--color-primary);color:#fff}
+.btn-primary:hover{background:var(--color-primary-dark)}
+.btn-line{border-color:var(--color-border);background:var(--color-white);color:var(--color-primary-dark)}
+.btn-line:hover{border-color:var(--color-primary);background:var(--color-ivory)}
+.btn-wa{background:var(--color-whatsapp);color:#fff}
+.btn-wa:hover{background:var(--color-whatsapp-hover)}
+.btn-blue{background:var(--color-blue);color:#fff}
+.btn-blue:hover{background:var(--color-blue-hover)}
+.btn-light{background:#fff;color:var(--color-primary-dark)}
+.btn-light:hover{background:var(--color-ivory)}
+.btn-outline-light{border-color:rgba(255,255,255,.55);color:#fff;background:transparent}
+.btn-outline-light:hover{background:rgba(255,255,255,.1);border-color:#fff}
+.btn-sm{min-height:40px;padding:0 16px;font-size:14px}
+.btn.loading{pointer-events:none;color:transparent!important;position:relative}
+.btn.loading::after{content:"";position:absolute;width:18px;height:18px;border-radius:50%;border:2.5px solid var(--color-text);border-right-color:transparent;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- header (white, always) ---------- */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:90;background:#fff}
+.hdr{position:sticky;top:env(safe-area-inset-top,0px);z-index:80;background:#fff;color:var(--color-primary-dark);border-bottom:1px solid var(--color-border);transition:transform .45s var(--ease),box-shadow .3s}
+.hdr.solid{box-shadow:0 6px 20px -14px rgba(81,64,47,.35)}
+.hdr.hide{transform:translateY(-105%)}
+.hdr-in{display:flex;align-items:center;gap:20px;min-height:76px;padding-block:6px}
+.logo{display:flex;align-items:center;gap:10px;flex:none}
+.logo-img{height:58px;width:auto;display:block}
+.logo-mark{width:40px;height:40px;border-radius:10px;background:var(--color-primary);display:grid;place-items:center;color:var(--color-gold);font:800 20px/1 var(--f-ar)}
+.logo b{display:block;font:600 22px/1 var(--f-serif);color:var(--color-primary);letter-spacing:.01em}
+.logo small{display:block;font:700 14px/1.2 var(--f-ar);color:var(--color-bronze);direction:rtl;text-align:start}
+.nav{display:flex;gap:2px;margin-inline:auto}
+.nav a{position:relative;padding:10px 14px;font-weight:600;font-size:15px;color:var(--color-primary-dark);transition:color .2s}
+.nav a::after{content:"";position:absolute;left:14px;right:14px;bottom:4px;height:2px;border-radius:2px;background:var(--color-gold);transform:scaleX(0);transition:transform .3s var(--ease)}
+.nav a:hover::after,.nav a.on::after{transform:scaleX(1)}
+.hdr-end{display:flex;align-items:center;gap:10px}
+.lang{display:flex;align-items:center;gap:6px;padding:0 12px;height:42px;border-radius:var(--r-btn);border:1.5px solid var(--color-border);background:#fff;color:var(--color-primary-dark);font-weight:600;font-size:14px;position:relative}
+.lang:hover{border-color:var(--color-bronze)}
+.lang-menu{position:absolute;top:calc(100% + 8px);inset-inline-end:0;background:#fff;color:var(--color-text);border:1px solid var(--color-border);border-radius:14px;box-shadow:var(--shadow);padding:6px;min-width:160px;display:grid}
+.lang-menu a{padding:10px 12px;border-radius:8px;font-weight:600;font-size:14px;display:flex;justify-content:space-between}
+.lang-menu a:hover{background:var(--color-ivory)}
+.lang-menu a[aria-current]::after{content:"✓";color:var(--color-primary)}
+.hdr .btn{min-height:42px;padding:0 18px;font-size:14px}
+@media (max-width:1060px){.nav{display:none}.hdr-end{margin-inline-start:auto}}
+@media (max-width:560px){.hdr .book-hdr{display:none}}
+
+/* ---------- hero slider ---------- */
+.hero{position:relative;min-height:min(820px,calc(100svh - 72px));display:flex;align-items:flex-end;color:#fff;background:var(--color-primary-dark);isolation:isolate;overflow:hidden}
+.slides{position:absolute;inset:0;z-index:-2;touch-action:pan-y}
+.slide{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity 1.2s var(--ease),visibility 0s 1.2s}
+.slide.on{opacity:1;visibility:visible;transition:opacity 1.2s var(--ease),visibility 0s}
+.slide img,.slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scale(1.06);transition:transform 10s linear}
+.slide.on img,.slide.on video{transform:scale(1)}
+.slide video{opacity:0;transition:opacity .8s var(--ease),transform 10s linear}
+.slide video.ready{opacity:1}
+.hero::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(36,28,20,.15) 0%,rgba(36,28,20,.25) 45%,rgba(36,28,20,.82) 100%)}
+.hero-in{width:100%;padding-block:96px 32px;display:grid;gap:22px}
+.crumb{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#fff;width:max-content;max-width:100%}
+.crumb .pin{width:24px;height:1.5px;background:var(--color-gold)}
+.hero h1{font-size:clamp(42px,7.2vw,92px);max-width:14ch;line-height:.98;color:#fff;letter-spacing:-.04em}
+.hero h1 em{font-style:italic;color:var(--color-gold-light)}
+.hero-sub{max-width:52ch;font-size:clamp(16px,1.5vw,18px);color:rgba(255,255,255,.9)}
+.search{display:grid;grid-template-columns:1fr 1fr .9fr auto;align-items:stretch;background:#fff;color:var(--color-text);border-radius:var(--r);padding:8px;box-shadow:0 24px 50px -20px rgba(0,0,0,.45);max-width:900px}
+.sf{display:flex;flex-direction:column;justify-content:center;padding:6px 20px;border-inline-end:1px solid var(--color-border);min-width:0;border-radius:10px;transition:background .2s}
+.sf:focus-within{background:var(--color-ivory)}
+.sf:nth-child(3){border-inline-end:0}
+.sf label{font-size:12px;font-weight:700;color:var(--color-primary);letter-spacing:.04em;text-transform:uppercase}
+.sf input,.sf select{border:0;background:transparent;font:600 16px/1.4 var(--f);color:var(--color-text);padding:2px 0;outline:none;width:100%;min-width:0}
+.sf.invalid{background:var(--color-error-bg)}
+.search .btn{min-height:58px;padding:0 26px}
+.form-msg{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;padding:8px 14px 4px;color:var(--color-error)}
+.form-msg svg{width:18px;height:18px;flex:none}
+.hero-foot{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:18px}
+.scores{display:flex;flex-wrap:wrap;gap:20px;align-items:center}
+.score{display:inline-flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:rgba(255,255,255,.9)}
+.score b{display:grid;place-items:center;min-width:40px;height:32px;border-radius:8px;background:#fff;color:var(--color-primary-dark);font-weight:800;font-size:14px}
+.hero-ctrl{display:flex;align-items:flex-end;gap:14px}
+.slide-tabs{display:flex;gap:14px}
+.slide-tabs button{background:none;border:0;color:rgba(255,255,255,.62);padding:12px 0 0;min-width:120px;text-align:start;position:relative;transition:color .25s}
+.slide-tabs button b{display:block;font-size:14px;font-weight:700}
+.slide-tabs button small{display:block;font-size:12px;font-weight:500;opacity:.85}
+.slide-tabs button::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;border-radius:2px;background:rgba(255,255,255,.3)}
+.slide-tabs button::after{content:"";position:absolute;top:0;left:0;height:2px;border-radius:2px;background:var(--color-gold);width:0}
+.slide-tabs button:hover,.slide-tabs button.on{color:#fff}
+.slide-tabs button.on::after{animation:fill var(--dur,7s) linear forwards}
+.hero.paused .slide-tabs button.on::after{animation-play-state:paused}
+@keyframes fill{to{width:100%}}
+.hbtn{width:44px;height:44px;border-radius:50%;border:1.5px solid rgba(255,255,255,.5);background:rgba(36,28,20,.35);color:#fff;display:grid;place-items:center;transition:background .2s,border-color .2s;flex:none}
+.hbtn:hover{background:rgba(36,28,20,.6);border-color:#fff}
+.hbtn svg{width:18px;height:18px}
+.hero-dots{display:none;gap:6px}
+.hero-dots i{width:8px;height:8px;border-radius:4px;background:rgba(255,255,255,.45);transition:width .35s var(--ease),background .25s}
+.hero-dots i.on{width:24px;background:var(--color-gold)}
+@media (max-width:820px){
+  .hero-in{padding-block:72px 24px}
+  .search{grid-template-columns:1fr 1fr;gap:6px}
+  .sf{border:0;background:var(--color-ivory);padding:10px 14px}
+  .sf:nth-child(3){grid-column:1/-1}
+  .search .btn{grid-column:1/-1}
+  .slide-tabs{display:none}
+  .hero-dots{display:flex}
+  .hero-ctrl{width:100%;justify-content:space-between;align-items:center}
+}
+
+/* ---------- sections ---------- */
+.sec{padding-block:clamp(64px,8vw,104px)}
+.band-white{background:var(--color-white)}
+.band-light{background:var(--color-section-light)}
+.sec-hd{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 32px;margin-bottom:34px}
+.kicker{display:inline-flex;align-items:center;gap:10px;font-size:12px;font-weight:700;color:var(--color-primary);text-transform:uppercase;letter-spacing:.14em}
+.kicker::before{content:"";width:22px;height:1.5px;background:var(--color-gold)}
+.sec-hd h2{font-size:clamp(30px,4.2vw,50px);margin-top:10px;max-width:18ch}
+.sec-hd p{color:var(--color-text-secondary);margin-top:12px;max-width:52ch}
+
+/* ---------- services ---------- */
+.svc{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+.svc a{position:relative;display:flex;flex-direction:column;justify-content:flex-end;aspect-ratio:3/4;border-radius:var(--r);overflow:hidden;color:#fff;isolation:isolate;padding:18px}
+.svc img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;transition:transform .8s var(--ease)}
+.svc a::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,transparent 40%,rgba(36,28,20,.85))}
+.svc a:hover img{transform:scale(1.05)}
+.svc h3{font-size:20px;color:#fff}
+.svc p{font-size:14px;color:rgba(255,255,255,.88);margin-top:2px}
+.svc .go{position:absolute;top:14px;inset-inline-end:14px;width:38px;height:38px;border-radius:50%;background:#fff;color:var(--color-primary-dark);display:grid;place-items:center;transition:background .2s}
+.svc a:hover .go{background:var(--color-gold)}
+@media (max-width:1060px){.svc{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(220px,42%);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px;scrollbar-width:none}.svc a{scroll-snap-align:start}}
+@media (max-width:520px){.svc{grid-auto-columns:70%}}
+
+/* ---------- filter tabs ---------- */
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{border:1.5px solid var(--color-border);background:#fff;padding:9px 16px;border-radius:999px;font-weight:600;font-size:14px;color:var(--color-text-secondary);display:inline-flex;align-items:center;gap:8px;transition:border-color .2s,color .2s,background .2s}
+.tab:hover{border-color:var(--color-bronze);color:var(--color-primary-dark)}
+.tab[aria-pressed="true"]{background:var(--color-primary);border-color:var(--color-primary);color:#fff}
+.tab .n{font-size:12px;opacity:.75}
+
+/* ---------- cards ---------- */
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;transition:opacity .25s}
+@media (max-width:1020px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.cards{grid-template-columns:minmax(0,1fr)}}
+.card{background:#fff;border-radius:var(--r);overflow:hidden;border:1px solid var(--color-border);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;transition:box-shadow .35s var(--ease),transform .35s var(--ease)}
+.card:hover{box-shadow:var(--shadow);transform:translateY(-3px)}
+.media{position:relative;aspect-ratio:4/3;overflow:hidden;background:var(--color-tint)}
+.strip{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
+.strip::-webkit-scrollbar{display:none}
+.strip img{flex:0 0 100%;height:100%;object-fit:cover;scroll-snap-align:start;cursor:zoom-in}
+.badge{position:absolute;top:14px;inset-inline-start:14px;background:#fff;color:var(--color-primary-dark);font-size:12px;font-weight:700;padding:6px 11px;border-radius:999px;box-shadow:var(--shadow-sm);z-index:1}
+.badge.gold{background:var(--color-gold);color:var(--color-text)}
+.fav{position:absolute;top:12px;inset-inline-end:12px;width:38px;height:38px;border-radius:50%;border:0;background:#fff;color:var(--color-primary-dark);display:grid;place-items:center;z-index:1;box-shadow:var(--shadow-sm)}
+.fav:hover{color:var(--color-primary)}
+.fav[aria-pressed="true"] svg{fill:var(--color-primary);stroke:var(--color-primary)}
+.arr{position:absolute;top:50%;translate:0 -50%;width:34px;height:34px;border-radius:50%;border:0;background:#fff;color:var(--color-primary-dark);display:grid;place-items:center;opacity:0;transition:opacity .25s;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+.arr.p{inset-inline-start:10px}.arr.n{inset-inline-end:10px}
+.media:hover .arr,.arr:focus-visible{opacity:1}
+@media (hover:none){.arr{display:none}}
+.dots{position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:5px;pointer-events:none}
+.dots i{width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.6);transition:width .3s var(--ease),background .25s}
+.dots i.on{width:16px;background:#fff}
+.body{padding:18px 20px 20px;display:flex;flex-direction:column;gap:8px;flex:1}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--color-text-secondary);font-size:13px;font-weight:600}
+.meta span{display:inline-flex;align-items:center;gap:6px}
+.meta svg{width:15px;height:15px;color:var(--color-bronze)}
+.ttl{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ttl h3{font-size:21px}
+.ttl .ar{font-size:19px;color:var(--color-bronze)}
+.desc{color:var(--color-text-secondary);font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto;padding-top:14px;border-top:1px solid var(--color-border)}
+.price small{display:block;font-size:12px;color:var(--color-text-secondary);font-weight:600}
+.price b{font-size:22px;font-weight:800;color:var(--color-primary-dark)}
+.price b span{font-size:13px;color:var(--color-text-secondary);font-weight:600}
+.acts{display:flex;gap:8px}
+.acts .btn{min-height:40px;padding:0 16px;font-size:14px}
+
+/* ---------- tours scroller ---------- */
+.scroller{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 3*20px)/4);gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:12px;scrollbar-width:none}
+.scroller::-webkit-scrollbar{display:none}
+.scroller>*{scroll-snap-align:start}
+@media (max-width:1100px){.scroller{grid-auto-columns:calc((100% - 2*20px)/3)}}
+@media (max-width:760px){.scroller{grid-auto-columns:80%}}
+.sc-nav{display:flex;gap:8px}
+.sc-nav button{width:46px;height:46px;border-radius:50%;border:1.5px solid var(--color-border);background:#fff;color:var(--color-primary-dark);display:grid;place-items:center;transition:background .2s,border-color .2s,color .2s}
+.sc-nav button:hover{background:var(--color-primary);border-color:var(--color-primary);color:#fff}
+.incl{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px}
+.incl li{font-size:12px;font-weight:600;background:var(--color-ivory);border:1px solid var(--color-border);padding:4px 10px;border-radius:999px;color:var(--color-text-secondary)}
+.media.blank{background:var(--color-primary);display:grid;place-items:center;color:var(--color-gold);font-weight:800;font-size:20px;line-height:1.25;text-align:center;padding:20px}
+
+/* ---------- about ---------- */
+.about{display:grid;grid-template-columns:1fr 1fr;gap:clamp(28px,5vw,72px);align-items:center}
+.about-media{position:relative;aspect-ratio:5/6;border-radius:var(--r-lg);overflow:hidden}
+.about-media img{width:100%;height:100%;object-fit:cover}
+.about-media .float{position:absolute;inset-inline-start:18px;bottom:18px;background:#fff;border-radius:14px;padding:14px 18px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:center}
+.about-media .float b{font-size:30px;font-weight:800;color:var(--color-primary-dark)}
+.about-media .float span{font-size:13px;font-weight:600;color:var(--color-text-secondary);line-height:1.35}
+.pts{display:grid;gap:12px;margin-top:28px}
+.pt{display:grid;grid-template-columns:48px 1fr;gap:16px;align-items:start;padding:18px;border-radius:var(--r-sm);background:var(--color-ivory);border:1px solid var(--color-border)}
+.pt .ic{width:48px;height:48px;border-radius:12px;background:#fff;border:1px solid var(--color-border);color:var(--color-primary);display:grid;place-items:center}
+.pt .ic svg{width:22px;height:22px}
+.pt h3{font-size:17px}
+.pt p{color:var(--color-text-secondary);font-size:14px;margin-top:2px}
+@media (max-width:860px){.about{grid-template-columns:1fr}.about-media{aspect-ratio:4/3}}
+
+/* ---------- marquee ---------- */
+.marq{display:grid;gap:14px;overflow:hidden;padding-block:8px}
+.mq{display:flex;gap:14px;width:max-content;animation:mq 70s linear infinite}
+.mq.rev{animation-direction:reverse;animation-duration:80s}
+.marq:hover .mq{animation-play-state:paused}
+.mq img{width:260px;height:180px;object-fit:cover;border-radius:14px;flex:none}
+@keyframes mq{to{transform:translateX(-50%)}}
+
+/* ---------- films (brown band) ---------- */
+.films{background:var(--color-primary-dark);color:#fff}
+.films h2{color:#fff}
+.films .sec-hd p{color:rgba(250,248,243,.78)}
+.films .kicker{color:var(--color-gold-light)}
+.stage{position:relative;aspect-ratio:16/9;border-radius:var(--r);overflow:hidden;background:#000;box-shadow:0 30px 70px -30px rgba(0,0,0,.6)}
+.stage img,.stage video{width:100%;height:100%;object-fit:cover}
+.stage .cap{position:absolute;left:0;right:0;bottom:0;padding:56px 24px 20px;background:linear-gradient(transparent,rgba(0,0,0,.72));display:flex;justify-content:space-between;align-items:flex-end;gap:16px;pointer-events:none}
+.stage .cap b{font-size:22px;font-weight:800}
+.stage .cap span{font-size:13px;color:rgba(255,255,255,.85);font-weight:600}
+.play{position:absolute;inset:0;margin:auto;width:84px;height:84px;border-radius:50%;border:0;background:var(--color-gold);color:var(--color-text);display:grid;place-items:center;transition:transform .3s var(--ease),background .2s}
+.play:hover{transform:scale(1.06);background:var(--color-gold-hover)}
+.play svg{width:30px;height:30px;margin-inline-start:4px;fill:currentColor}
+.reel{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 5*14px)/6);gap:14px;margin-top:16px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:4px}
+.reel::-webkit-scrollbar{display:none}
+@media (max-width:900px){.reel{grid-auto-columns:calc((100% - 2*12px)/3);gap:12px}}
+@media (max-width:520px){.reel{grid-auto-columns:60%}}
+.reel button{position:relative;aspect-ratio:16/9;padding:0;border:2px solid transparent;border-radius:12px;overflow:hidden;background:#000;opacity:.55;scroll-snap-align:start;transition:opacity .25s,border-color .25s}
+.reel button:hover{opacity:.9}
+.reel button[aria-current="true"]{opacity:1;border-color:var(--color-gold)}
+.reel img{width:100%;height:100%;object-fit:cover}
+.reel .len{position:absolute;bottom:6px;inset-inline-end:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px}
+.films-ft{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;margin-top:28px;color:rgba(250,248,243,.8);font-size:14px}
+.films-ft b{color:#fff}
+
+/* ---------- reviews ---------- */
+.revs{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 2*20px)/3);gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:8px}
+.revs::-webkit-scrollbar{display:none}
+@media (max-width:980px){.revs{grid-auto-columns:calc((100% - 20px)/2)}}
+@media (max-width:640px){.revs{grid-auto-columns:86%}}
+.rev{scroll-snap-align:start;background:#fff;border:1px solid var(--color-border);border-radius:var(--r);padding:26px;display:flex;flex-direction:column;gap:16px}
+.stars{display:flex;gap:2px;color:var(--color-gold)}
+.stars svg{width:18px;height:18px;fill:currentColor}
+.rev p{font-size:16px;line-height:1.65;color:var(--color-text)}
+.who{display:flex;align-items:center;gap:12px;margin-top:auto}
+.av{width:44px;height:44px;border-radius:50%;background:var(--color-ivory);border:1px solid var(--color-border);color:var(--color-primary);display:grid;place-items:center;font-weight:800;font-size:17px}
+.who b{display:block;font-size:15px;color:var(--color-primary-dark)}
+.who small{color:var(--color-text-secondary);font-size:13px;font-weight:600}
+.platforms{display:flex;flex-wrap:wrap;gap:12px}
+.plat{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--color-border);border-radius:14px;padding:10px 16px 10px 10px}
+.plat b{display:grid;place-items:center;width:46px;height:46px;border-radius:10px;background:var(--color-primary);color:#fff;font-size:17px;font-weight:800}
+.plat span{font-size:13px;color:var(--color-text-secondary);font-weight:600;line-height:1.3}
+.plat span strong{display:block;color:var(--color-primary-dark);font-size:15px}
+
+/* ---------- CTA over photo ---------- */
+.cta{position:relative;border-radius:var(--r-lg);overflow:hidden;color:#fff;isolation:isolate;padding:clamp(32px,6vw,72px);display:grid;grid-template-columns:1.3fr 1fr;gap:28px;align-items:center}
+.cta img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
+.cta::after{content:"";position:absolute;inset:0;z-index:-1;background:rgba(51,40,29,.78)}
+.cta h2{font-size:clamp(30px,4.2vw,50px);color:#fff}
+.cta p{color:rgba(250,248,243,.88);margin-top:14px;max-width:46ch}
+.cta-acts{display:flex;flex-direction:column;gap:12px}
+.cta .langs{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.cta .langs span{font-size:13px;font-weight:600;padding:5px 12px;border-radius:999px;border:1px solid rgba(250,248,243,.4);color:var(--color-ivory)}
+@media (max-width:860px){.cta{grid-template-columns:1fr}}
+
+/* ---------- find + faq ---------- */
+.find{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.find-card{background:#fff;border:1px solid var(--color-border);border-radius:var(--r);padding:clamp(22px,3vw,36px);display:flex;flex-direction:column;gap:20px}
+.find-card address{font-style:normal;font-size:17px;font-weight:600;line-height:1.5;color:var(--color-primary-dark)}
+.dist{display:grid;grid-template-columns:1fr auto;gap:12px 20px;margin:0}
+.dist dt{color:var(--color-text-secondary);font-size:14px;font-weight:600}
+.dist dd{margin:0;font-weight:700;text-align:end;color:var(--color-primary-dark)}
+.map{border-radius:var(--r);overflow:hidden;min-height:360px;background:var(--color-tint);border:1px solid var(--color-border)}
+.map iframe{width:100%;height:100%;min-height:360px;border:0;display:block}
+@media (max-width:860px){.find{grid-template-columns:1fr}}
+.faq{display:grid;gap:10px;max-width:880px}
+.faq details{background:#fff;border:1px solid var(--color-border);border-radius:var(--r-sm);padding:0 22px;transition:border-color .2s}
+.faq details[open]{border-color:var(--color-bronze)}
+.faq summary{list-style:none;cursor:pointer;padding:20px 0;font-weight:700;font-size:16px;display:flex;justify-content:space-between;gap:16px;align-items:center;color:var(--color-primary-dark)}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";font-size:24px;font-weight:400;color:var(--color-primary);transition:transform .3s var(--ease)}
+.faq details[open] summary::after{transform:rotate(45deg)}
+.faq details p{padding:0 0 20px;color:var(--color-text-secondary)}
+
+/* ---------- footer: villa arch, logo on cocoa, fleur-de-lis divider ---------- */
+.foot{--f-bg:var(--color-primary-dark);--f-panel:#563B28;--f-line:rgba(251,247,241,.14);--f-text:rgba(251,247,241,.78);
+  position:relative;margin-top:0;background:var(--color-section-light);color:var(--f-text);font-size:14px;isolation:isolate}
+.foot-arch{display:block;width:100%;height:clamp(36px,6vw,80px);margin-bottom:-1px}
+.foot-arch path{fill:var(--f-bg)}
+.foot-body{background:var(--f-bg);padding-bottom:calc(28px + env(safe-area-inset-bottom,0px))}
+.foot-logo{display:block;width:clamp(120px,14vw,160px);margin:clamp(-64px,-6vw,-40px) auto 0;position:relative;z-index:1}
+.foot-logo img{width:100%;height:auto;filter:drop-shadow(0 10px 22px rgba(0,0,0,.35))}
+.foot-intro{text-align:center;display:grid;justify-items:center;gap:18px;padding-block:18px 8px}
+.foot-intro p{color:#fff;font-size:clamp(18px,2vw,22px);font-weight:700;letter-spacing:-.01em;max-width:40ch;text-wrap:balance}
+.foot-intro p span{color:var(--color-gold-light)}
+.foot-ar{font:700 20px/1.2 var(--f-ar);color:var(--color-gold-light);direction:rtl}
+.foot-rates{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.foot-rate{display:inline-flex;align-items:center;gap:10px;padding:6px 14px 6px 6px;border:1px solid var(--f-line);border-radius:999px;color:var(--color-ivory);font-weight:600;font-size:13px}
+.foot-rate b{display:grid;place-items:center;min-width:38px;height:28px;border-radius:999px;background:var(--color-gold);color:var(--color-text);font-weight:800}
+.foot-ctas{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.foot-orn{display:flex;align-items:center;gap:18px;margin:clamp(36px,5vw,56px) 0}
+.foot-orn::before,.foot-orn::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--f-line) 30%,var(--f-line))}
+.foot-orn::after{background:linear-gradient(270deg,transparent,var(--f-line) 30%,var(--f-line))}
+.foot-orn img{width:34px;height:auto;opacity:.95}
+.foot-g{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px}
+.foot h4{font:700 13px/1 var(--f);text-transform:uppercase;letter-spacing:.12em;color:var(--color-gold-light);margin:0 0 18px}
+.foot ul{list-style:none;padding:0;margin:0;display:grid;gap:11px}
+.foot a{color:var(--color-ivory);transition:color .2s}
+.foot a:hover{color:var(--color-gold-light)}
+.foot .ci{display:flex;gap:10px;align-items:flex-start;color:var(--color-ivory)}
+.foot .ci svg{width:18px;height:18px;flex:none;margin-top:2px;color:var(--color-gold-light)}
+.foot .hrs{display:grid;grid-template-columns:1fr auto;gap:10px 16px}
+.foot .hrs dt{color:var(--f-text)}
+.foot .hrs dd{margin:0;color:var(--color-ivory);font-weight:700;text-align:end;font-variant-numeric:tabular-nums}
+.foot-pay{margin-top:18px;padding:12px 14px;border-radius:12px;background:var(--f-panel);font-size:13px;line-height:1.5}
+.foot-pay b{color:var(--color-gold-light)}
+.foot-b{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--f-line);margin-top:clamp(36px,5vw,52px);padding-top:22px;font-size:13px}
+.foot-b nav{display:flex;flex-wrap:wrap;gap:6px 18px}
+.foot-langs{display:flex;gap:4px;padding:3px;border:1px solid var(--f-line);border-radius:999px}
+.foot-langs a{padding:5px 11px;border-radius:999px;font-weight:700;font-size:12px}
+.foot-langs a[aria-current]{background:var(--color-ivory);color:var(--color-primary-dark)}
+.foot-soc{display:flex;gap:8px}
+.foot-soc a{width:40px;height:40px;border-radius:50%;border:1px solid var(--f-line);display:grid;place-items:center;transition:background .2s,border-color .2s,color .2s}
+.foot-soc a:hover{background:var(--color-ivory);border-color:var(--color-ivory);color:var(--color-primary-dark)}
+.foot-soc svg{width:18px;height:18px}
+@media (max-width:900px){.foot-g{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:36px}}
+@media (max-width:520px){
+  .foot-g{grid-template-columns:1fr 1fr;gap:28px 20px}
+  .foot-g>.wide{grid-column:1/-1}
+  .foot-b{flex-direction:column;align-items:flex-start}
+}
+
+/* ---------- floating actions + mobile bar ---------- */
+.fabs{position:fixed;z-index:70;inset-inline-end:max(18px,env(safe-area-inset-right,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+.fab{display:flex;align-items:center;gap:8px;height:54px;padding:0 18px 0 8px;border-radius:999px;font-weight:700;font-size:14px;box-shadow:0 12px 26px -10px rgba(0,0,0,.4);transition:background .2s,transform .2s var(--ease)}
+.fab:hover{transform:translateY(-2px)}
+.fab .ic{width:40px;height:40px;border-radius:50%;display:grid;place-items:center}
+.fab.wa{background:var(--color-whatsapp);color:#fff}.fab.wa:hover{background:var(--color-whatsapp-hover)}.fab.wa .ic{background:rgba(255,255,255,.18)}
+.fab.ai{background:#fff;color:var(--color-primary-dark);border:1px solid var(--color-border)}.fab.ai .ic{background:var(--color-primary);color:var(--color-gold)}
+.fab svg{width:22px;height:22px}
+.bbar{display:none}
+@media (max-width:760px){
+  .fab span.t{display:none}.fab{padding:0 7px}
+  .fabs{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+  .bbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;z-index:75;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--color-border);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+  .bbar a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;font-size:11px;font-weight:700;color:var(--color-text-secondary);position:relative}
+  .bbar a.on{color:var(--color-primary-dark)}
+  .bbar a.on::before{content:"";position:absolute;top:-6px;width:24px;height:2px;border-radius:2px;background:var(--color-gold)}
+  .bbar a.bk{color:var(--color-primary)}
+  .bbar svg{width:22px;height:22px}
+  body{padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+}
+
+/* ---------- room dialog ---------- */
+dialog{border:0;padding:0;border-radius:var(--r-lg);width:min(1100px,calc(100% - 20px));max-height:calc(100svh - 20px);background:#fff;color:var(--color-text);box-shadow:0 40px 100px -30px rgba(0,0,0,.55);overflow:hidden}
+dialog[open]{animation:pop .4s var(--ease)}
+@keyframes pop{from{opacity:0;transform:translateY(16px)}}
+dialog::backdrop{background:rgba(36,28,20,.65)}
+.dlg{display:grid;grid-template-columns:1.45fr 1fr;max-height:calc(100svh - 20px)}
+.dlg-m{background:var(--color-primary-dark);display:flex;flex-direction:column;min-width:0}
+.dlg-main{aspect-ratio:4/3;width:100%;object-fit:cover;transition:opacity .3s}
+.dlg-th{display:flex;gap:6px;padding:8px;overflow-x:auto}
+.dlg-th button{flex:0 0 78px;height:58px;padding:0;border:2px solid transparent;border-radius:8px;overflow:hidden;opacity:.55;background:none;transition:opacity .2s}
+.dlg-th button[aria-current="true"]{opacity:1;border-color:var(--color-gold)}
+.dlg-th img{width:100%;height:100%;object-fit:cover}
+.dlg-b{padding:30px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;min-width:0}
+.dlg-b h3{font-size:32px}
+.amen{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.amen li{display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600}
+.amen svg{width:18px;height:18px;color:var(--color-primary);flex:none}
+.x{position:absolute;top:14px;inset-inline-end:14px;z-index:2;width:42px;height:42px;border-radius:50%;border:0;background:#fff;color:var(--color-primary-dark);display:grid;place-items:center;box-shadow:var(--shadow-sm)}
+@media (max-width:820px){.dlg{grid-template-columns:1fr;overflow-y:auto}.dlg-b{overflow:visible;padding:22px}}
+
+/* ---------- reveal (subtle) ---------- */
+.js .rv{opacity:0;transform:translateY(16px);transition:opacity .7s var(--ease),transform .7s var(--ease);transition-delay:calc(var(--d,0) * 70ms)}
+.js .rv.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .js .rv{opacity:1;transform:none}
+  .slide img,.slide video{transform:none}
+}
+</style>
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="hdr" id="hdr">
+  <div class="wrap hdr-in">
+    <a class="logo" href="#top" aria-label="Villa Layla, home"><img class="logo-img" src="/assets/logo-240.webp" alt="Villa Layla" width="240" height="252"></a>
+    <nav class="nav" aria-label="Main">
+      <a href="#stay">الغرف</a>
+      <a href="#stay" data-go="dorms">العنابر</a>
+      <a href="#tours">الرحلات</a>
+      <a href="#films">ريلز ضيوفنا</a>
+      <a href="#reviews">آراء النزلاء</a>
+      <a href="#find">موقعنا</a>
+    </nav>
+    <div class="hdr-end">
+      <button class="lang" id="langBtn" aria-expanded="false" aria-haspopup="true">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>EN
+        <div class="lang-menu" id="langMenu" hidden>
+          <a href="/en" aria-current="page">English</a><a href="/ar"><span class="ar" lang="ar" style="font-family:var(--f)">العربية</span></a><a href="/fr">Français</a><a href="/es">Español</a>
+        </div>
+      </button>
+      <a class="btn btn-gold book-hdr" href="#top" data-book>احجز مباشرة</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+<!-- ================= HERO ================= -->
+<section class="hero" id="top">
+  <div class="slides" id="slides"></div>
+  <div class="wrap hero-in">
+    <span class="crumb rv"><i class="pin"></i><span id="crumb">El Sayeda Zeinab · Garden pool</span></span>
+    <h1 class="rv" style="--d:1">واحتك الهادئة في <em>قلب القاهرة</em>.</h1>
+    <p class="hero-sub rv" style="--d:2">فيلا تاريخية مرممة بمسبح في الحديقة، عشر غرف خاصة لكل منها طابعها، عنابر بالسرير، إفطار يومي، ورحلات تنطلق من باب الفيلا.</p>
+    <!-- DEV: point action + param names at the existing booking handler -->
+    <form class="search rv" style="--d:3" action="/en/book" method="get" id="bookForm">
+      <div class="sf"><label for="arrive">تاريخ الوصول</label><input id="arrive" name="arrive" type="date" required></div>
+      <div class="sf"><label for="depart">تاريخ المغادرة</label><input id="depart" name="depart" type="date" required></div>
+      <div class="sf"><label for="guests">النزلاء</label>
+        <select id="guests" name="guests"><option value="1">ضيف واحد (1)</option><option value="2" selected>ضيفان (2)</option><option value="3">3 ضيوف</option><option value="4">4 ضيوف</option><option value="5">5+ ضيوف</option></select>
+      </div>
+      <button class="btn btn-gold" type="submit" id="bookBtn"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>تحقق من التوفر</button>
+    </form>
+    <div class="hero-foot rv" style="--d:4">
+      <div class="scores">
+        <span class="score"><b>9.9</b>Hostelworld</span>
+        <span class="score"><b>9.8</b>Booking.com</span>
+        <span class="score" style="padding-left:14px">أفضل سعر مضمون عند الحجز المباشر</span>
+      </div>
+      <div class="hero-ctrl">
+        <div class="slide-tabs" id="slideTabs" role="tablist" aria-label="Hero videos"></div>
+        <div class="hero-dots" id="heroDots" aria-hidden="true"></div>
+        <div style="display:flex;gap:8px">
+          <button class="hbtn" id="hPrev" aria-label="Previous video"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></button>
+          <button class="hbtn" id="hPause" aria-label="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+          <button class="hbtn" id="hNext" aria-label="Next video"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SERVICES ================= -->
+<section class="sec" aria-labelledby="svcH">
+  <div class="wrap">
+    <div class="sec-hd rv">
+      <div><span class="kicker">في فيلا ليلى</span><h2 id="svcH">ما الذي تخطط له في إقامتك؟</h2></div>
+    </div>
+    <div class="svc" id="svc"></div>
+  </div>
+</section>
+
+<!-- ================= ROOMS ================= -->
+<section class="sec band-white" id="stay" aria-labelledby="stayH">
+  <div class="wrap">
+    <div class="sec-hd rv">
+      <div>
+        <span class="kicker">الإقامة</span>
+        <h2 id="stayH">اختر غرفتك في الفيلا.</h2>
+        <p id="stayP">عشر غرف خاصة، لكل منها اسمها وطابعها الخاص وحمامها الداخلي، بالإضافة لعنابر نسائية، عنابر للرجال، وعنبر مختلط.</p>
+      </div>
+      <div class="tabs" id="roomTabs" role="group" aria-label="Filter rooms"></div>
+    </div>
+    <div class="cards" id="rooms"></div>
+  </div>
+</section>
+
+<!-- ================= TOURS ================= -->
+<section class="sec" id="tours" aria-labelledby="tourH">
+  <div class="wrap">
+    <div class="sec-hd rv">
+      <div>
+        <span class="kicker">الأكثر طلباً</span>
+        <h2 id="tourH">رحلات يومية تنطلق من باب الفيلا.</h2>
+        <p>مرشدون سياحيون معتمدون، سيارات حديثة مكيفة، وتأكيد فوري عبر واتساب.</p>
+      </div>
+      <div class="sc-nav">
+        <button aria-label="Previous tours" data-sc="-1"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></button>
+        <button aria-label="Next tours" data-sc="1"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>
+      </div>
+    </div>
+    <div class="scroller" id="tourList"></div>
+  </div>
+</section>
+
+<!-- ================= ABOUT ================= -->
+<section class="sec band-white" aria-labelledby="aboutH">
+  <div class="wrap about">
+    <div class="about-media rv">
+      <img src="https://villalayla.168.231.81.69.sslip.io/photos/gallery_and_hostel/f4.jpg" alt="The garden and pool at Villa Layla" loading="lazy">
+      <div class="float"><b>9.9</b><span>تقييم النزلاء<br>على هوستلوورلد</span></div>
+    </div>
+    <div>
+      <div class="rv"><span class="kicker">من نحن</span>
+        <h2 id="aboutH" style="font-size:clamp(32px,4.4vw,52px);margin-top:10px">في قلب المدينة، وأجواء هادئة واجتماعية متى أردت.</h2>
+        <p style="color:var(--color-text-secondary);margin-top:14px;max-width:52ch">فيلا تاريخية في وسط القاهرة بالقرب من النيل والمتحف المصري، بحديقة ومسبح هادئ لتعود إليهما بعد جولاتك في صخب المدينة.</p>
+      </div>
+      <div class="pts">
+        <div class="pt rv" style="--d:1"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><div><h3>موقع استراتيجي</h3><p>ميدان التحرير على بُعد 14 دقيقة مشياً؛ القاهرة الإسلامية وكورنيش النيل على بُعد خطوات.</p></div></div>
+        <div class="pt rv" style="--d:2"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg></span><div><h3>أجواء اجتماعية مميزة</h3><p>صالونات مشتركة، حديقة مشمسة ومسبح منعش، مع مساحات مخصصة للعمل عن بُعد.</p></div></div>
+        <div class="pt rv" style="--d:3"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6 9 17l-5-5"/></svg></span><div><h3>أسعار واضحة ومباشرة</h3><p>احجز مباشرة لتحصل على أفضل سعر مضمون بدون أي رسوم خفية مع تأكيد عبر واتساب.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MARQUEE ================= -->
+<section aria-label="Photos of the villa" class="band-white" style="padding-bottom:clamp(64px,8vw,104px)">
+  <div class="marq" id="marq"></div>
+</section>
+
+<!-- ================= FILMS 16:9 ================= -->
+<section class="sec films" id="films" aria-labelledby="filmH">
+  <div class="wrap">
+    <div class="sec-hd rv">
+      <div><span class="kicker">بعدسة ضيوفنا</span><h2 id="filmH">فيلا ليلى بكاميرات مسافرينا.</h2><p>مقاطع ريلز نشرها ضيوفنا على إنستغرام لتوثيق أوقاتهم في الفيلا.</p></div>
+    </div>
+    <div class="stage rv" style="--d:1">
+      <img id="stPoster" alt="">
+      <video id="stVideo" playsinline controls preload="none" hidden></video>
+      <button class="play" id="stPlay" aria-label="Play video"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+      <div class="cap"><b id="stTitle"></b><span id="stGuest"></span></div>
+    </div>
+    <div class="reel" id="reel" role="list"></div>
+    <div class="films-ft">
+      <span>Stayed with us? Tag <b style="color:#fff">@villalaylacairo</b> and your reel could be next.</span>
+      <a class="btn btn-outline-light" href="https://instagram.com/villalaylacairo" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>Follow on Instagram</a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= REVIEWS ================= -->
+<section class="sec" id="reviews" aria-labelledby="revH">
+  <div class="wrap">
+    <div class="sec-hd rv">
+      <div><span class="kicker">قصص وتجارب</span><h2 id="revH">What our guests say.</h2></div>
+      <div class="platforms">
+        <div class="plat"><b>9.9</b><span><strong>Hostelworld</strong>Guest rating</span></div>
+        <div class="plat"><b>9.8</b><span><strong>Booking.com</strong>Location score</span></div>
+      </div>
+    </div>
+    <div class="revs" id="revs"></div>
+  </div>
+</section>
+
+<!-- ================= CTA ================= -->
+<section aria-labelledby="ctaH" style="padding-bottom:clamp(64px,8vw,104px)">
+  <div class="wrap">
+    <div class="cta rv">
+      <img src="https://villalayla.168.231.81.69.sslip.io/photos/gallery_and_hostel/f3.jpg" alt="" loading="lazy">
+      <div>
+        <span class="kicker" style="color:var(--color-gold-light)">Book in a chat</span>
+        <h2 id="ctaH" style="margin-top:10px">Tell us your dates. We'll handle the rest.</h2>
+        <p>Room, airport pickup and tours in one conversation. Send a voice note to our assistant on Telegram, or message reception on WhatsApp any time.</p>
+        <div class="langs"><span>English</span><span>Español</span><span>Français</span><span>العربية</span></div>
+      </div>
+      <div class="cta-acts">
+        <a class="btn btn-wa" href="https://wa.me/201040551515">WhatsApp · +20 104 055 1515</a>
+        <a class="btn btn-light" href="https://t.me/villalayldbot">Chat with Layla on Telegram</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FIND + الأسئلة الشائعة ================= -->
+<section class="sec band-light" id="find" aria-labelledby="findH">
+  <div class="wrap">
+    <div class="sec-hd rv"><div><span class="kicker">موقعنا</span><h2 id="findH">Near the Nile and the Egyptian Museum.</h2></div></div>
+    <div class="find">
+      <div class="find-card rv">
+        <address>20 Safiya Zaghloul St, Al Inshaa Wa Al Munirah,<br>El Sayeda Zeinab, Cairo 4262101, Egypt</address>
+        <dl class="dist num">
+          <dt>ميدان التحرير</dt><dd>١٤ دقيقة مشياً</dd>
+          <dt>المتحف المصري بالتحرير</dt><dd>1.6 km</dd>
+          <dt>جامع أحمد بن طولون</dt><dd>1.9 km</dd>
+          <dt>مطار القاهرة الدولي</dt><dd>18 km</dd>
+          <dt>تسجيل الوصول / المغادرة</dt><dd>15:00 / 11:00</dd>
+        </dl>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:auto">
+          <a class="btn btn-blue" href="https://maps.app.goo.gl/H7YGjCVT7nshDExj9" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-8-8 18-2-8z"/></svg>الاتجاهات على الخريطة</a>
+          <a class="btn btn-wa" href="https://wa.me/201040551515?text=Airport%20pickup%20%E2%80%94%20Villa%20Layla">حجز توصيل من المطار</a>
+        </div>
+      </div>
+      <div class="map rv" style="--d:1">
+        <iframe title="Villa Layla on Google Maps" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2392.109411453033!2d31.234714300835588!3d30.035821551113976!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1458410066316bbd%3A0xed6927270f8c6574!2sHostel%20Layla!5e0!3m2!1sen!2sus!4v1758301801593!5m2!1sen!2sus"></iframe>
+      </div>
+    </div>
+
+    <div class="sec-hd rv" style="margin-top:clamp(56px,7vw,88px)"><div><span class="kicker">معلومات تهمك</span><h2>أسئلة شائعة قبل الحجز.</h2></div></div>
+    <div class="faq">
+      <details class="rv"><summary>What time is check-in and check-out?</summary><p>Check-in is من 15:00 and check-out is حتى 11:00. The front desk is open 08:00–22:00, and استقبال واتساب answers 24/7.</p></details>
+      <details class="rv"><summary>Is breakfast included?</summary><p>الإفطار الصباحي is served every morning from 8 to 11, with vegetarian, vegan and halal options.</p></details>
+      <details class="rv"><summary>Can you arrange airport pickup?</summary><p>Yes. Message reception on WhatsApp with your flight number and arrival time.</p></details>
+      <details class="rv"><summary>Are there women-only dorms?</summary><p>Yes, an 8-bed and a 6-bed women-only dorm, plus men-only dorms and one mixed dorm.</p></details>
+      <details class="rv"><summary>How do I book a tour?</summary><p>استفسر عبر واتساب. Tours run daily and reception confirms times and the price right away.</p></details>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot" aria-labelledby="footTitle">
+  <svg class="foot-arch" viewBox="0 0 1440 80" preserveAspectRatio="none" aria-hidden="true"><path d="M0 80V64C240 64 420 0 720 0s480 64 720 64v16z"/></svg>
+  <div class="foot-body">
+    <div class="wrap">
+      <a class="foot-logo" href="#top" aria-label="Villa Layla, back to top"><img src="/assets/logo-480.webp" alt="Villa Layla" width="240" height="252" loading="lazy"></a>
+      <div class="foot-intro">
+        <span class="foot-ar" lang="ar">فيلا ليلى</span>
+        <p id="footTitle">واحتك الهادئة في <span>قلب القاهرة</span>. نسعد باستضافتك دائماً.</p>
+        <div class="foot-rates"><span class="foot-rate"><b>9.9</b>Hostelworld</span><span class="foot-rate"><b>9.8</b>Booking.com</span></div>
+        <div class="foot-ctas">
+          <a class="btn btn-gold" href="#top" data-book>احجز مباشرة</a>
+          <a class="btn btn-wa" href="https://wa.me/201040551515"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20.5l1.6-5.2A8.5 8.5 0 1 1 21 11.5z"/></svg>استقبال واتساب</a>
+        </div>
+      </div>
+
+      <div class="foot-orn" aria-hidden="true"><img src="data:image/webp;base64,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" alt="" width="121" height="96"></div>
+
+      <div class="foot-g">
+        <div>
+          <h4>Stay</h4>
+          <ul><li><a href="#stay" data-go="private">Private rooms</a></li><li><a href="#stay" data-go="dorms">العنابر</a></li><li><a href="#stay" data-go="women">Women-only dorms</a></li><li><a href="/en/gallery">Photo gallery</a></li><li><a href="#films">ريلز ضيوفنا</a></li></ul>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <ul><li><a href="#tours">Day tours</a></li><li><a href="https://wa.me/201040551515?text=Airport%20pickup%20%E2%80%94%20Villa%20Layla">Airport pickup</a></li><li><a href="#reviews">Guest reviews</a></li><li><a href="#find">Getting here</a></li><li><a href="/en/faq">الأسئلة الشائعة</a></li></ul>
+        </div>
+        <div class="wide">
+          <h4>Contact</h4>
+          <ul>
+            <li class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20.5l1.6-5.2A8.5 8.5 0 1 1 21 11.5z"/></svg><a href="https://wa.me/201040551515">+20 104 055 1515</a></li>
+            <li class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><a href="mailto:hostel.layla@gmail.com">hostel.layla@gmail.com</a></li>
+            <li class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>٢٠ شارع صفية زغلول، السيدة زينب، القاهرة 4262101</span></li>
+            <li class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 11 18-8-8 18-2-8z"/></svg><a href="https://maps.app.goo.gl/H7YGjCVT7nshDExj9" target="_blank" rel="noopener">الاتجاهات على الخريطة</a></li>
+          </ul>
+        </div>
+        <div class="wide">
+          <h4>Hours</h4>
+          <dl class="hrs" style="margin:0">
+            <dt>مكتب الاستقبال</dt><dd>08:00–22:00</dd>
+            <dt>WhatsApp</dt><dd>24 / 7</dd>
+            <dt>الإفطار الصباحي</dt><dd>08:00–11:00</dd>
+            <dt>Check-in</dt><dd>من 15:00</dd>
+            <dt>Check-out</dt><dd>حتى 11:00</dd>
+          </dl>
+          <p class="foot-pay"><b>أفضل سعر مضمون</b> عند الحجز المباشر معنا.</p>
+        </div>
+      </div>
+
+      <div class="foot-b">
+        <span>© 2026 Villa Layla Hostel · Cairo, Egypt</span>
+        <nav aria-label="Legal"><a href="/en/policies">السياسات</a><a href="/en/policies#privacy">الخصوصية</a><a href="/en/faq">الأسئلة الشائعة</a></nav>
+        <div class="foot-langs" aria-label="Language"><a href="/en" aria-current="page">EN</a><a href="/ar">ع</a><a href="/fr">FR</a><a href="/es">ES</a></div>
+        <div class="foot-soc">
+          <a href="https://instagram.com/villalaylacairo" target="_blank" rel="noopener" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg></a>
+          <a href="https://t.me/villalayldbot" target="_blank" rel="noopener" aria-label="Telegram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 4 3 11l6 2 2 6 3-4 5 4z"/><path d="m9 13 8-6"/></svg></a>
+          <a href="https://wa.me/201040551515" aria-label="WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20.5l1.6-5.2A8.5 8.5 0 1 1 21 11.5z"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<div class="fabs">
+  <button class="fab ai" id="aiChatBtn" aria-label="Ask المساعد الفندقي الذكي لفيلا ليلى">
+    <span class="ic">
+      <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px">
+        <path d="M12 2L13.8 7.2L19 9L13.8 10.8L12 16L10.2 10.8L5 9L10.2 7.2L12 2Z"/>
+        <path d="M19 15L19.9 17.1L22 18L19.9 18.9L19 21L18.1 18.9L16 18L18.1 17.1L19 15Z" opacity="0.85"/>
+        <circle cx="6" cy="18" r="2.5" opacity="0.75"/>
+      </svg>
+    </span>
+    <span class="t">المساعد الذكي</span>
+  </button>
+  <a class="fab ai" href="https://t.me/villalayldbot" aria-label="Ask Layla, our AI assistant"><span class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8zM19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z"/></svg></span><span class="t">Ask Layla</span></a>
+  <a class="fab wa" href="https://wa.me/201040551515" aria-label="تحدث معنا عبر واتساب"><span class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm4.5 12.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2s.2-1.1.2-1.2-.2-.2-.5-.3z"/></svg></span><span class="t">Chat with us</span></a>
+</div>
+
+<nav class="bbar" aria-label="Quick">
+  <a href="#top" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11 12 4l9 7v9H5z"/></svg>Home</a>
+  <a href="#stay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="2"/></svg>الغرف</a>
+  <a href="#tours"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20h18L14 6l-4 7-2-3z"/></svg>الرحلات</a>
+  <a href="#films"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></svg>Films</a>
+  <a href="#top" class="bk" data-book><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Book</a>
+</nav>
+
+<dialog id="dlg" aria-labelledby="dTitle">
+  <button class="x" id="dX" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  <div class="dlg">
+    <div class="dlg-m"><img class="dlg-main" id="dMain" alt=""><div class="dlg-th" id="dTh"></div></div>
+    <div class="dlg-b">
+      <div><span class="kicker" id="dKick"></span><h3 id="dTitle" style="margin-top:8px"></h3><div class="ar" lang="ar" id="dAr" style="font-size:24px;color:var(--color-bronze)"></div></div>
+      <p id="dDesc" style="color:var(--color-text-secondary)"></p>
+      <ul class="amen" id="dAmen"></ul>
+      <div class="row" style="border-top-style:solid"><div class="price"><small>from</small><b id="dPrice"></b></div></div>
+      <a class="btn btn-gold" href="#top" data-book id="dBook">Check dates for this room</a>
+      <a class="btn btn-wa" id="dWa" href="#">استفسر عبر واتساب</a>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+document.documentElement.classList.add('js');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const IMGIX = 'https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/';
+const ph = (id, uuid, w = 900) => `${IMGIX}${id}/${id}/${uuid}?w=${w}&auto=format&fit=crop`;
+const P = s => s.split(' ').map(x => { const [id, u] = x.split(':'); return { id, u }; });
+
+const PRIVATE = [
+  { slug:'sheherazade', name:'Sheherazade', ar:'شهرزاد', bed:'King bed', bedKey:'king', sleeps:2, price:75,
+    photos:P('2126388:033788c5-e7f0-4daa-a8ee-f8e512c018a7 2126389:cd2761af-6f0f-452f-8597-b56375dc606f 2126384:5ea3824f-b382-47ee-9ade-9a05c63903c5 2126387:5bd4e55b-199e-4fb7-b762-616a54abad7b 2126386:8019f313-63c3-47a1-af44-c47dfdb052fc') },
+  { slug:'ibn-battuta', name:'Ibn Battuta', ar:'ابن بطوطة', bed:'Queen bed', bedKey:'queen', sleeps:2, price:65,
+    photos:P('2126498:0c6cbf2c-27cf-4210-a2e8-72f5ee1c2d55 2126499:cfd5dea1-de6e-4a3b-89ac-1cb46db34241 2126497:9b03da7e-8b7b-4a48-8054-5568dba23e5d 2126503:2b695ae3-ff55-49e0-ad83-9eacd4dd4609 2126504:1c1d6f18-58ca-4ca6-8b64-119ef170920b 2126514:0a870d3a-09b9-45b1-8368-0db9065fd992') },
+  { slug:'mamluk', name:'Mamluk', ar:'مملوك', bed:'King bed', bedKey:'king', sleeps:2, price:64,
+    photos:P('2126560:b3184152-d9ea-49cf-a782-2dfc3840d3ec 2126561:a1557524-f880-475b-a59f-53821dbbe07d 2126555:966b6017-d78b-4703-9b05-4d5c2ba396d7 2126559:ffd2d8eb-535f-48b8-ad56-2eda6fed6d2c 2126554:cc348b83-61e0-4dd1-af30-55458faa5e6d 2126570:473d384f-2b0d-4300-9060-1da65c91651b') },
+  { slug:'golden-room', name:'Golden Room', ar:'الغرفة الذهبية', bed:'King bed', bedKey:'king', sleeps:2, price:49,
+    photos:P('2126577:ff7371b5-b974-4a50-95a7-b23139fbff50 2126574:c08bdf33-1265-435a-b02a-4f5a9a8b7ebd 2126575:99517e7a-98ac-4b52-9b67-09b9ed651988 2126573:9f9dc2ed-d627-4756-a06a-03e8fe2a46a0') },
+  { slug:'french-lady', name:'French Lady', ar:'السيدة الفرنسية', bed:'King or twin beds', bedKey:'twin king', sleeps:2, price:75,
+    photos:P('2126531:f1aadc8d-2354-4e68-bb15-f3fc8c566dc8 2126529:3b8f9332-e829-4ef8-b1f3-c2fe12f194d3 2126527:e43faeef-788b-4794-b504-aaeb5e8019cd 2126526:033f90b3-286d-47b1-a363-db48d5415c5d 2126528:6fe6fee8-16e0-4613-9c9c-32229838a6b6') },
+  { slug:'folklore', name:'Folklore', ar:'فولكلور', bed:'Two single beds', bedKey:'twin', sleeps:2, price:65,
+    photos:P('2126543:50880502-92de-4f4d-8797-de4bc1254253 2126537:ad1e2b9f-63e8-4508-84ad-2eb85c3f0474 2126542:58273dd4-2b0a-48a4-9923-bd941c5a9b41 2126538:23d90115-d01d-433d-b281-80548cfc7530 2126536:4f8be223-26d8-4897-86a0-d7e1ae2d2d4f 2126547:633b6f62-a72f-45c6-870d-b57c1f692e3b') },
+  { slug:'violet', name:'Violet', ar:'فيوليت', bed:'King bed', bedKey:'king', sleeps:2, price:59,
+    photos:P('2126429:0e8e55a5-5212-46e4-94fc-8447ab1fe9db 2126432:6e7b5576-2493-47d3-a664-63730d9563a7 2126428:52542935-ce5a-40fe-974a-357f6443fd4e 2126426:51c23851-66c5-409f-a81f-1eced8ed2db8 2126430:1bf7b970-a254-48cd-837c-9eda030791a4 2126438:0d92cfc5-50bc-4584-87fe-9c2f35929506') },
+  { slug:'islamic', name:'Islamic', ar:'الإسلامية', bed:'King bed', bedKey:'king', sleeps:2, price:49,
+    photos:P('2126477:3adf9b35-2584-42aa-a946-339c729fc5d7 2126478:68d5987f-db69-452d-bc4a-0cd9708930ec 2126474:81fb2a67-dee5-486d-8c59-22a44862f226 2126471:ca231fe9-a77a-4653-a1f8-5e049ddb87ca 2126472:71d0a301-bf69-4621-b273-a13f31b20ea3') },
+  { slug:'amira', name:'Amira', ar:'أميرة', bed:'King bed', bedKey:'king', sleeps:2, price:59,
+    photos:P('2126484:4a450c72-1ca8-4349-9f50-1548977aa6c2 2126485:a92c034e-f318-401c-a2df-0fef47ada104 2126483:346ae365-b6c0-4f21-8b96-38ee7e314609 2126487:c97a2eb0-d87b-4123-b549-52bec727a503 2126481:d9f4c3ca-229a-4653-a20e-219412311e5d 2126492:f4fd5c6b-53ea-4967-8854-3ed1979b8cc9') },
+  { slug:'triple', name:'Triple', ar:'الثلاثية', bed:'King + single bed', bedKey:'king three', sleeps:3, price:59,
+    photos:P('2126401:2aaf0de2-7edc-4fb2-bf3f-20dd51c48fa3 2126403:7d0731f3-ad47-4b42-b243-2b53a1d9a243 2126402:9fb8950e-f9b0-4e82-8624-162999b628b6 2126396:966b9193-c498-4ded-bf63-e46f520870c7 2126400:f1814d61-b50b-4817-b94f-ab7cafa7d866 2126407:ff213972-0393-4718-98e7-4b0691ec1b17 2126408:e06c65f8-9690-4439-a5be-22d6bca4a269') },
+];
+
+const DORMS = [
+  { slug:'female-dorm-8', name:'Spacious 8-bed dorm', ar:'عنبر نسائي ٨ أسرّة', tag:'Women only', bed:'8 bunk beds', sleeps:8, price:18, perBed:true, who:'women',
+    photos:P('2126368:d413d906-7c4c-4b57-a9e1-454880f83e0b 2126362:3d7dc9be-0a9d-4a4e-9591-58ed1d25eb87 2126370:eaf955ec-f101-46d8-b626-161e44dba1e8') },
+  { slug:'female-dorm-6', name:'6-bed dorm', ar:'عنبر نسائي ٦ أسرّة', tag:'Women only', bed:'6 beds', sleeps:6, price:18, perBed:true, who:'women',
+    photos:P('2126454:ce2a6a57-368b-4cd8-ba54-af7f028ce926 2126457:e529f8e4-4aff-4872-9503-1d928e0970ea 2126455:09eab609-4348-41f0-b6ba-f5c4d6333e88 2126458:d8e1a98d-f749-4968-a27b-5d80cf8e1910') },
+  { slug:'male-dorm-8-pool', name:'Spacious 8-bed dorm', ar:'عنبر رجالي ٨ أسرّة', tag:'Men only', bed:'8 bunk beds', sleeps:8, price:18, perBed:true, who:'men',
+    photos:P('2126469:d37d593d-9707-4354-896a-6f88d004d2e4 2126468:11b4406c-3bbe-41e9-a6c2-e42557861c4d 2126467:06a90edb-9439-4cbf-a6b2-8fe574d60ad7 2126466:cbb58fce-fc9f-4db1-8f6f-20ebd7938a2c 2126461:2d03ea66-34a8-4cef-879e-01400c290b45') },
+  { slug:'male-dorm-8', name:'8-bed dorm', ar:'عنبر رجالي ٨ أسرّة', tag:'Men only', bed:'8 single beds', sleeps:8, price:17, perBed:true, who:'men',
+    photos:P('2126418:b8ea57d8-fae1-4736-b637-68bf2e4c736f 2126417:3b08dd5b-22ca-416e-8fe0-f7a831491435 2126419:abb7f801-0bbc-434c-94f5-4e493abb91be 2126414:f4e65c84-cdc0-4820-a2e6-7c9f628587e2') },
+  { slug:'mixed-dorm-10', name:'10-bed mixed dorm', ar:'عنبر مختلط ١٠ أسرّة', tag:'Everyone', bed:'10 bunk beds', sleeps:10, price:17, perBed:true, who:'mixed',
+    photos:P('2126446:2ab3201c-0e40-4d1a-944f-328648dc6bda 2126451:1cfd97d9-2783-4738-9b77-0756b334c556 2126450:6f9e02bb-9a87-42d9-81fb-bbea580e13c7 2126447:a2f70c07-10ae-4bf3-8673-e1e20d6a29bd') },
+];
+
+
+
+const GH = 'https://villalayla.168.231.81.69.sslip.io/photos/gallery_and_hostel/';
+const CF = 'https://images.ctfassets.net/s5z2pi209yg7/';
+
+/* ---------- HERO SLIDER (Bali Trips style)
+   Upload the videos and set `video`. Each slide shows `poster` until its video loads,
+   and keeps the poster if the file is missing. Best: 1920x1080 MP4 (H.264), 8–15 s, muted, < 6 MB.
+   Also export a 720p version for phones and set `videoMobile`. ---------- */
+const SLIDES = [
+  { video:'/videos/hero-01.mp4', videoMobile:'/videos/hero-01.mp4', poster:GH+'jtfzrhhp3g0fj6vdnxjq.jpeg', label:'مسبح وحديقة الفيلا', sub:'واحة في السيدة زينب', crumb:'السيدة زينب · مسبح وحديقة هادئة' },
+  { video:'/videos/hero-02.mp4', videoMobile:'/videos/hero-02.mp4', poster:GH+'f2.jpg', label:'أجواء فيلا ليلى', sub:'أركان استرخاء وتراس ساحر', crumb:'فيلا قاهرية تاريخية مرممة' },
+  { video:'/videos/hero-03.mp4', videoMobile:'/videos/hero-03.mp4', poster:ph('2126388','033788c5-e7f0-4daa-a8ee-f8e512c018a7',1800), label:'غرف وأجنحة ملكية', sub:'عشر غرف خاصة مميزة', crumb:'شهرزاد · جناح كينج ملكي' },
+];
+
+/* ---------- tours (from villalaylahostel.com) ---------- */
+const TOURS = [
+  { name:'Giza Pyramids + Grand Egyptian Museum', dur:'6–8 hrs', tag:'Most booked', img:CF+'3DJebg55cnIsigGN5SSqoj/fe6dadcbfe7c008dd8b9c863c3b460a4/grand.avif?fm=webp&q=75&w=800', incl:['Egyptologist guide','A/C transport','Sphinx'] },
+  { name:'Black & White Desert Safari', dur:'2 days / 1 night', tag:'Adventure', img:CF+'4sfRmDam2dqub2kjTdlsb9/a471d01ec6a5808247c8982cf8c400b4/white-dessert-egypt.png?fm=webp&q=75&w=800', incl:['4WD','Camping & meals','Stargazing'] },
+  { name:'Fayoum Oasis Adventure', dur:'10 hrs', tag:'Nature', img:'', incl:['Wadi El Rayan','Magic Lake','Valley of Whales'] },
+  { name:'Saqqara & Memphis', dur:'6–8 hrs', tag:'History', img:CF+'22GeA20Xa0ydCOQI1VsEds/2d42dda3296f18514ce6f4b22fef1673/Sakkara_Image-by-DEZALB-from-Pixabay.jpg?fm=webp&q=75&w=800', incl:['Licensed guide','Private A/C car'] },
+  { name:'Islamic & Coptic Cairo', dur:'6–7 hrs', tag:'Culture', img:CF+'7HEsQCvA8hSRpkwbGIoiBj/8116a044f46916626382d038514cd587/Sultan_Hassan_Mosque___Madrasa.jpg?fm=webp&q=75&w=800', incl:['Licensed guide','Starts 9:00'] },
+  { name:'Alexandria from Cairo', dur:'Full day', tag:'Day trip', img:CF+'3G72STgPqbKRbTk1rkdHii/2c2d6452af53fe1748fec19a5d62e671/Qaitbay_Citadel.jpg?fm=webp&q=75&w=800', incl:['Egyptologist','Private A/C car'] },
+  { name:'Evening Nile Dinner Cruise', dur:'3–4 hrs', tag:'Evening', img:'', incl:['Dinner buffet','Show','Transfers'] },
+];
+
+/* ---------- reviews  DEV: paste the exact review text from villalaylahostel.com ---------- */
+const REVIEWS = [
+  { n:'Ahmed Hassan', t:'Warm hospitality, a great pool and clean rooms. Perfect base for Islamic Cairo, and the White Desert tour was the highlight.', trip:'Black & White Desert' },
+  { n:'Tom Wilson', t:'A hidden gem. The staff know Cairo inside out and set up a brilliant day trip to Alexandria.', trip:'Alexandria day trip' },
+  { n:'Emma Thompson', t:'Great value, a lovely garden and Wi-Fi fast enough to work. The female dorm felt safe and comfortable.', trip:'Female dorm' },
+  { n:'Sarah Johnson', t:'The pool, the breakfast and the tours the staff arranged made it easy as a solo traveller.', trip:'Solo stay' },
+  { n:'Marco Rodriguez', t:'Loved the Ibn Battuta room. Airport pickup and the pyramids tour were all handled by the team.', trip:'Ibn Battuta room' },
+];
+
+/* ---------- guest films, 16:9. Upload mp4s and set `src` ---------- */
+const FILMS = [
+  { src:'/videos/guest-01.mp4', poster:GH+'qsvj2eqgcmaurlydc1v4.jpg', title:'Morning by the pool', guest:'@guest_handle', len:'0:32', reel:'https://instagram.com/villalaylacairo' },
+  { src:'/videos/guest-02.mp4', poster:GH+'yebqgf86gomv8a8uwdmh.jpg', title:'A tour of the villa', guest:'@guest_handle', len:'0:48', reel:'https://instagram.com/villalaylacairo' },
+  { src:'/videos/guest-03.mp4', poster:GH+'uylahffomrk009eqcdo8.jpeg', title:'الإفطار الصباحي in the garden', guest:'@guest_handle', len:'0:21', reel:'https://instagram.com/villalaylacairo' },
+  { src:'/videos/guest-04.mp4', poster:GH+'vgl0mf1ggg1jafpj0wit.jpg', title:'Our room, Sheherazade', guest:'@guest_handle', len:'0:40', reel:'https://instagram.com/villalaylacairo' },
+  { src:'/videos/guest-05.mp4', poster:GH+'hsxz6so7xjzignn77oph.jpg', title:'Evenings on the terrace', guest:'@guest_handle', len:'0:27', reel:'https://instagram.com/villalaylacairo' },
+  { src:'/videos/guest-06.mp4', poster:GH+'kiovp5fgbbt2luk4wopj.jpg', title:'Cairo from the gate', guest:'@guest_handle', len:'0:55', reel:'https://instagram.com/villalaylacairo' },
+];
+
+const SVC = [
+  { t:'Private room', d:'10 named rooms', go:'#stay', f:'private', img:ph('2126498','0c6cbf2c-27cf-4210-a2e8-72f5ee1c2d55',700) },
+  { t:'Dorm bed', d:'From $17 a night', go:'#stay', f:'dorms', img:ph('2126446','2ab3201c-0e40-4d1a-944f-328648dc6bda',700) },
+  { t:'Day tours', d:'7 trips, daily', go:'#tours', img:CF+'7HEsQCvA8hSRpkwbGIoiBj/8116a044f46916626382d038514cd587/Sultan_Hassan_Mosque___Madrasa.jpg?fm=webp&q=75&w=700' },
+  { t:'Airport pickup', d:'Arranged on WhatsApp', go:'https://wa.me/201040551515?text=Airport%20pickup%20%E2%80%94%20Villa%20Layla', img:GH+'f3.jpg' },
+  { t:'Work & stay', d:'Fast Wi-Fi, quiet desks', go:'#stay', img:GH+'joxg0ghsuozk2omoecp6.jpg' },
+];
+
+const AMEN = ['Private bathroom','Air conditioning','Hairdryer','Linen & towels','Fast Wi-Fi','Pool access','الإفطار الصباحي 8–11'];
+const DAMEN = ['Shared bathrooms','Air conditioning','Linen provided','Fast Wi-Fi','Pool access','الإفطار الصباحي 8–11'];
+
+/* ---------- icons ---------- */
+const ic = {
+  bed:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="2"/></svg>',
+  ppl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  l:'<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg>',
+  r:'<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg>',
+  arrow:'<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  heart:'<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>',
+  ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5 9-10"/></svg>',
+  star:'<svg viewBox="0 0 24 24"><path d="m12 2 3 6.6 7.2.8-5.4 4.9 1.5 7.1L12 17.8 5.7 21.4l1.5-7.1L1.8 9.4 9 8.6z"/></svg>',
+};
+const wa = t => 'https://wa.me/201040551515?text=' + encodeURIComponent(t + ' — Villa Layla');
+
+/* ================= SMOOTH SCROLL ================= */
+let lenis = null;
+if (!reduce && window.Lenis){
+  lenis = new Lenis({ duration:1.15, easing:t => 1 - Math.pow(1 - t, 4), smoothWheel:true, touchMultiplier:1.4 });
+  const raf = t => { lenis.raf(t); requestAnimationFrame(raf); };
+  requestAnimationFrame(raf);
+}
+function goTo(sel){
+  const el = typeof sel === 'string' ? document.querySelector(sel) : sel;
+  if (!el) return;
+  if (lenis) lenis.scrollTo(el, { offset:-84 });
+  else el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' });
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  const h = a.getAttribute('href'); if (h.length < 2) return;
+  e.preventDefault();
+  if (a.dataset.go){ setFilter(a.dataset.go); }
+  if (a.hasAttribute('data-book')){ dlg.open && dlg.close(); goTo('#top'); setTimeout(()=>document.getElementById('arrive').focus({preventScroll:true}), 900); return; }
+  goTo(h);
+});
+
+/* ================= HEADER ================= */
+const hdr = document.getElementById('hdr'); let lastY = 0;
+function onScroll(y){
+  hdr.classList.toggle('solid', y > 8);
+  hdr.classList.toggle('hide', y > 400 && y > lastY + 4);
+  if (y < lastY - 4) hdr.classList.remove('hide');
+  lastY = y;
+}
+if (lenis) lenis.on('scroll', ({scroll}) => onScroll(scroll));
+else addEventListener('scroll', () => onScroll(scrollY), {passive:true});
+
+const langBtn = document.getElementById('langBtn'), langMenu = document.getElementById('langMenu');
+langBtn.addEventListener('click', e => { if (e.target.closest('a')) return; const o = langMenu.hidden; langMenu.hidden = !o; langBtn.setAttribute('aria-expanded', o); });
+document.addEventListener('click', e => { if (!langBtn.contains(e.target)){ langMenu.hidden = true; langBtn.setAttribute('aria-expanded','false'); } });
+
+/* ================= HERO SLIDER ================= */
+const hero = document.querySelector('.hero');
+const slidesEl = document.getElementById('slides'), tabsEl = document.getElementById('slideTabs'), dotsEl = document.getElementById('heroDots'), crumb = document.getElementById('crumb');
+const small = matchMedia('(max-width: 760px)').matches;
+slidesEl.innerHTML = SLIDES.map((s,i) => `<div class="slide${i?'':' on'}" data-i="${i}">
+  <img src="${s.poster}" alt="" ${i?'loading="lazy"':'fetchpriority="high"'}>
+  ${s.video ? `<video muted playsinline loop preload="${i?'none':'auto'}" data-src="${(small && s.videoMobile) || s.video}" data-alt="${s.video}"></video>` : ''}
+</div>`).join('');
+tabsEl.innerHTML = SLIDES.map((s,i)=>`<button role="tab" data-s="${i}" aria-selected="${!i}"><b>${s.label}</b><small>${s.sub}</small></button>`).join('');
+dotsEl.innerHTML = SLIDES.map(()=>'<i></i>').join('');
+const slideEls = [...slidesEl.children];
+const DEFAULT_MS = 7000;
+let si = 0, timer = null, paused = reduce, visible = true;
+
+function vid(i){ return slideEls[i].querySelector('video'); }
+function load(i){
+  const v = vid(i); if (!v || v.dataset.loaded) return;
+  v.dataset.loaded = 1;
+  v.addEventListener('loadeddata', () => { v.classList.add('ready'); if (vid(si) === v) schedule(); }, { once:true });
+  v.addEventListener('error', () => {           // mobile file missing → try the full one, then give up (poster stays)
+    if (v.dataset.alt && v.src.indexOf(v.dataset.alt) === -1){ v.src = v.dataset.alt; v.load(); }
+    else v.remove();
+  });
+  v.src = v.dataset.src; v.load();
+}
+function slideMs(i){
+  const v = vid(i);
+  if (v && v.classList.contains('ready') && isFinite(v.duration) && v.duration > 0) return Math.min(Math.max(v.duration * 1000, 6000), 15000);
+  return DEFAULT_MS;
+}
+function schedule(){
+  clearTimeout(timer);
+  const ms = slideMs(si);
+  hero.style.setProperty('--dur', ms + 'ms');
+  if (!paused && visible) timer = setTimeout(() => show(si + 1), ms);
+}
+function show(i){
+  i = (i + SLIDES.length) % SLIDES.length; const prev = si; si = i;
+  slideEls.forEach((el,k) => el.classList.toggle('on', k === i));
+  [...tabsEl.children].forEach((b,k) => { b.classList.remove('on'); b.setAttribute('aria-selected', k===i); if (k===i){ void b.offsetWidth; b.classList.add('on'); } });
+  [...dotsEl.children].forEach((d,k) => d.classList.toggle('on', k===i));
+  crumb.textContent = SLIDES[i].crumb;
+  load(i); load((i + 1) % SLIDES.length);       // preload the next one
+  const v = vid(i);
+  if (v){ try{ v.currentTime = 0; }catch(e){} if (!paused) v.play().catch(()=>{}); }
+  const pv = vid(prev); if (pv && prev !== i) setTimeout(() => pv.pause(), 1400);
+  schedule();
+}
+function setPaused(p){
+  paused = p; hero.classList.toggle('paused', p);
+  const b = document.getElementById('hPause');
+  b.setAttribute('aria-label', p ? 'Play' : 'Pause');
+  b.innerHTML = p ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>'
+                  : '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+  const v = vid(si); if (v) p ? v.pause() : v.play().catch(()=>{});
+  schedule();
+}
+tabsEl.addEventListener('click', e => { const b = e.target.closest('[data-s]'); if (b) show(+b.dataset.s); });
+document.getElementById('hPrev').onclick = () => show(si - 1);
+document.getElementById('hNext').onclick = () => show(si + 1);
+document.getElementById('hPause').onclick = () => setPaused(!paused);
+/* swipe on touch */
+(function(){
+  let x0 = null, y0 = 0;
+  slidesEl.parentElement.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive:true });
+  slidesEl.parentElement.addEventListener('touchend', e => {
+    if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+    if (e.target.closest('form,button,a,input,select')) return;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) show(si + (dx < 0 ? 1 : -1) * (document.dir === 'rtl' ? -1 : 1));
+  }, { passive:true });
+})();
+/* pause when the hero is off screen or the tab is hidden (saves battery & data) */
+if ('IntersectionObserver' in window){
+  new IntersectionObserver(([e]) => { visible = e.isIntersecting; const v = vid(si);
+    if (v) (visible && !paused) ? v.play().catch(()=>{}) : v.pause(); schedule(); }, { threshold:.15 }).observe(hero);
+}
+document.addEventListener('visibilitychange', () => { visible = !document.hidden; const v = vid(si); if (v) (visible && !paused) ? v.play().catch(()=>{}) : v.pause(); schedule(); });
+setPaused(reduce);
+show(0);
+
+/* ================= SERVICES ================= */
+document.getElementById('svc').innerHTML = SVC.map((s,i)=>`
+  <a class="rv" style="--d:${i}" href="${s.go}" ${s.f?`data-go="${s.f}"`:''} ${s.go.startsWith('http')?'target="_blank" rel="noopener"':''}>
+    <img src="${s.img}" alt="" loading="lazy"><span class="go">${ic.arrow}</span><h3>${s.t}</h3><p>${s.d}</p></a>`).join('');
+
+/* ================= ROOMS ================= */
+const FILTERS = [['all','All',PRIVATE.length+DORMS.length],['private','Private',PRIVATE.length],['king','King bed'],['twin','Twin beds'],['dorms','Dorms',DORMS.length],['women','Women only']];
+const tabsR = document.getElementById('roomTabs'), roomsEl = document.getElementById('rooms');
+let filt = 'all';
+const favs = new Set(JSON.parse((()=>{try{return localStorage.getItem('vl-favs')}catch(e){return null}})() || '[]'));
+function saveFavs(){ try{ localStorage.setItem('vl-favs', JSON.stringify([...favs])); }catch(e){} }
+function roomCard(r, i){
+  const dorm = !!r.perBed;
+  const el = document.createElement('article'); el.className = 'card rv'; el.style.setProperty('--d', i % 3);
+  el.innerHTML = `
+    <div class="media">
+      ${r.tag ? `<span class="badge">${r.tag}</span>` : (r.price>=75 ? '<span class="badge gold">Signature room</span>' : '')}
+      <button class="fav" aria-label="Save ${r.name}" aria-pressed="${favs.has(r.slug)}">${ic.heart}</button>
+      <div class="strip">${r.photos.map((p,k)=>`<img src="${ph(p.id,p.u,800)}" alt="${r.name}, photo ${k+1}" loading="lazy" data-k="${k}">`).join('')}</div>
+      <button class="arr p" aria-label="Previous photo">${ic.l}</button><button class="arr n" aria-label="Next photo">${ic.r}</button>
+      <div class="dots">${r.photos.map((_,k)=>`<i class="${k?'':'on'}"></i>`).join('')}</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span>${ic.bed}${r.bed}</span><span>${ic.ppl}${dorm ? r.sleeps+' beds' : 'Sleeps '+r.sleeps}</span></div>
+      <div class="ttl"><h3>${r.name}</h3><span class="ar" lang="ar">${r.ar}</span></div>
+      <p class="desc">${dorm ? `${r.tag}. Priced per bed, with the pool and breakfast area included.` : `${r.bed} with a private bathroom and air conditioning.`}</p>
+      <div class="row">
+        <div class="price"><small>From</small><b class="num">$${r.price}<span> / ${dorm?'bed':'night'}</span></b></div>
+        <div class="acts"><button class="btn btn-line" data-open>Details</button><a class="btn btn-primary" href="#top" data-book>Book</a></div>
+      </div>
+    </div>`;
+  const strip = el.querySelector('.strip'), dots = el.querySelectorAll('.dots i');
+  const step = d => strip.scrollBy({ left: d * strip.clientWidth * (document.dir==='rtl'?-1:1), behavior:'smooth' });
+  el.querySelector('.p').onclick = () => step(-1); el.querySelector('.n').onclick = () => step(1);
+  strip.addEventListener('scroll', () => { const k = Math.round(Math.abs(strip.scrollLeft)/strip.clientWidth); dots.forEach((d,j)=>d.classList.toggle('on',j===k)); }, {passive:true});
+  strip.addEventListener('click', e => { const im = e.target.closest('img'); if (im) openRoom(r, +im.dataset.k); });
+  el.querySelector('[data-open]').onclick = () => openRoom(r, 0);
+  el.querySelector('.fav').onclick = e => { const b = e.currentTarget; favs.has(r.slug) ? favs.delete(r.slug) : favs.add(r.slug); b.setAttribute('aria-pressed', favs.has(r.slug)); saveFavs(); };
+  return el;
+}
+function setFilter(f){
+  filt = f;
+  tabsR.innerHTML = FILTERS.map(([k,l,n])=>`<button class="tab" aria-pressed="${k===filt}" data-f="${k}">${l}${n?` <span class="n">${n}</span>`:''}</button>`).join('');
+  const all = [...PRIVATE, ...DORMS];
+  const list = all.filter(r => f==='all' || (f==='private' && !r.perBed) || (f==='dorms' && r.perBed) || (f==='women' && r.who==='women') || (!r.perBed && r.bedKey && r.bedKey.includes(f)));
+  roomsEl.style.opacity = 0;
+  setTimeout(() => {
+    roomsEl.replaceChildren(...list.map(roomCard));
+    roomsEl.style.opacity = 1;
+    observe(roomsEl.querySelectorAll('.rv'));
+    if (lenis) lenis.resize();
+  }, 180);
+}
+roomsEl.style.transition = 'opacity .25s';
+tabsR.addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (b) setFilter(b.dataset.f); });
+
+/* ================= ROOM DIALOG ================= */
+const dlg = document.getElementById('dlg');
+function openRoom(r, k){
+  const main = document.getElementById('dMain'), th = document.getElementById('dTh');
+  const set = i => { main.style.opacity = .3; const src = ph(r.photos[i].id, r.photos[i].u, 1400); const im = new Image(); im.onload = im.onerror = () => { main.src = src; main.style.opacity = 1; }; im.src = src; main.alt = `${r.name}, photo ${i+1}`; th.querySelectorAll('button').forEach((b,j)=>b.setAttribute('aria-current', j===i)); };
+  th.innerHTML = r.photos.map((p,i)=>`<button aria-label="Photo ${i+1}"><img src="${ph(p.id,p.u,200)}" alt=""></button>`).join('');
+  th.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>set(i));
+  document.getElementById('dKick').textContent = r.perBed ? r.tag : 'Private room';
+  document.getElementById('dTitle').textContent = r.name;
+  document.getElementById('dAr').textContent = r.ar;
+  document.getElementById('dDesc').textContent = r.perBed ? `${r.bed}, priced per bed. Shared bathrooms on the floor.` : `${r.bed}, sleeps ${r.sleeps}. A private room with its own bathroom inside the villa.`;
+  document.getElementById('dAmen').innerHTML = (r.perBed?DAMEN:AMEN).map(a=>`<li>${ic.ok}${a}</li>`).join('');
+  document.getElementById('dPrice').innerHTML = `$${r.price}<span> / ${r.perBed?'bed':'night'}</span>`;
+  document.getElementById('dWa').href = wa(`Is ${r.name} free for my dates?`);
+  main.src = ph(r.photos[k].id, r.photos[k].u, 1400); set(k);
+  dlg.showModal(); if (lenis) lenis.stop();
+}
+dlg.addEventListener('close', () => lenis && lenis.start());
+document.getElementById('dX').onclick = () => dlg.close();
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+
+/* ================= TOURS ================= */
+const tourList = document.getElementById('tourList');
+tourList.innerHTML = TOURS.map((t,i)=>`
+  <article class="card rv" style="--d:${i%4}">
+    <div class="media${t.img?'':' blank'}">
+      <span class="badge${i===0?' gold':''}">${t.tag}</span>
+      ${t.img?`<img src="${t.img}" alt="${t.name}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`:`<span>${t.name}</span>`}
+    </div>
+    <div class="body">
+      <div class="meta"><span>${ic.clock}${t.dur}</span><span>${ic.pin}تنطلق من الفيلا</span></div>
+      <h3 style="font-size:19px">${t.name}</h3>
+      <ul class="incl">${t.incl.map(x=>`<li>${x}</li>`).join('')}</ul>
+      <div class="row"><span style="font-size:13px;font-weight:600;color:var(--color-text-secondary)">السعر عند الطلب</span>
+        <a class="btn btn-wa btn-sm" href="${wa(t.name)}">استفسر عبر واتساب</a></div>
+    </div>
+  </article>`).join('');
+document.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => tourList.scrollBy({ left: +b.dataset.sc * tourList.clientWidth * .8, behavior:'smooth' }));
+
+/* ================= MARQUEE ================= */
+(function(){
+  const a = ['jtfzrhhp3g0fj6vdnxjq.jpeg','f4.jpg','f3.jpg','f2.jpg','qsvj2eqgcmaurlydc1v4.jpg','yebqgf86gomv8a8uwdmh.jpg','uylahffomrk009eqcdo8.jpeg','vgl0mf1ggg1jafpj0wit.jpg','hsxz6so7xjzignn77oph.jpg','kiovp5fgbbt2luk4wopj.jpg','joxg0ghsuozk2omoecp6.jpg'].map(f=>GH+f);
+  const b = PRIVATE.map(r => ph(r.photos[1].id, r.photos[1].u, 520));
+  const row = (arr, rev) => `<div class="mq${rev?' rev':''}">${[...arr,...arr].map(s=>`<img src="${s}" alt="" loading="lazy">`).join('')}</div>`;
+  document.getElementById('marq').innerHTML = row(a) + row(b, true);
+})();
+
+/* ================= FILMS ================= */
+const st = { p:document.getElementById('stPoster'), v:document.getElementById('stVideo'), b:document.getElementById('stPlay'), t:document.getElementById('stTitle'), g:document.getElementById('stGuest') };
+const reel = document.getElementById('reel'); let fi = 0;
+reel.innerHTML = FILMS.map((f,i)=>`<button role="listitem" data-i="${i}" aria-label="Play: ${f.title}"><img src="${f.poster}" alt="" loading="lazy"><span class="len">${f.len}</span></button>`).join('');
+function cue(i, auto){
+  fi = i; const f = FILMS[i];
+  st.v.pause(); st.v.hidden = true; st.p.hidden = false; st.b.hidden = false;
+  st.p.src = f.poster; st.p.alt = f.title; st.t.textContent = f.title; st.g.textContent = 'Filmed by ' + f.guest;
+  reel.querySelectorAll('button').forEach((b,k)=>b.setAttribute('aria-current', k===i));
+  if (auto) playFilm();
+}
+function playFilm(){
+  const f = FILMS[fi];
+  if (!f.src){ window.open(f.reel, '_blank', 'noopener'); return; }
+  st.v.src = f.src; st.v.poster = f.poster; st.v.hidden = false; st.p.hidden = true; st.b.hidden = true;
+  st.v.play().catch(()=>{});
+}
+st.v.addEventListener('error', () => { st.v.hidden = true; st.p.hidden = false; st.b.hidden = false; });
+st.v.addEventListener('ended', () => cue((fi+1) % FILMS.length, true));
+st.b.onclick = playFilm;
+reel.addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) cue(+b.dataset.i, true); });
+cue(0);
+
+/* ================= REVIEWS ================= */
+document.getElementById('revs').innerHTML = REVIEWS.map((r,i)=>`
+  <article class="rev rv" style="--d:${i%3}">
+    <div class="stars" aria-label="5 out of 5">${ic.star.repeat(5)}</div>
+    <p>${r.t}</p>
+    <div class="who"><span class="av">${r.n[0]}</span><div><b>${r.n}</b><small>${r.trip}</small></div></div>
+  </article>`).join('');
+
+/* ================= DATES ================= */
+(function(){
+  const a = document.getElementById('arrive'), d = document.getElementById('depart');
+  const iso = x => x.toISOString().slice(0,10), add = n => { const x = new Date(); x.setDate(x.getDate()+n); return x; };
+  a.min = iso(add(0)); a.value = iso(add(1)); d.min = iso(add(2)); d.value = iso(add(3));
+  a.addEventListener('change', () => { const n = new Date(a.value); n.setDate(n.getDate()+1); d.min = iso(n); if (d.value <= a.value) d.value = iso(n); });
+})();
+
+/* ================= REVEAL ================= */
+let io = null;
+function observe(nodes){
+  if (!io) { nodes.forEach(n=>n.classList.add('in')); return; }
+  nodes.forEach(n => io.observe(n));
+}
+if ('IntersectionObserver' in window && !reduce){
+  io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin:'0px 0px -6% 0px', threshold:.05 });
+}
+observe(document.querySelectorAll('.rv'));
+setFilter('all');
+
+/* ================= BOTTOM BAR ACTIVE ================= */
+(function(){
+  const links = [...document.querySelectorAll('.bbar a:not(.bk)')];
+  const secs = links.map(a => document.querySelector(a.getAttribute('href')));
+  if (!('IntersectionObserver' in window)) return;
+  const o = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ const i = secs.indexOf(e.target); links.forEach((l,k)=>l.classList.toggle('on',k===i)); } }), { rootMargin:'-45% 0px -50% 0px' });
+  secs.forEach(s => s && o.observe(s));
+})();
+
+/* ================= BOOKING FORM: validation + loading ================= */
+(function(){
+  const f = document.getElementById('bookForm'), a = document.getElementById('arrive'), d = document.getElementById('depart'), btn = document.getElementById('bookBtn');
+  let msg = null;
+  function err(text, field){
+    clear();
+    msg = document.createElement('p'); msg.className = 'form-msg'; msg.setAttribute('role','alert');
+    msg.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></svg>' + text;
+    f.appendChild(msg); field.closest('.sf').classList.add('invalid'); field.setAttribute('aria-invalid','true'); field.focus();
+  }
+  function clear(){ if (msg) msg.remove(); msg = null; f.querySelectorAll('.invalid').forEach(x=>x.classList.remove('invalid')); f.querySelectorAll('[aria-invalid]').forEach(x=>x.removeAttribute('aria-invalid')); }
+  [a,d].forEach(x => x.addEventListener('input', clear));
+  f.addEventListener('submit', e => {
+    if (!a.value) { e.preventDefault(); return err('Choose your check-in date.', a); }
+    if (!d.value) { e.preventDefault(); return err('Choose your check-out date.', d); }
+    if (d.value <= a.value) { e.preventDefault(); return err('Check-out must be at least one night after check-in.', d); }
+    btn.classList.add('loading'); btn.setAttribute('aria-busy','true');
+  });
+  addEventListener('pageshow', () => { btn.classList.remove('loading'); btn.removeAttribute('aria-busy'); });
+})();
+
+/* ================= NAV ACTIVE STATE ================= */
+(function(){
+  if (!('IntersectionObserver' in window)) return;
+  const links = [...document.querySelectorAll('.nav a[href^="#"]:not([data-go])')];
+  const map = new Map(links.map(l => [document.querySelector(l.getAttribute('href')), l]));
+  const o = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ links.forEach(l=>l.classList.remove('on')); const l = map.get(e.target); if (l) l.classList.add('on'); } }), { rootMargin:'-45% 0px -50% 0px' });
+  map.forEach((_, sec) => sec && o.observe(sec));
+})();
+</script>
+
+<!-- AI Concierge Modal -->
+<div id="aiModal" style="display:none;position:fixed;bottom:84px;right:20px;z-index:99;width:min(400px,calc(100vw - 32px));height:540px;background:#fff;border-radius:24px;box-shadow:0 24px 60px rgba(0,0,0,.35);border:1px solid #ECE2D4;overflow:hidden;flex-direction:column;font-family:var(--f);">
+  <div style="background:#4A3222;color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(210,154,69,.3);">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:36px;height:36px;border-radius:12px;background:rgba(210,154,69,.25);border:1px solid #D29A45;display:grid;place-items:center;color:#E9C27E;">
+        <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px"><path d="M12 2L13.8 7.2L19 9L13.8 10.8L12 16L10.2 10.8L5 9L10.2 7.2L12 2Z"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:#fff;">المساعد الفندقي الذكي لفيلا ليلى</div>
+        <div style="font-size:11px;color:#E9C27E;">إجابات فورية بجميع اللغات على مدار الساعة</div>
+      </div>
+    </div>
+    <button id="aiClose" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;opacity:.8;padding:4px 8px;">&times;</button>
+  </div>
+  <div id="aiMsgs" style="flex:1;overflow-y:auto;padding:16px;background:#FBF7F1;display:flex;flex-direction:column;gap:12px;font-size:14px;">
+    <div style="align-self:flex-start;background:#fff;border:1px solid #ECE2D4;padding:12px 16px;border-radius:16px 16px 16px 4px;color:#2F2925;line-height:1.5;max-width:85%;">
+      مرحباً بك في فيلا ليلى بالقاهرة 🌿<br>كيف يمكنني مساعدتك؟ اسألني عن أسعار الغرف، مواعيد تسجيل الوصول، الإفطار، المسبح، أو الرحلات اليومية.
+    </div>
+  </div>
+  <form id="aiForm" style="display:flex;gap:8px;padding:12px;background:#fff;border-top:1px solid #ECE2D4;">
+    <input id="aiInput" type="text" placeholder="اكتب سؤالك بأي لغة..." style="flex:1;border:1px solid #ECE2D4;border-radius:12px;padding:10px 14px;font-size:14px;outline:none;" />
+    <button type="submit" style="background:#D29A45;color:#2F2925;border:none;border-radius:12px;padding:0 16px;font-weight:700;cursor:pointer;">إرسال</button>
+  </form>
+</div>
+<script>
+(function(){
+  const btn = document.getElementById('aiChatBtn'), modal = document.getElementById('aiModal'), close = document.getElementById('aiClose');
+  const form = document.getElementById('aiForm'), input = document.getElementById('aiInput'), msgs = document.getElementById('aiMsgs');
+  if(!btn || !modal) return;
+  btn.onclick = () => { modal.style.display = modal.style.display === 'none' ? 'flex' : 'none'; if(modal.style.display==='flex') input.focus(); };
+  close.onclick = () => modal.style.display = 'none';
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if(!q) return;
+    input.value = '';
+    const userDiv = document.createElement('div');
+    userDiv.style.cssText = 'align-self:flex-end;background:#4A3222;color:#fff;padding:10px 14px;border-radius:16px 16px 4px 16px;max-width:85%;line-height:1.4;';
+    userDiv.textContent = q;
+    msgs.appendChild(userDiv);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    const botDiv = document.createElement('div');
+    botDiv.style.cssText = 'align-self:flex-start;background:#fff;border:1px solid #ECE2D4;padding:10px 14px;border-radius:16px 16px 16px 4px;color:#2F2925;max-width:85%;line-height:1.4;';
+    botDiv.textContent = 'Typing...';
+    msgs.appendChild(botDiv);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    try {
+      const res = await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({messages:[{role:'user',content:q}], lang:'en'}) });
+      const data = await res.json();
+      botDiv.textContent = data.reply || data.content || 'I could not process this request right now. You can also reach us on WhatsApp at +20 104 055 1515!';
+    } catch(err) {
+      botDiv.textContent = 'You can reach our reception directly on WhatsApp 24/7 at +20 104 055 1515!';
+    }
+    msgs.scrollTop = msgs.scrollHeight;
+  };
+})();
+</script>
+
+</body>
+</html>

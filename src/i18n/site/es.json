@@ -1,0 +1,246 @@
+{
+  "meta": {
+    "title": "Villa Layla Hostel — El Cairo",
+    "description": "Reserva una cama o una habitación privada en Villa Layla Hostel, en El Cairo, Egipto. Disponibilidad real y reserva directa."
+  },
+  "nav": {
+    "home": "Inicio",
+    "rooms": "Habitaciones",
+    "gallery": "Galería",
+    "location": "Cómo llegar",
+    "faq": "Preguntas",
+    "policies": "Políticas",
+    "book": "Reservar",
+    "menu": "Menú"
+  },
+  "hero": {
+    "eyebrow": "El Cairo, Egipto",
+    "title": "Una villa donde sentirte en casa, en El Cairo.",
+    "subtitle": "Alójate en un dormitorio compartido o en una habitación privada, conoce a otros viajeros y reserva directamente con nosotros: sin intermediarios y con disponibilidad real.",
+    "cta": "Ver disponibilidad",
+    "ctaSecondary": "Ver habitaciones"
+  },
+  "search": {
+    "checkin": "Llegada",
+    "checkout": "Salida",
+    "guests": "Personas",
+    "check": "Ver disponibilidad"
+  },
+  "home": {
+    "whyTitle": "Reserva directo, aloja sin complicaciones",
+    "why1Title": "Camas o habitaciones privadas",
+    "why1Body": "Elige una cama en un dormitorio compartido o una habitación privada entera. Los precios se muestran por cama o por habitación.",
+    "why2Title": "Disponibilidad real",
+    "why2Body": "Lo que ves es el inventario real del hostel: nunca te ofrecemos una cama ya ocupada.",
+    "why3Title": "En tu idioma",
+    "why3Body": "Esta web y nuestro asistente de Telegram funcionan en English, Español, Français y العربية.",
+    "spacesTitle": "La villa",
+    "spacesIntro": "Algunos de los espacios que comparten los huéspedes.",
+    "roomsTitle": "Dónde dormirás",
+    "roomsCta": "Todas las habitaciones",
+    "telegramTitle": "¿Prefieres chatear?",
+    "telegramBody": "Reserva, pregunta o amplía tu estancia con nuestro asistente de Telegram; incluso puedes enviar una nota de voz.",
+    "telegramCta": "Abrir Telegram"
+  },
+  "rooms": {
+    "title": "Habitaciones y camas",
+    "intro": "Los dormitorios compartidos se cobran por cama. Las habitaciones privadas, por habitación.",
+    "perBed": "por cama / noche",
+    "perRoom": "por habitación / noche",
+    "from": "desde",
+    "priceTbc": "Precio por confirmar",
+    "viewRoom": "Ver detalles",
+    "dorm": "Dormitorio compartido",
+    "private": "Habitación privada",
+    "capacity": "Hasta {n} personas",
+    "bookThis": "Ver fechas para esta habitación",
+    "amenities": "Servicios",
+    "noAmenities": "Pronto añadiremos los detalles de los servicios.",
+    "empty": "Las habitaciones aparecerán aquí cuando el hostel las publique."
+  },
+  "gallery": {
+    "title": "Galería",
+    "intro": "Fotos de la villa, las habitaciones y el jardín.",
+    "photoNeeded": "Foto que aportará el hostel"
+  },
+  "book": {
+    "title": "Reserva tu estancia",
+    "subtitle": "Elige tus fechas para ver lo que realmente está disponible.",
+    "results": "Disponible del {checkin} al {checkout} · {nights} noche(s) · {guests} persona(s)",
+    "total": "Total",
+    "bedsNeeded": "{n} cama(s)",
+    "select": "Solicitar esta opción",
+    "soldOut": "No disponible para estas fechas",
+    "priceTbc": "Precio por confirmar por recepción",
+    "form": {
+      "title": "Tus datos",
+      "fullName": "Nombre completo",
+      "email": "Correo electrónico",
+      "phone": "Teléfono / WhatsApp (opcional)",
+      "nationality": "Nacionalidad",
+      "notes": "¿Algo que debamos saber? (opcional)",
+      "submit": "Enviar solicitud de reserva",
+      "selected": "Seleccionado",
+      "idGovernorate": "Gobernación de tu documento de identidad (solo huéspedes egipcios)"
+    },
+    "note": "Esto envía una SOLICITUD de reserva. Tu reserva solo queda confirmada cuando recepción la confirme.",
+    "errors": {
+      "invalid_dates": "Revisa tus fechas.",
+      "past_date": "La fecha de llegada ya pasó.",
+      "too_long": "Para estancias largas, contáctanos directamente.",
+      "no_availability": "Lo sentimos, esa opción se acaba de ocupar. Elige otra.",
+      "no_rate": "No podemos calcular el precio de esas fechas en línea. Contáctanos.",
+      "invalid_input": "Completa todos los campos obligatorios.",
+      "rate_limit": "Demasiadas solicitudes. Inténtalo más tarde.",
+      "generic": "Algo salió mal. Inténtalo de nuevo o contáctanos.",
+      "blocked_dorm": "Lo sentimos, los dormitorios mixtos no pueden ser reservados por ciudadanos egipcios. Elige una habitación privada o contacta con recepción.",
+      "blocked_id": "Lo sentimos, no podemos alojar a huéspedes cuyo documento de identidad egipcio fue emitido en El Cairo, Giza o Qalyubia.",
+      "policy_blocked": "Lo sentimos, esta solicitud no puede aceptarse según nuestra política de huéspedes. Contacta con recepción."
+    }
+  },
+  "booked": {
+    "title": "Solicitud recibida",
+    "lead": "¡Gracias! Tu solicitud de reserva está registrada.",
+    "warning": "TODAVÍA NO está confirmada. Recepción la revisará y te contactará. Las camas quedan retenidas para ti hasta {until}.",
+    "reference": "Tu referencia",
+    "next": "Qué ocurre ahora",
+    "step1": "Recepción revisa tu solicitud.",
+    "step2": "Recibes las instrucciones de pago y la confirmación final.",
+    "step3": "Solo entonces tu reserva queda confirmada.",
+    "review": "Tu solicitud necesita una revisión adicional de nuestro equipo.",
+    "home": "Volver al inicio"
+  },
+  "location": {
+    "title": "Cómo encontrarnos",
+    "city": "El Cairo, Egipto",
+    "addressTbc": "El hostel añadirá la dirección exacta y las indicaciones.",
+    "contact": "Contacto",
+    "phone": "Teléfono",
+    "email": "Correo",
+    "whatsapp": "WhatsApp",
+    "contactTbc": "Datos de contacto por confirmar por el hostel. Mientras tanto, usa nuestro asistente de Telegram."
+  },
+  "faq": {
+    "title": "Preguntas frecuentes"
+  },
+  "policies": {
+    "title": "Políticas",
+    "cancellation": "Cancelación",
+    "payment": "Pago",
+    "rules": "Normas de la casa",
+    "tbc": "El hostel publicará esta política pronto. Mientras tanto, consulta con recepción antes de reservar.",
+    "howTitle": "Cómo funciona la reserva",
+    "how": "Envías una solicitud con disponibilidad real. Recepción la revisa, te indica cómo pagar y la confirma. Un pago solo cuenta cuando recepción lo ha verificado."
+  },
+  "footer": {
+    "tagline": "Villa Layla Hostel · El Cairo, Egipto",
+    "rights": "Todos los derechos reservados.",
+    "unverified": "El contenido marcado “por confirmar” está pendiente de aprobación del propietario."
+  },
+  "common": {
+    "tbc": "Por confirmar",
+    "back": "Atrás",
+    "night": "noche",
+    "photoPending": "Foto pendiente"
+  },
+  "spaces": {
+    "garden": "Jardín",
+    "pool": "Piscina",
+    "common": "Espacios comunes"
+  },
+  "v2": {
+    "place": "El Sayeda Zeinab, El Cairo",
+    "lead": "Un hostal en una villa con piscina en el jardín. Habitaciones privadas con nombre propio, dormitorios por cama y recepción por WhatsApp a todas horas.",
+    "facts": {
+      "pool": "Piscina abierta a diario",
+      "breakfast": "Desayuno de 8 a 11",
+      "desk": "Recepción de 8 a 22 h",
+      "wa": "Recepción por WhatsApp 24/7",
+      "wifi": "Wi-Fi rápido en toda la villa",
+      "work": "Escritorios y rincones tranquilos"
+    },
+    "privTitle": "Habitaciones privadas",
+    "privLead": "Diez habitaciones, cada una con su propio nombre. La mayoría para dos; la Triple para tres.",
+    "dormTitle": "Dormitorios",
+    "dormLead": "Pagas por cama. Dormitorios solo para mujeres, solo para hombres y uno mixto.",
+    "col": {
+      "dorm": "Dormitorio",
+      "who": "Para",
+      "beds": "Camas",
+      "price": "Por cama y noche"
+    },
+    "who": {
+      "female": "Solo mujeres",
+      "male": "Solo hombres",
+      "mixed": "Todos"
+    },
+    "from": "desde {p}",
+    "perNight": "por noche",
+    "perBed": "por cama",
+    "perRoom": "por habitación",
+    "sleeps": "Para {n}",
+    "bedsN": "{n} camas",
+    "onRequest": "Precio a consultar",
+    "sample": "Precio de ejemplo",
+    "see": "Ver la habitación",
+    "book": "Reservar",
+    "allRooms": "Ver todas las habitaciones",
+    "lifeTitle": "La vida en la villa",
+    "life": {
+      "pool": "Una piscina en el jardín, abierta cada día.",
+      "breakfast": "Desayuno de 8 a 11 todas las mañanas.",
+      "work": "Escritorios y rincones tranquilos para trabajar.",
+      "tours": "Excursiones que salen de la villa cada día."
+    },
+    "toursTitle": "Excursiones",
+    "toursLead": "Organizadas a diario y reservadas por WhatsApp.",
+    "toursAsk": "Preguntar por esta excursión",
+    "tours": {
+      "fayoum": "Oasis de Fayum",
+      "desert": "Safari por el Desierto Negro y Blanco",
+      "giza": "Pirámides de Guiza y Gran Museo Egipcio",
+      "saqqara": "Saqqara y Menfis",
+      "nile": "Cena en crucero por el Nilo",
+      "islamic": "El Cairo islámico y copto",
+      "alex": "Alejandría desde El Cairo"
+    },
+    "igTitle": "Grabado por nuestros huéspedes",
+    "igLead": "Reels que los viajeros publicaron sobre su estancia en la villa.",
+    "igMore": "Sigue a @villalaylacairo",
+    "findTitle": "Cómo llegar",
+    "directions": "Ver ruta",
+    "checkin": "Entrada desde las {t}",
+    "checkout": "Salida hasta las {t}",
+    "chatTitle": "Reserva por chat",
+    "chatLead": "Escribe a nuestro asistente en Telegram en español, inglés, francés o árabe. También entiende notas de voz. ¿Prefieres una persona? Escribe a recepción por WhatsApp cuando quieras.",
+    "telegram": "Chatear en Telegram",
+    "whatsapp": "Recepción por WhatsApp",
+    "nav": {
+      "rooms": "Habitaciones",
+      "dorms": "Dormitorios",
+      "tours": "Excursiones",
+      "gallery": "Fotos",
+      "find": "Cómo llegar",
+      "faq": "Preguntas",
+      "policies": "Normas",
+      "book": "Reservar",
+      "menu": "Menú"
+    },
+    "photosTitle": "Fotos",
+    "photosLead": "Cada habitación y rincón de la villa.",
+    "roomsTitle": "Habitaciones y dormitorios",
+    "roomsLead": "Elige una habitación privada o una cama en un dormitorio. Precios por noche.",
+    "bedType": "Cama",
+    "bath": "Baño",
+    "view": "Vista",
+    "features": "En la habitación",
+    "checkDates": "Consulta fechas para esta habitación",
+    "available": "{n} libres",
+    "soldOut": "Completo en estas fechas",
+    "chooseThis": "Elegir",
+    "selected": "Tu elección",
+    "footerAddress": "Dirección",
+    "footerContact": "Contacto",
+    "footerHours": "Horarios"
+  }
+}

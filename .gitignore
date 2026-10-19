@@ -1,0 +1,12 @@
+node_modules
+.next
+.env
+.env.local
+.pgdata
+backups/
+*.log
+*.tar.gz
+*.py
+
+test_*.mjs
+*.mjs

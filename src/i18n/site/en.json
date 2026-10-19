@@ -1,0 +1,246 @@
+{
+  "meta": {
+    "title": "Villa Layla Hostel — Cairo",
+    "description": "Book a bed or a private room at Villa Layla Hostel in Cairo, Egypt. Real availability, direct booking."
+  },
+  "nav": {
+    "home": "Home",
+    "rooms": "Rooms",
+    "gallery": "Gallery",
+    "location": "Find us",
+    "faq": "FAQ",
+    "policies": "Policies",
+    "book": "Book now",
+    "menu": "Menu"
+  },
+  "hero": {
+    "eyebrow": "Cairo, Egypt",
+    "title": "A villa to come home to, in Cairo.",
+    "subtitle": "Stay in a shared dorm or a private room, meet fellow travellers, and book directly with us — no middlemen, real availability.",
+    "cta": "Check availability",
+    "ctaSecondary": "See the rooms"
+  },
+  "search": {
+    "checkin": "Arrive",
+    "checkout": "Depart",
+    "guests": "Guests",
+    "check": "Check availability"
+  },
+  "home": {
+    "whyTitle": "Book directly, stay easily",
+    "why1Title": "Beds or private rooms",
+    "why1Body": "Pick a single bed in a shared dorm or take a whole private room. Prices are shown per bed or per room.",
+    "why2Title": "Real availability",
+    "why2Body": "What you see is the hostel's live inventory — we never offer a bed that is already taken.",
+    "why3Title": "Speak your language",
+    "why3Body": "This site and our Telegram assistant work in English, Español, Français and العربية.",
+    "spacesTitle": "The villa",
+    "spacesIntro": "A few of the spaces guests share.",
+    "roomsTitle": "Where you will sleep",
+    "roomsCta": "All rooms",
+    "telegramTitle": "Prefer to chat?",
+    "telegramBody": "Book, ask questions or extend your stay with our Telegram assistant — you can even send a voice note.",
+    "telegramCta": "Open Telegram"
+  },
+  "rooms": {
+    "title": "Rooms & beds",
+    "intro": "Shared dormitories are priced per bed. Private rooms are priced per room.",
+    "perBed": "per bed / night",
+    "perRoom": "per room / night",
+    "from": "from",
+    "priceTbc": "Price to be confirmed",
+    "viewRoom": "View details",
+    "dorm": "Shared dorm",
+    "private": "Private room",
+    "capacity": "Sleeps up to {n}",
+    "bookThis": "Check dates for this room",
+    "amenities": "Amenities",
+    "noAmenities": "Amenity details will be added soon.",
+    "empty": "Rooms will appear here once the hostel has published them."
+  },
+  "gallery": {
+    "title": "Gallery",
+    "intro": "Photos of the villa, rooms and garden.",
+    "photoNeeded": "Photo to be supplied by the hostel"
+  },
+  "book": {
+    "title": "Book your stay",
+    "subtitle": "Choose your dates to see what is really available.",
+    "results": "Available for {checkin} → {checkout} · {nights} night(s) · {guests} guest(s)",
+    "total": "Total",
+    "bedsNeeded": "{n} bed(s)",
+    "select": "Request this",
+    "soldOut": "Not available for these dates",
+    "priceTbc": "Price to be confirmed by reception",
+    "form": {
+      "title": "Your details",
+      "fullName": "Full name",
+      "email": "Email",
+      "phone": "Phone / WhatsApp (optional)",
+      "nationality": "Nationality",
+      "notes": "Anything we should know? (optional)",
+      "submit": "Send booking request",
+      "selected": "Selected",
+      "idGovernorate": "Governorate on your national ID (Egyptian guests only)"
+    },
+    "note": "This sends a booking REQUEST. Your booking is only confirmed once reception confirms it.",
+    "errors": {
+      "invalid_dates": "Please check your dates.",
+      "past_date": "The arrival date is in the past.",
+      "too_long": "For long stays please contact us directly.",
+      "no_availability": "Sorry, that room was just taken. Please choose another option.",
+      "no_rate": "We cannot price those dates online. Please contact us.",
+      "invalid_input": "Please complete all required fields.",
+      "rate_limit": "Too many requests. Please try again later.",
+      "generic": "Something went wrong. Please try again or contact us.",
+      "blocked_dorm": "Sorry, mixed dormitories can't be booked by Egyptian nationals. Please choose a private room or contact reception.",
+      "blocked_id": "Sorry, we can't accommodate guests whose Egyptian national ID was issued in Cairo, Giza or Qalyubia.",
+      "policy_blocked": "Sorry, this request can't be accepted under our guest policy. Please contact reception."
+    }
+  },
+  "booked": {
+    "title": "Request received",
+    "lead": "Thank you! Your booking request is in.",
+    "warning": "It is NOT confirmed yet. Reception will review it and contact you. Beds are held for you until {until}.",
+    "reference": "Your reference",
+    "next": "What happens next",
+    "step1": "Reception reviews your request.",
+    "step2": "You receive payment instructions and the final confirmation.",
+    "step3": "Only after that is your booking confirmed.",
+    "review": "Your request needs an extra check by our team.",
+    "home": "Back to home"
+  },
+  "location": {
+    "title": "Find us",
+    "city": "Cairo, Egypt",
+    "addressTbc": "Exact address and directions will be added by the hostel.",
+    "contact": "Contact",
+    "phone": "Phone",
+    "email": "Email",
+    "whatsapp": "WhatsApp",
+    "contactTbc": "Contact details to be confirmed by the hostel. In the meantime use our Telegram assistant."
+  },
+  "faq": {
+    "title": "Frequently asked questions"
+  },
+  "policies": {
+    "title": "Policies",
+    "cancellation": "Cancellation",
+    "payment": "Payment",
+    "rules": "House rules",
+    "tbc": "The hostel will publish this policy soon. Until then, please ask reception before booking.",
+    "howTitle": "How booking works",
+    "how": "You send a booking request with real availability. Reception reviews it, tells you how to pay, and confirms. A payment only counts once reception has verified it."
+  },
+  "footer": {
+    "tagline": "Villa Layla Hostel · Cairo, Egypt",
+    "rights": "All rights reserved.",
+    "unverified": "Content marked “to be confirmed” is awaiting the owner’s approval."
+  },
+  "common": {
+    "tbc": "To be confirmed",
+    "back": "Back",
+    "night": "night",
+    "photoPending": "Photo pending"
+  },
+  "spaces": {
+    "garden": "Garden",
+    "pool": "Pool",
+    "common": "Common spaces"
+  },
+  "v2": {
+    "place": "El Sayeda Zeinab, Cairo",
+    "lead": "A hostel in a villa with a garden pool. Private rooms with names of their own, dorms by the bed, and reception on WhatsApp around the clock.",
+    "facts": {
+      "pool": "Pool, open daily",
+      "breakfast": "Breakfast 8–11 am",
+      "desk": "Front desk 8 am–10 pm",
+      "wa": "WhatsApp reception, 24/7",
+      "wifi": "Fast Wi-Fi throughout",
+      "work": "Desks and quiet corners"
+    },
+    "privTitle": "Private rooms",
+    "privLead": "Ten rooms, each with its own name. Most sleep two; the Triple sleeps three.",
+    "dormTitle": "Dorms",
+    "dormLead": "Pay by the bed. Women-only, men-only and one mixed dorm.",
+    "col": {
+      "dorm": "Dorm",
+      "who": "For",
+      "beds": "Beds",
+      "price": "Per bed, per night"
+    },
+    "who": {
+      "female": "Women only",
+      "male": "Men only",
+      "mixed": "Everyone"
+    },
+    "from": "from {p}",
+    "perNight": "per night",
+    "perBed": "per bed",
+    "perRoom": "per room",
+    "sleeps": "Sleeps {n}",
+    "bedsN": "{n} beds",
+    "onRequest": "Price on request",
+    "sample": "Sample price",
+    "see": "See the room",
+    "book": "Book",
+    "allRooms": "See all rooms",
+    "lifeTitle": "Life at the villa",
+    "life": {
+      "pool": "A pool in the garden, open every day.",
+      "breakfast": "Breakfast is served from 8 to 11 every morning.",
+      "work": "Desks and quiet corners for working days.",
+      "tours": "Day trips leave from the villa every day."
+    },
+    "toursTitle": "Day trips",
+    "toursLead": "Organised every day and booked over WhatsApp.",
+    "toursAsk": "Ask about this trip",
+    "tours": {
+      "fayoum": "Fayoum Oasis",
+      "desert": "Black & White Desert safari",
+      "giza": "Giza Pyramids and the Grand Egyptian Museum",
+      "saqqara": "Saqqara and Memphis",
+      "nile": "Evening Nile dinner cruise",
+      "islamic": "Islamic and Coptic Cairo",
+      "alex": "Alexandria from Cairo"
+    },
+    "igTitle": "Filmed by our guests",
+    "igLead": "Reels travellers posted about their stay at the villa.",
+    "igMore": "Follow @villalaylacairo",
+    "findTitle": "Find us",
+    "directions": "Get directions",
+    "checkin": "Check-in from {t}",
+    "checkout": "Check-out by {t}",
+    "chatTitle": "Book in a chat",
+    "chatLead": "Write to our assistant on Telegram in English, Spanish, French or Arabic. Voice notes work too. Prefer a person? WhatsApp reception any time.",
+    "telegram": "Chat on Telegram",
+    "whatsapp": "WhatsApp reception",
+    "nav": {
+      "rooms": "Rooms",
+      "dorms": "Dorms",
+      "tours": "Day trips",
+      "gallery": "Photos",
+      "find": "Find us",
+      "faq": "FAQ",
+      "policies": "Policies",
+      "book": "Book a stay",
+      "menu": "Menu"
+    },
+    "photosTitle": "Photos",
+    "photosLead": "Every room and corner of the villa.",
+    "roomsTitle": "Rooms and dorms",
+    "roomsLead": "Choose a private room or a bed in a dorm. Prices shown are per night.",
+    "bedType": "Bed",
+    "bath": "Bathroom",
+    "view": "View",
+    "features": "In the room",
+    "checkDates": "Check dates for this room",
+    "available": "{n} free",
+    "soldOut": "Fully booked for these dates",
+    "chooseThis": "Choose",
+    "selected": "Your choice",
+    "footerAddress": "Address",
+    "footerContact": "Contact",
+    "footerHours": "Hours"
+  }
+}

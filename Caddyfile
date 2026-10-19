@@ -1,0 +1,5 @@
+# SITE_ADDRESS=:80 for IP-only testing; set to your domain (e.g. villalayla.example.com) for automatic HTTPS.
+{$SITE_ADDRESS} {
+	encode gzip zstd
+	reverse_proxy web:3000
+}
