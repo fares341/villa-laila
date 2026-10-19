@@ -28,6 +28,7 @@ export function EventBooker(props: {
   const { lang, slug, dates, options, priceCents, guestPriceCents, currency, methods } = props;
   const ar = lang === 'ar';
   const [date, setDate] = useState(props.initialDate);
+  const [showAll, setShowAll] = useState(() => dates.findIndex((d) => d.date === props.initialDate) >= 6);
   const [qty, setQty] = useState(1);
   const [option, setOption] = useState(options[0]?.key ?? '');
   const [hotelGuest, setHotelGuest] = useState(false);
@@ -68,19 +69,28 @@ export function EventBooker(props: {
       <fieldset className="evb-step">
         <legend><span className="evb-n">1</span>{ar ? 'اختر اليوم' : 'Choose a date'}</legend>
         <div className="evb-dates" role="radiogroup" aria-label={ar ? 'اليوم' : 'Date'}>
-          {dates.map((d) => {
+          {(showAll ? dates : dates.slice(0, 6)).map((d) => {
             const full = d.left === 0;
+            const on = d.date === date;
             return (
               <button
-                type="button" key={d.date} role="radio" aria-checked={d.date === date} disabled={full}
-                className={`evb-date ${d.date === date ? 'on' : ''}`} onClick={() => { setDate(d.date); setQty((q) => Math.min(q, Math.max(1, d.left ?? 20))); }}
+                type="button" key={d.date} role="radio" aria-checked={on} disabled={full}
+                className={`evb-date ${on ? 'on' : ''}`} onClick={() => { setDate(d.date); setQty((q) => Math.min(q, Math.max(1, d.left ?? 20))); }}
               >
-                <b>{d.label}</b>
-                <small>{full ? (ar ? 'مكتمل' : 'Full') : d.left != null && d.left <= 5 ? (ar ? `باقي ${d.left}` : `${d.left} left`) : d.sub}</small>
+                <span className="evb-radio" aria-hidden />
+                <span className="evb-date-t"><b>{d.label}</b><small>{d.sub}</small></span>
+                <span className={`evb-date-s ${full ? 'full' : d.left != null && d.left <= 5 ? 'few' : ''}`}>
+                  {full ? (ar ? 'مكتمل' : 'Full') : d.left != null && d.left <= 5 ? (ar ? `باقي ${d.left} أماكن` : `${d.left} left`) : (ar ? 'متاح' : 'Available')}
+                </span>
               </button>
             );
           })}
         </div>
+        {dates.length > 6 && (
+          <button type="button" className="evb-more" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
+            {showAll ? (ar ? 'أيام أقل' : 'Fewer dates') : (ar ? `أيام أكثر (${dates.length - 6})` : `More dates (${dates.length - 6})`)}
+          </button>
+        )}
       </fieldset>
 
       <fieldset className="evb-step">

@@ -36,7 +36,12 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const isAr = lang === 'ar';
   const L = (o: { en: string; ar: string }) => (isAr ? o.ar : o.en);
   const left = await seatsLeft(ev);
-  const dates = ev.dates.slice(0, 14).map((d) => ({ date: d, label: whenLabel(d, lang), sub: dateLabel(d, lang, { day: 'numeric', month: 'short' }), left: left[d] }));
+  const dates = ev.dates.slice(0, 14).map((d) => {
+    const when = whenLabel(d, lang);
+    const weekday = dateLabel(d, lang, { weekday: 'long' });
+    const isNear = when !== dateLabel(d, lang); // Today / Tomorrow
+    return { date: d, label: isNear ? when : weekday, sub: isNear ? `${weekday} · ${dateLabel(d, lang, { day: 'numeric', month: 'long' })}` : dateLabel(d, lang, { day: 'numeric', month: 'long' }), left: left[d] };
+  });
   const errMsg = sp.error ? L(ERR[sp.error] ?? ERR[sp.error.split(':')[0]] ?? ERR.generic) : null;
   const schedule = scheduleLabel(ev, lang, (d) => dateLabel(d, lang, { weekday: 'long', day: 'numeric', month: 'long' }));
   const time = `${timeLabel(ev.start_time, lang)} – ${timeLabel(ev.end_time, lang)}`;
