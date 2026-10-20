@@ -75,195 +75,151 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
     }
   };
 
-  const renderMessageContent = (text: string) => {
-    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    const parts = [];
-    let lastIndex = 0;
-    let match;
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsOpen(false); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
 
-    while ((match = linkRegex.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(text.substring(lastIndex, match.index));
-      }
-      const label = match[1];
-      const href = match[2];
-      parts.push(
-        <Link
-          key={match.index}
-          href={href}
-          className="inline-flex items-center gap-1 font-semibold text-amber-700 underline underline-offset-4 hover:text-amber-900 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/60 transition-colors my-0.5"
-          target={href.startsWith('http') ? '_blank' : undefined}
-        >
-          <span>{label}</span>
-          <Icon name="external-link" size={12} />
-        </Link>
-      );
-      lastIndex = linkRegex.lastIndex;
+  // Links [label](/path) and **bold**; keeps line breaks.
+  const renderInline = (text: string, keyBase: string) => {
+    const out: React.ReactNode[] = [];
+    const re = /\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*/g;
+    let last = 0, m: RegExpExecArray | null, i = 0;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) out.push(text.slice(last, m.index));
+      if (m[1]) {
+        const href = m[2];
+        out.push(
+          <Link key={`${keyBase}-${i++}`} href={href} target={href.startsWith('http') ? '_blank' : undefined}
+            className="inline-flex items-center gap-1 rounded-md bg-cocoa-50 px-1.5 py-0.5 font-semibold text-cocoa-800 underline decoration-gold-500/60 underline-offset-4 hover:bg-gold-300/30">
+            {m[1]}<Icon name="chevron-right" size={12} />
+          </Link>,
+        );
+      } else out.push(<strong key={`${keyBase}-${i++}`} className="font-bold text-cocoa-900">{m[3]}</strong>);
+      last = re.lastIndex;
     }
-
-    if (lastIndex < text.length) {
-      parts.push(text.substring(lastIndex));
-    }
-
-    return parts;
+    if (last < text.length) out.push(text.slice(last));
+    return out;
   };
+  const renderMessageContent = (text: string) =>
+    text.split('\n').map((line, n) => {
+      const bullet = /^\s*[-*•]\s+/.test(line);
+      const body = renderInline(line.replace(/^\s*[-*•]\s+/, '').replace(/^#+\s*/, ''), String(n));
+      if (!line.trim()) return <div key={n} className="h-2" />;
+      return bullet
+        ? <div key={n} className="flex gap-2 ps-1"><span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-gold-500" /><span>{body}</span></div>
+        : <div key={n}>{body}</div>;
+    });
 
   return (
     <>
-      {/* Floating launcher button — Executive Luxury Insignia */}
+      {/* Launcher: a round brand button with the Villa Layla gold spark */}
       <div className="fixed bottom-6 right-6 z-50 print:hidden">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          aria-label="Executive assistant"
-          className="group relative flex items-center gap-3.5 rounded-full bg-gradient-to-r from-[#101626] via-[#18223c] to-[#1e2a4a] p-1.5 pe-5 ps-2 text-white shadow-[0_14px_34px_-6px_rgba(16,22,38,0.55),0_0_20px_rgba(217,166,74,0.22)] border border-amber-300/40 ring-1 ring-white/10 transition-all duration-300 hover:scale-105 hover:border-amber-300/80 hover:shadow-[0_18px_40px_-4px_rgba(16,22,38,0.65),0_0_28px_rgba(217,166,74,0.35)] active:scale-95 focus:outline-none"
+          aria-label={isOpen ? 'Close assistant' : 'Open assistant'}
+          aria-expanded={isOpen}
+          className="group relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-cocoa-600 to-cocoa-900 text-gold-300 shadow-[0_12px_28px_-8px_rgba(47,41,37,.6)] ring-4 ring-[#FBF7F1] transition-transform duration-200 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-gold-300"
         >
-          {/* Luminous Emblem Medallion */}
-          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400/30 via-amber-300/15 to-transparent p-1 border border-amber-300/50 shadow-inner">
-            <svg
-              className="h-5 w-5 text-amber-300 transition-transform duration-300 group-hover:rotate-45 drop-shadow-[0_1px_4px_rgba(217,166,74,0.6)]"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              {/* Executive Compass Star Emblem */}
-              <path d="M12 2L14.2 9.8L22 12L14.2 14.2L12 22L9.8 14.2L2 12L9.8 9.8L12 2Z" />
-              <circle cx="12" cy="12" r="2.5" fill="#101626" />
+          <span className="absolute inset-[3px] rounded-full border border-gold-500/40" aria-hidden />
+          {isOpen ? <Icon name="x" size={22} /> : (
+            <svg viewBox="0 0 32 32" className="h-7 w-7 transition-transform duration-300 group-hover:-rotate-6" aria-hidden>
+              <path d="M6 8.5A3.5 3.5 0 0 1 9.5 5h13A3.5 3.5 0 0 1 26 8.5v9a3.5 3.5 0 0 1-3.5 3.5H14l-5.2 4.3c-.6.5-1.5.1-1.5-.7V21h0A3.5 3.5 0 0 1 6 17.5z" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
+              <path d="M16 8.6l1.15 3.25L20.4 13l-3.25 1.15L16 17.4l-1.15-3.25L11.6 13l3.25-1.15z" fill="#E9C27E" />
             </svg>
-            {/* Live Indicator */}
-            <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-400 border-2 border-[#101626]"></span>
+          )}
+          {!isOpen && (
+            <span className="pointer-events-none absolute right-[calc(100%+12px)] whitespace-nowrap rounded-full bg-cocoa-900 px-3 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+              Ask the assistant
             </span>
-          </div>
-
-          {/* Typography */}
-          <div className="flex flex-col text-start">
-            <span
-              className="text-xs font-bold tracking-wide text-white drop-shadow-sm flex items-center gap-1.5"
-              
-            >
-              Executive assistant
-            </span>
-            <span className="text-[10px] text-amber-200/70 font-medium">
-              Operations insights
-            </span>
-          </div>
+          )}
         </button>
       </div>
 
-      {/* Assistant Modal / Drawer — Executive Theme */}
       {isOpen && (
-        <div className="fixed bottom-24 right-4 sm:right-6 z-50 flex w-[calc(100vw-2rem)] sm:w-[450px] max-h-[82vh] h-[630px] flex-col overflow-hidden rounded-3xl border border-amber-900/15 bg-white shadow-[0_25px_60px_-15px_rgba(16,22,38,0.5),0_0_35px_rgba(217,166,74,0.18)] animate-in fade-in slide-in-from-bottom-5 duration-200 print:hidden">
+        <div role="dialog" aria-label="Villa Layla assistant"
+          className="fixed bottom-24 right-4 z-50 flex h-[640px] max-h-[80vh] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[22px] border border-cocoa-200 bg-[#FBF7F1] shadow-[0_30px_70px_-20px_rgba(47,41,37,.55)] sm:right-6 sm:w-[440px] print:hidden">
           {/* Header */}
-          <div className="relative flex items-center justify-between border-b border-amber-400/25 bg-gradient-to-r from-[#101626] via-[#18223c] to-[#1e2a4a] px-5 py-4 text-white">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400/30 via-amber-300/15 to-transparent border border-amber-300/40 shadow-inner">
-                <svg className="h-5 w-5 text-amber-300" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2L14.2 9.8L22 12L14.2 14.2L12 22L9.8 14.2L2 12L9.8 9.8L12 2Z" />
-                </svg>
+          <div className="relative overflow-hidden bg-gradient-to-br from-cocoa-800 to-cocoa-900 px-5 pb-4 pt-5 text-white">
+            <svg className="pointer-events-none absolute -right-6 -top-10 h-40 w-40 text-gold-500/10" viewBox="0 0 100 100" aria-hidden>
+              <path d="M50 4a46 46 0 0 1 46 46H4A46 46 0 0 1 50 4z" fill="currentColor" />
+            </svg>
+            <div className="relative flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gold-500/15 ring-1 ring-gold-500/40">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" fill="#E9C27E" /><circle cx="18.5" cy="17.5" r="1.6" fill="#E9C27E" opacity=".7" /></svg>
+                </span>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-gold-300">Villa Layla</p>
+                  <h3 className="text-base font-extrabold leading-tight">Operations assistant</h3>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-bold leading-tight flex items-center gap-2" >
-                  <span>Villa Layla assistant</span>
-                  <span className="text-[10px] text-amber-300 px-1.5 py-0.5 rounded-full bg-amber-400/15 border border-amber-300/30">
-                    Read-only
-                  </span>
-                </h3>
-                <p className="text-[11px] text-amber-100/70 flex items-center gap-1.5 mt-0.5">
-                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-400"></span>
-                  Operations, revenue, stock, shifts and staff
-                </p>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setMessages([])} title="New conversation" aria-label="New conversation"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-cocoa-200 transition-colors hover:bg-white/10 hover:text-white"><Icon name="refresh" size={16} /></button>
+                <button onClick={() => setIsOpen(false)} aria-label="Close"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-cocoa-200 transition-colors hover:bg-white/10 hover:text-white"><Icon name="x" size={18} /></button>
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setMessages([])}
-                title="Clear conversation"
-                aria-label="Clear conversation"
-                className="flex h-8 w-8 items-center justify-center rounded-full text-amber-200/70 hover:bg-white/10 hover:text-white transition-colors text-xs"
-              >
-                <Icon name="refresh" size={16} />
-              </button>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-amber-200/70 hover:bg-white/10 hover:text-white transition-colors"
-                aria-label="Close"
-              >
-                <Icon name="x" size={18} />
-              </button>
-            </div>
+            <p className="relative mt-3 flex items-center gap-2 text-xs text-cocoa-200">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" /> Live data · read-only
+            </p>
           </div>
 
-          {/* Quick Prompts Bar */}
-          <div className="border-b border-cocoa-100/80 bg-[#fbfbfa] px-3.5 py-2.5 flex gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap">
-            {DASHBOARD_PROMPTS.map((p, i) => (
-              <button
-                key={i}
-                onClick={() => handleSend(p)}
-                disabled={loading}
-                className="rounded-full border border-amber-900/10 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm hover:border-amber-400/60 hover:bg-amber-50/50 hover:text-amber-900 transition-all disabled:opacity-50"
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-
-          {/* Messages Body */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#fdfbf7]">
+          {/* Messages */}
+          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {messages.map((m, idx) => (
-              <div
-                key={idx}
-                className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                    m.role === 'user'
-                      ? 'bg-gradient-to-r from-lapis-900 to-lapis-800 text-white rounded-br-none shadow-md border border-amber-400/20'
-                      : 'bg-white border border-slate-200/80 text-slate-800 rounded-bl-none shadow-sm whitespace-pre-wrap'
-                  }`}
-                >
+              <div key={idx} className={`flex gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {m.role === 'assistant' && (
+                  <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cocoa-800" aria-hidden>
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" fill="#E9C27E" /></svg>
+                  </span>
+                )}
+                <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.role === 'user'
+                  ? 'rounded-br-md bg-cocoa-800 text-white'
+                  : 'rounded-tl-md border border-cocoa-200 bg-white text-cocoa-900 shadow-[0_1px_2px_rgba(81,64,47,.06)]'}`}>
                   {m.role === 'assistant' ? renderMessageContent(m.content) : m.content}
                 </div>
               </div>
             ))}
             {loading && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-2xl bg-white border border-slate-200/80 px-4 py-3 text-xs text-slate-700 shadow-sm rounded-bl-none">
-                  <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-amber-500" style={{ animationDelay: '0ms' }}></span>
-                  <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-amber-500" style={{ animationDelay: '150ms' }}></span>
-                  <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-amber-500" style={{ animationDelay: '300ms' }}></span>
-                  <span className="font-semibold text-cocoa-800 ms-1">Looking up the data...</span>
-                </div>
+              <div className="flex items-center gap-2 ps-9 text-xs font-medium text-cocoa-600">
+                {[0, 150, 300].map((d) => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-gold-500" style={{ animationDelay: `${d}ms` }} />)}
+                Checking the live data
+              </div>
+            )}
+            {messages.length <= 1 && !loading && (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {DASHBOARD_PROMPTS.map((p) => (
+                  <button key={p} onClick={() => handleSend(p)}
+                    className="rounded-xl border border-cocoa-200 bg-white px-3 py-2.5 text-start text-xs font-semibold text-cocoa-800 transition-colors hover:border-gold-500 hover:bg-gold-300/15">
+                    {p}
+                  </button>
+                ))}
               </div>
             )}
           </div>
 
-          {/* Input Box */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSend();
-            }}
-            className="border-t border-slate-200 bg-white p-3.5 flex gap-2.5 items-center"
-          >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about operations, revenue, stock, shifts or staff..."
-              disabled={loading}
-              className="flex-1 rounded-2xl border border-slate-200 bg-[#fafafa] px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 disabled:bg-slate-100 transition-all"
-              style={{ fontSize: '16px' }}
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="flex h-10 px-4 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-lapis-900 to-lapis-800 text-amber-300 font-semibold shadow-md border border-amber-300/30 transition-all hover:scale-105 hover:border-amber-300/60 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 text-sm gap-1.5"
-            >
-              <span>Send</span>
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-              </svg>
-            </button>
+          {/* Input */}
+          <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="border-t border-cocoa-200 bg-white p-3">
+            {messages.length > 1 && (
+              <div className="-mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1">
+                {DASHBOARD_PROMPTS.map((p) => (
+                  <button key={p} type="button" onClick={() => handleSend(p)} disabled={loading}
+                    className="shrink-0 rounded-full bg-cocoa-50 px-3 py-1 text-[11px] font-semibold text-cocoa-600 hover:bg-gold-300/25 disabled:opacity-50">{p}</button>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-2 rounded-full border border-cocoa-200 bg-[#FBF7F1] p-1.5 ps-4 focus-within:border-cocoa-600">
+              <input type="text" value={input} onChange={(e) => setInput(e.target.value)} disabled={loading}
+                placeholder="Ask about revenue, guests, stock, shifts…" aria-label="Message"
+                className="min-w-0 flex-1 bg-transparent text-[15px] text-cocoa-900 placeholder:text-cocoa-400 focus:outline-none" />
+              <button type="submit" disabled={loading || !input.trim()} aria-label="Send"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-500 text-cocoa-900 transition-transform hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </button>
+            </div>
           </form>
         </div>
       )}
