@@ -4,6 +4,7 @@ import { q } from '@/lib/db';
 import { reservationRows } from '@/services/queries';
 import { Badge, PayBadge, PageHeader, Empty, Flash, fmt, dt, Input, Btn, BtnGhost, Lbl } from '@/components/dash';
 import { can } from '@/lib/permissions';
+import { Icon } from '@/components/icons';
 
 const STATUSES = ['hold', 'pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'rejected', 'expired', 'no_show'];
 
@@ -39,7 +40,7 @@ export default async function Reservations({ searchParams }: { searchParams: Pro
             <tbody className="divide-y">
               {rows.map((r) => (
                 <tr key={r.id} className="align-top hover:bg-slate-50">
-                  <td className="px-3 py-2 font-mono"><Link className="text-lapis-600 underline" href={`/dashboard/reservations/${r.id}`}>{r.reference}</Link>{r.needs_review && <span title={r.review_reason} className="ms-1 text-amber-700">⚑</span>}</td>
+                  <td className="px-3 py-2 font-mono"><Link className="text-cocoa-600 underline" href={`/dashboard/reservations/${r.id}`}>{r.reference}</Link>{r.needs_review && <span title={r.review_reason} className="ms-1 inline-flex items-center gap-1 text-xs font-sans text-amber-700"><Icon name="alert-triangle" size={14} />Needs review</span>}</td>
                   <td className="px-3 py-2"><p className="font-medium">{r.full_name}</p><p className="text-xs text-slate-500">{r.phone ?? r.email ?? ''}</p></td>
                   <td className="whitespace-nowrap px-3 py-2">{r.check_in} → {r.check_out}</td>
                   <td className="px-3 py-2 text-xs">{r.beds ?? '—'}</td>

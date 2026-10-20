@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/auth';
 import { calendarData } from '@/services/queries';
 import { todayLocal, addDays } from '@/lib/dates';
 import { PageHeader, STATUS_LABEL, BtnGhost, Btn } from '@/components/dash';
+import { Icon } from '@/components/icons';
 
 const COLORS: Record<string, string> = { hold: 'bg-purple-200 text-purple-950', pending: 'bg-amber-200 text-amber-950', confirmed: 'bg-emerald-300 text-emerald-950', checked_in: 'bg-sky-300 text-sky-950', checked_out: 'bg-slate-300 text-slate-800' };
 const dow = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' });
@@ -61,7 +62,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         i += span;
                       } else if (b) {
                         const span = Math.min(days - i, Math.round((Date.parse(b.e) - Date.parse(day)) / 86400000));
-                        cells.push(<td key={i} colSpan={span} className="border-l p-0.5"><div title={b.reason ?? 'Maintenance'} className="truncate rounded bg-slate-500 px-1.5 py-1.5 text-white">🔧 {b.reason ?? 'Blocked'}</div></td>);
+                        cells.push(<td key={i} colSpan={span} className="border-l p-0.5"><div title={b.reason ?? 'Maintenance'} className="truncate rounded bg-slate-500 px-1.5 py-1.5 text-white"><Icon name="lock" size={12} className="me-1 inline-block align-[-1px]" />{b.reason ?? 'Blocked'}</div></td>);
                         i += span;
                       } else {
                         cells.push(<td key={i} className={`border-l p-0 ${day === today ? 'bg-lapis-50' : ''}`}><Link aria-label={`New booking on ${u.label} from ${day}`} href={`/dashboard/reservations/new?unit=${u.id}&checkIn=${day}&checkOut=${addDays(day, 1)}`} className="block h-8 hover:bg-emerald-50" /></td>);

@@ -1,5 +1,7 @@
 'use client';
 
+import { Icon } from '@/components/icons';
+
 export function ExportCsvButton({
   rows,
   from,
@@ -58,7 +60,8 @@ export function ExportCsvButton({
       type="button"
       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
     >
-      <span>📥 تصدير كشف إكسيل (CSV)</span>
+      <Icon name="file-text" size={16} />
+      <span>Export to Excel (CSV)</span>
     </button>
   );
 }

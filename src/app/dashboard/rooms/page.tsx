@@ -2,6 +2,7 @@ import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { PageHeader, Card, Flash, Input, Lbl, Btn, BtnGhost, fmt } from '@/components/dash';
 import { ConfirmButton } from '@/components/ConfirmButton';
+import { Icon } from '@/components/icons';
 import { saveRoomTypeAction, addRoomAction, addUnitsAction, toggleActiveAction, addRateAction, deleteRateAction, addBlockAction, deleteBlockAction } from '../actions';
 
 const Toggle = ({ table, id, active }: { table: string; id: string; active: boolean }) => (
@@ -22,7 +23,7 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<Re
     <>
       <PageHeader title="Rooms, beds & rates" sub="Changing inventory never alters past reservations — items are deactivated, not deleted." />
       <Flash sp={sp} />
-      {anyDemo && <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">⚠ You are looking at <b>DEMO</b> rooms and prices created for testing. Replace them with the real ones before going live (edit names, set real rates, deactivate the demo types).</p>}
+      {anyDemo && <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950"><Icon name="alert-triangle" size={16} className="me-1 inline-block align-text-bottom" />You are looking at <b>DEMO</b> rooms and prices created for testing. Replace them with the real ones before going live (edit names, set real rates, deactivate the demo types).</p>}
       {types.map((t) => {
         const myRooms = rooms.filter((r) => r.room_type_id === t.id);
         return (
@@ -66,7 +67,7 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<Re
       <Card title="Add a room type" className="mb-5">
         <form action={saveRoomTypeAction} className="grid gap-3 sm:grid-cols-3">
           <div><Lbl>Name (English) *</Lbl><input name="name_en" required className={Input} /></div><div><Lbl>Name (Español)</Lbl><input name="name_es" className={Input} /></div><div><Lbl>Name (Français)</Lbl><input name="name_fr" className={Input} /></div>
-          <div><Lbl>Name (العربية)</Lbl><input name="name_ar" dir="rtl" className={Input} /></div>
+          <div><Lbl>Name (Arabic)</Lbl><input name="name_ar" dir="rtl" className={Input} /></div>
           <div><Lbl>Code (url-friendly)</Lbl><input name="code" required pattern="[a-z0-9-]+" placeholder="mixed-dorm" className={Input} /></div>
           <div><Lbl>Kind</Lbl><select name="kind" className={Input}><option value="dorm">Shared dorm (per bed)</option><option value="private">Private room (per room)</option></select></div>
           <div><Lbl>Gender</Lbl><select name="gender" className={Input}><option value="mixed">Mixed</option><option value="female">Female only</option><option value="male">Male only</option></select></div>

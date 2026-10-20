@@ -26,7 +26,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<Re
             <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${PRI[c.priority]}`}>{c.priority}</span>
             <div className="min-w-0 flex-1"><p className="font-medium">{c.full_name ?? `Telegram ${c.external_id}`} {c.reference && <span className="font-mono text-xs text-slate-500">{c.reference}</span>}</p>
               <p className="truncate text-sm text-slate-600">{c.last_text ?? '—'}</p><p className="text-xs text-slate-500">{c.escalation_reason}</p></div>
-            <div className="text-end text-xs text-slate-500"><p>{dt(c.last_guest_message_at)}</p><p>{c.mode === 'human' ? `👤 ${c.staff ?? 'staff'}` : c.status === 'needs_staff' ? 'Unassigned' : c.status}</p></div>
+            <div className="text-end text-xs text-slate-500"><p>{dt(c.last_guest_message_at)}</p><p>{c.mode === 'human' ? `Assigned: ${c.staff ?? 'staff'}` : c.status === 'needs_staff' ? 'Unassigned' : c.status}</p></div>
           </Link>))}</div>)}
     </>
   );

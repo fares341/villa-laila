@@ -8,7 +8,7 @@ export default async function Guests({ searchParams }: { searchParams: Promise<R
   const sp = await searchParams;
   const like = '%' + (sp.q ?? '').toLowerCase() + '%';
   const rows = await q<any>(`SELECT g.*, (SELECT count(*) FROM reservations r WHERE r.guest_id=g.id)::int stays, (SELECT max(check_out) FROM reservations r WHERE r.guest_id=g.id AND r.status IN ('confirmed','checked_in','checked_out')) last_stay,
-      (SELECT COALESCE(SUM(r.total_cents - COALESCE(p.paid,0)),0) FROM reservations r LEFT JOIN LATERAL (SELECT SUM(amount_cents) FILTER (WHERE status='verified') paid FROM payments WHERE reservation_id=r.id) p ON true WHERE r.guest_id=g.id AND r.status IN ('confirmed','checked_in','checked_out'))::bigint owing
+      (SELECT COALESCE(SUM(folio_charges(r.id) - COALESCE(p.paid,0)),0) FROM reservations r LEFT JOIN LATERAL (SELECT SUM(amount_cents) FILTER (WHERE status='verified') paid FROM payments WHERE reservation_id=r.id) p ON true WHERE r.guest_id=g.id AND r.status IN ('confirmed','checked_in','checked_out'))::bigint owing
     FROM guests g WHERE $1='%%' OR lower(g.full_name) LIKE $1 OR lower(coalesce(g.email,'')) LIKE $1 OR coalesce(g.phone,'') LIKE $1 ORDER BY g.created_at DESC LIMIT 100`, [like]);
   return (
     <>

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import type { SessionUser } from '@/lib/auth';
+import { Icon } from '@/components/icons';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -10,12 +11,12 @@ type Message = {
 };
 
 const DASHBOARD_PROMPTS = [
-  '📋 مين هيوصل النهاردة؟',
-  '🚪 مين مغادر النهاردة؟',
-  '📊 كام غرفة وسرير فاضيين الليلة؟',
-  '⏳ الحجوزات المعلقة للمراجعة',
-  '🔍 ابحث عن آخر الحجوزات المسجلة',
-  '➕ إزاي اعمل حجز جديد معاك؟',
+  'Who arrives today?',
+  "Today's revenue",
+  'Low stock items',
+  'Unpaid in-house guests',
+  'Last shift Z-report',
+  'Who was late today?',
 ];
 
 export function DashboardAgent({ user }: { user: SessionUser }) {
@@ -30,7 +31,7 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
       setMessages([
         {
           role: 'assistant',
-          content: `مرحباً بك يا ${user.name}! 🌟\nأنا مساعد إدارة **فيلا ليلى** الذكي. لدي صلاحية تنفيذية كاملة على النظام ويمكنني إنجاز أي عملية مباشرة بالحديث العادي:\n\n• **المتابعة اليومية:** الاستفسار عن القادمين، المغادرين، والنزلاء المقيمين ونسبة الإشغال.\n• **إدارة الحجوزات:** البحث عن أي حجز بالاسم أو الهاتف، عرض التفاصيل، وتأكيد أو إلغاء الحجز.\n• **الوصول والمغادرة:** تنفيذ إجراءات Check-in و Check-out بكلمة واحدة.\n• **تسجيل الحجوزات:** إنشاء حجز جديد وتسكين النزيل وحساب الأسعار فوراً.\n• **المدفوعات:** تسجيل وتأكيد الدفعات النقدية والإنستاباي والفيزا.\n\nبماذا تحب أن نبدأ اليوم؟`,
+          content: `Hello ${user.name}. I am the Villa Layla executive assistant. I answer questions about operations, revenue, stock, shifts and staff.\n\nI am read-only: I report on the data but do not change bookings, payments or records.`,
         },
       ]);
     }
@@ -66,7 +67,7 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
         ...prev,
         {
           role: 'assistant',
-          content: 'عذراً، حدث خطأ أثناء الاتصال بنظام الذكاء الاصطناعي. يرجى إعادة المحاولة.',
+          content: 'Sorry, the assistant could not be reached. Please try again.',
         },
       ]);
     } finally {
@@ -94,7 +95,7 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
           target={href.startsWith('http') ? '_blank' : undefined}
         >
           <span>{label}</span>
-          <span className="text-xs">↗</span>
+          <Icon name="external-link" size={12} />
         </Link>
       );
       lastIndex = linkRegex.lastIndex;
@@ -113,7 +114,7 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
       <div className="fixed bottom-6 right-6 z-50 print:hidden">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          aria-label="مساعد الإدارة الذكي"
+          aria-label="Executive assistant"
           className="group relative flex items-center gap-3.5 rounded-full bg-gradient-to-r from-[#101626] via-[#18223c] to-[#1e2a4a] p-1.5 pe-5 ps-2 text-white shadow-[0_14px_34px_-6px_rgba(16,22,38,0.55),0_0_20px_rgba(217,166,74,0.22)] border border-amber-300/40 ring-1 ring-white/10 transition-all duration-300 hover:scale-105 hover:border-amber-300/80 hover:shadow-[0_18px_40px_-4px_rgba(16,22,38,0.65),0_0_28px_rgba(217,166,74,0.35)] active:scale-95 focus:outline-none"
         >
           {/* Luminous Emblem Medallion */}
@@ -140,13 +141,13 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
               className="text-xs font-bold tracking-wide text-white drop-shadow-sm flex items-center gap-1.5"
               style={{ fontFamily: "'El Messiri Variable', sans-serif" }}
             >
-              مساعد الإدارة الذكي
+              Executive assistant
               <span className="text-[9px] font-semibold text-amber-300 uppercase px-1.5 py-0.2 rounded-full bg-amber-400/20 border border-amber-300/40">
                 PRO
               </span>
             </span>
             <span className="text-[10px] text-amber-200/70 font-medium">
-              التحكم في الحجوزات والعمليات
+              Operations insights
             </span>
           </div>
         </button>
@@ -165,37 +166,38 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
               </div>
               <div>
                 <h3 className="text-sm font-bold leading-tight flex items-center gap-2" style={{ fontFamily: "'El Messiri Variable', sans-serif" }}>
-                  <span>مساعد إدارة فيلا ليلى</span>
+                  <span>Villa Layla assistant</span>
                   <span className="text-[10px] text-amber-300 px-1.5 py-0.5 rounded-full bg-amber-400/15 border border-amber-300/30">
-                    تنفيذي
+                    Read-only
                   </span>
                 </h3>
                 <p className="text-[11px] text-amber-100/70 flex items-center gap-1.5 mt-0.5">
                   <span className="inline-block h-2 w-2 rounded-full bg-emerald-400"></span>
-                  تحكم كامل في الحجوزات والمدفوعات والعمليات
+                  Operations, revenue, stock, shifts and staff
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setMessages([])}
-                title="مسح المحادثة"
+                title="Clear conversation"
+                aria-label="Clear conversation"
                 className="flex h-8 w-8 items-center justify-center rounded-full text-amber-200/70 hover:bg-white/10 hover:text-white transition-colors text-xs"
               >
-                🔄
+                <Icon name="refresh" size={16} />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-amber-200/70 hover:bg-white/10 hover:text-white transition-colors"
                 aria-label="Close"
               >
-                ✕
+                <Icon name="x" size={18} />
               </button>
             </div>
           </div>
 
           {/* Quick Prompts Bar */}
-          <div className="border-b border-lapis-100/80 bg-[#fbfbfa] px-3.5 py-2.5 flex gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap">
+          <div className="border-b border-cocoa-100/80 bg-[#fbfbfa] px-3.5 py-2.5 flex gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap">
             {DASHBOARD_PROMPTS.map((p, i) => (
               <button
                 key={i}
@@ -232,7 +234,7 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
                   <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-amber-500" style={{ animationDelay: '0ms' }}></span>
                   <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-amber-500" style={{ animationDelay: '150ms' }}></span>
                   <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-amber-500" style={{ animationDelay: '300ms' }}></span>
-                  <span className="font-semibold text-lapis-800 ms-1">جاري الاستعلام وتنفيذ العملية في قاعدة البيانات...</span>
+                  <span className="font-semibold text-cocoa-800 ms-1">Looking up the data...</span>
                 </div>
               </div>
             )}
@@ -250,7 +252,7 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="اطلب أي عملية أو استفسر عن أي حجز..."
+              placeholder="Ask about operations, revenue, stock, shifts or staff..."
               disabled={loading}
               className="flex-1 rounded-2xl border border-slate-200 bg-[#fafafa] px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 disabled:bg-slate-100 transition-all"
               style={{ fontSize: '16px' }}
@@ -260,8 +262,8 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
               disabled={loading || !input.trim()}
               className="flex h-10 px-4 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-lapis-900 to-lapis-800 text-amber-300 font-semibold shadow-md border border-amber-300/30 transition-all hover:scale-105 hover:border-amber-300/60 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 text-sm gap-1.5"
             >
-              <span>إرسال</span>
-              <svg className="h-4 w-4 rotate-180" viewBox="0 0 24 24" fill="currentColor">
+              <span>Send</span>
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
               </svg>
             </button>

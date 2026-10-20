@@ -19,7 +19,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
   const pol = await q<any>('SELECT * FROM policy_rules ORDER BY created_at DESC NULLS LAST, name').catch(() => q<any>('SELECT * FROM policy_rules ORDER BY name'));
   const num = async (k: string) => Number(await getSetting(k));
   const tg = { token: !!process.env.TELEGRAM_BOT_TOKEN, staff: !!process.env.TELEGRAM_STAFF_CHAT_ID, gemini: !!process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash', or: !!process.env.OPENROUTER_API_KEY, orModel: process.env.OPENROUTER_MODEL ?? 'google/gemini-2.5-flash' };
-  const ok = (b: boolean) => <span className={b ? 'text-emerald-800' : 'text-red-800'}>{b ? '✔ set' : '✕ not set'}</span>;
+  const ok = (b: boolean) => <span className={b ? 'text-emerald-800' : 'text-red-800'}>{b ? 'Set' : 'Not set'}</span>;
   return (
     <>
       <PageHeader title="Settings" sub="Owner only. Anything left empty is shown to guests as “to be confirmed” — nothing is invented." />

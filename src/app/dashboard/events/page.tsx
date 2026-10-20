@@ -7,8 +7,10 @@ import { PageHeader, Card, Flash, fmt, dt, Btn, BtnGhost, BtnDanger, Input, Empt
 import { listInstapaySubmissions } from '@/services/online-payments';
 import { paymobEnabled } from '@/services/paymob';
 import { instapayEnabled } from '@/services/instapay';
-import { tr } from '@/services/events';
-import { decideInstapayAction, markEventPaidAction, checkInEventAction, cancelEventBookingAction, findTicketAction, updateEventAction } from './actions';
+import { tr, eventProfit, listPublicEvents } from '@/services/events';
+import { Icon } from '@/components/icons';
+import { Pill } from '@/components/dash';
+import { decideInstapayAction, markEventPaidAction, checkInEventAction, cancelEventBookingAction, findTicketAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,8 +29,8 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
   const today = todayLocal();
   const from = sp.from || today;
   const to = sp.to || addDays(today, 13);
-  const canVerify = can(user.role, 'payment.verify');
-  const canEdit = can(user.role, 'settings.manage');
+  const canVerify = can(user.role, 'frontdesk.use');
+  const canEdit = can(user.role, 'events.manage');
 
   const [instapay, bookings, events] = await Promise.all([
     listInstapaySubmissions(),
@@ -38,8 +40,11 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
       WHERE b.event_date BETWEEN $1 AND $2 AND ($3::text IS NULL OR b.status=$3)
         AND NOT (b.status='awaiting_payment' AND b.hold_expires_at < now())
       ORDER BY b.event_date, e.start_time, b.created_at`, [from, to, sp.status || null]),
-    q<any>(`SELECT * FROM events ORDER BY active DESC, sort_order, slug`),
+    q<any>(`SELECT id, slug, title, kind, active, recurrence, weekdays, once_date, start_time, end_time, price_cents, guest_price_cents, cost_per_attendee_cents, capacity FROM events ORDER BY active DESC, sort_order, slug`),
   ]);
+  const [profit, pubEvents] = await Promise.all([eventProfit(from, to), listPublicEvents()]);
+  const liveById = new Map(pubEvents.map((e) => [e.id, e]));
+  const profitById = new Map(profit.map((p: any) => [p.id, p]));
 
   const byDay = new Map<string, any[]>();
   for (const b of bookings) byDay.set(b.event_date, [...(byDay.get(b.event_date) ?? []), b]);
@@ -55,6 +60,8 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
           <input name="code" placeholder="Ticket code EV-…" className={Input + ' w-44'} aria-label="Ticket code" />
           <button className={Btn}>Find ticket</button>
         </form>
+        {canEdit && <Link href="/dashboard/events/edit/new" className={Btn}><Icon name="plus" size={16} /> New event</Link>}
+        {canEdit && <Link href="/dashboard/events/edit/new?kind=day_use" className={BtnGhost}><Icon name="plus" size={16} /> New day-use</Link>}
       </PageHeader>
       <Flash sp={sp} />
 
@@ -65,7 +72,7 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
           ['Paid online (period)', fmt(paidEgp)],
           ['InstaPay to check', String(instapay.length)],
         ].map(([k, v]) => (
-          <div key={k} className="rounded-2xl border border-lapis-100 bg-white p-4"><p className="text-xs text-slate-600">{k}</p><p className="mt-1 text-2xl font-semibold text-lapis-800">{v}</p></div>
+          <div key={k} className="rounded-2xl border border-cocoa-200 bg-white p-4"><p className="text-xs text-slate-600">{k}</p><p className="mt-1 text-2xl font-semibold text-cocoa-800">{v}</p></div>
         ))}
       </div>
 
@@ -77,10 +84,10 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
       )}
 
       <Card title={`InstaPay transfers to check (${instapay.length})`} className="mb-6">
-        {instapay.length === 0 ? <p className="text-sm text-slate-600">Nothing waiting. Guests who pay by InstaPay appear here until a manager checks the InstaPay app.</p> : (
+        {instapay.length === 0 ? <p className="text-sm text-slate-600">Nothing waiting. InstaPay bookings with their screenshot wait here as Pending Approval. Approving makes the ticket valid; rejecting lets the guest send it again.</p> : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-slate-600"><tr><th className="py-2">For</th><th>Guest</th><th>Sender</th><th>Reference</th><th>Amount</th><th>Sent</th><th /></tr></thead>
+              <thead className="text-left text-slate-600"><tr><th className="py-2">For</th><th>Guest</th><th>Sender</th><th>Reference</th><th>Amount</th><th>Sent</th><th>Screenshot</th><th /></tr></thead>
               <tbody>
                 {instapay.map((p) => (
                   <tr key={p.id} className="border-t border-slate-100 align-top">
@@ -92,12 +99,17 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
                     <td className="font-mono">{p.payer_reference}</td>
                     <td className="whitespace-nowrap font-semibold">{fmt(Number(p.amount_cents), p.currency)}</td>
                     <td className="whitespace-nowrap">{dt(p.created_at)}</td>
+                    <td>{p.has_proof ? (
+                      <a href={`/api/media/instapay/${p.id}`} target="_blank" rel="noopener" className="block w-20" title="Open full size">
+                        {String(p.proof_mime).startsWith('image/') ? <img src={`/api/media/instapay/${p.id}`} alt="InstaPay screenshot" className="h-20 w-20 rounded-lg border border-slate-200 object-cover" />
+                          : <span className="inline-flex items-center gap-1 text-sm underline"><Icon name="file-text" size={16} /> PDF</span>}
+                      </a>) : <Pill tone="red">Missing</Pill>}</td>
                     <td className="whitespace-nowrap">
                       {canVerify ? (
                         <form action={decideInstapayAction} className="flex gap-1">
                           <input type="hidden" name="id" value={p.id} />
-                          <button name="decision" value="verify" className={Btn}>Money arrived</button>
-                          <button name="decision" value="reject" className={BtnDanger}>Not received</button>
+                          <button name="decision" value="verify" className={Btn}><Icon name="check" size={16} /> Approve</button>
+                          <button name="decision" value="reject" className={BtnDanger}><Icon name="x" size={16} /> Reject</button>
                         </form>
                       ) : <span className="text-xs text-slate-500">Manager verifies</span>}
                     </td>
@@ -124,7 +136,7 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
         {bookings.length === 0 ? <Empty>No event bookings in this period.</Empty> : (
           [...byDay.entries()].map(([day, rows]) => (
             <div key={day} className="mb-5">
-              <h3 className="mb-2 font-semibold text-lapis-800">{new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(day + 'T12:00:00Z'))}{day === today && ' · today'}</h3>
+              <h3 className="mb-2 font-semibold text-cocoa-800">{new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(day + 'T12:00:00Z'))}{day === today && ' · today'}</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-left text-slate-600"><tr><th className="py-1.5">Ticket</th><th>Event</th><th>Guest</th><th>Qty</th><th>Total</th><th>Status</th><th /></tr></thead>
@@ -139,7 +151,7 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
                           <td>{b.full_name}<div className="text-xs text-slate-600">{b.phone || b.email}</div>{b.is_hotel_guest && <div className="text-xs text-emerald-800">Hotel guest {b.stay_reference}</div>}</td>
                           <td className="num">{b.quantity}</td>
                           <td className="whitespace-nowrap">{fmt(Number(b.total_cents), b.currency)}<div className="text-xs text-slate-500">{b.pay_method}</div></td>
-                          <td><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>{b.checked_in_at && <div className="mt-1 text-xs text-emerald-800">✓ in {dt(b.checked_in_at)}</div>}</td>
+                          <td><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>{b.checked_in_at && <div className="mt-1 text-xs text-emerald-800">Checked in {dt(b.checked_in_at)}</div>}</td>
                           <td className="whitespace-nowrap">
                             <div className="flex flex-wrap gap-1">
                               {['paid', 'pay_on_site'].includes(b.status) && !b.checked_in_at && (
@@ -164,35 +176,29 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
         )}
       </Card>
 
-      <Card title="Events">
-        <p className="mb-3 text-sm text-slate-600">Prices in EGP. Guest price applies when a guest enters a stay reference that covers the event date. Empty capacity = unlimited.</p>
+      <Card title="Events & day-use">
+        <p className="mb-3 text-sm text-slate-600">Profit = (ticket price − cost per attendee) × tickets sold, for the period above. Events sell out automatically at capacity.</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-600"><tr><th className="py-2">Event</th><th>Schedule</th><th>Price</th><th>Guest price</th><th>Capacity / day</th><th>On site</th><th /></tr></thead>
+            <thead className="text-left text-slate-600"><tr><th className="py-2">Event</th><th>Schedule</th><th className="text-right">Price</th><th className="text-right">Cost</th><th>Next date</th><th className="text-right">Sold</th><th className="text-right">Revenue</th><th className="text-right">Profit</th><th /></tr></thead>
             <tbody>
-              {events.map((e) => (
-                <tr key={e.id} className="border-t border-slate-100">
-                  <td className="py-2"><Link href={`/en/events/${e.slug}`} className="underline">{tr(e.title, 'en')}</Link><div className="text-xs text-slate-500">{e.slug}</div></td>
-                  <td className="text-xs">{e.recurrence === 'once' ? e.once_date : e.recurrence === 'daily' ? 'Daily' : 'Weekly ' + (e.weekdays as number[]).map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}<br />{e.start_time}–{e.end_time}</td>
-                  {canEdit ? (
-                    <td colSpan={5}>
-                      <form action={updateEventAction} className="flex flex-wrap items-center gap-2">
-                        <input type="hidden" name="id" value={e.id} />
-                        <input name="price" type="number" min={0} step="1" defaultValue={Number(e.price_cents) / 100} className={Input + ' w-24'} aria-label="Price" />
-                        <input name="guestPrice" type="number" min={0} step="1" defaultValue={e.guest_price_cents == null ? '' : Number(e.guest_price_cents) / 100} placeholder="—" className={Input + ' w-24'} aria-label="Guest price" />
-                        <input name="capacity" type="number" min={1} defaultValue={e.capacity ?? ''} placeholder="∞" className={Input + ' w-24'} aria-label="Capacity" />
-                        <label className="flex items-center gap-1"><input type="checkbox" name="active" defaultChecked={e.active} /> Active</label>
-                        <button className={BtnGhost}>Save</button>
-                      </form>
-                    </td>
-                  ) : (
-                    <>
-                      <td>{fmt(Number(e.price_cents))}</td><td>{e.guest_price_cents == null ? '—' : fmt(Number(e.guest_price_cents))}</td>
-                      <td>{e.capacity ?? '∞'}</td><td>{e.active ? 'Yes' : 'No'}</td><td />
-                    </>
-                  )}
-                </tr>
-              ))}
+              {events.map((e) => {
+                const pe = liveById.get(e.id); const pr: any = profitById.get(e.id) ?? { tickets: 0, revenue: 0 };
+                const profitCents = Number(pr.revenue) - Number(e.cost_per_attendee_cents) * pr.tickets;
+                return (
+                  <tr key={e.id} className={`border-t border-slate-100 ${e.active ? '' : 'opacity-50'}`}>
+                    <td className="py-2"><b>{tr(e.title, 'en')}</b><div className="text-xs text-slate-500">{e.kind === 'day_use' ? 'Day-use' : 'Event'}{!e.active && ' · not published'}</div></td>
+                    <td className="text-xs">{e.recurrence === 'once' ? e.once_date : e.recurrence === 'daily' ? 'Daily' : 'Weekly ' + (e.weekdays as number[]).map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}<br />{e.start_time}–{e.end_time}</td>
+                    <td className="text-right tabular-nums">{fmt(Number(e.price_cents))}</td>
+                    <td className="text-right tabular-nums">{fmt(Number(e.cost_per_attendee_cents))}</td>
+                    <td className="text-xs">{!e.active ? '—' : pe?.soldOut ? <Pill tone="red">Sold out</Pill> : pe?.nextDate ? <>{pe.nextDate}{e.capacity != null && <div className="text-slate-500">{pe.seatsLeftNext} of {e.capacity} left</div>}</> : <span className="text-slate-400">No upcoming date</span>}</td>
+                    <td className="text-right tabular-nums">{pr.tickets}{pr.pending ? <div className="text-xs text-amber-700">+{pr.pending} pending</div> : null}</td>
+                    <td className="text-right tabular-nums">{fmt(Number(pr.revenue))}</td>
+                    <td className="text-right font-semibold tabular-nums text-emerald-700">{fmt(profitCents)}</td>
+                    <td className="text-right">{canEdit && <Link href={`/dashboard/events/edit/${e.id}`} className="text-sm font-semibold text-cocoa-600 underline">Edit</Link>}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

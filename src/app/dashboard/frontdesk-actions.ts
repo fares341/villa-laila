@@ -34,13 +34,13 @@ export async function createBatchServiceOrdersAction(formData: FormData) {
   const comment = (formData.get('comment') as string)?.trim() || undefined;
 
   if (!cartJson) {
-    redirect('/dashboard/pos?err=' + encodeURIComponent('السلة فارغة'));
+    redirect('/dashboard/pos?err=' + encodeURIComponent('Cart is empty'));
   }
 
   try {
     const items = JSON.parse(cartJson);
     if (!Array.isArray(items) || items.length === 0) {
-      redirect('/dashboard/pos?err=' + encodeURIComponent('السلة فارغة'));
+      redirect('/dashboard/pos?err=' + encodeURIComponent('Cart is empty'));
     }
 
     const payload = items.map((it: any) => ({
@@ -61,14 +61,14 @@ export async function createBatchServiceOrdersAction(formData: FormData) {
 
     await createBatchServiceOrders(payload);
   } catch (err: any) {
-    redirect(`/dashboard/pos?err=${encodeURIComponent(err.message || 'فشل تسجيل الطلبات')}`);
+    redirect(`/dashboard/pos?err=${encodeURIComponent(err.message || 'Could not record orders')}`);
   }
 
   revalidatePath('/dashboard/pos');
   revalidatePath('/dashboard/inventory');
   revalidatePath('/dashboard/shifts');
   if (reservationId) revalidatePath(`/dashboard/reservations/${reservationId}`);
-  redirect('/dashboard/pos?ok=' + encodeURIComponent('تم إتمام الطلب وتسجيل جميع الأصناف بنجاح'));
+  redirect('/dashboard/pos?ok=' + encodeURIComponent('Order completed; all items recorded'));
 }
 
 export async function createServiceOrderAction(formData: FormData) {
@@ -102,14 +102,14 @@ export async function createServiceOrderAction(formData: FormData) {
       comment,
     });
   } catch (err: any) {
-    redirect(`/dashboard/pos?err=${encodeURIComponent(err.message || 'فشل تسجيل الطلب')}`);
+    redirect(`/dashboard/pos?err=${encodeURIComponent(err.message || 'Could not record order')}`);
   }
 
   revalidatePath('/dashboard/pos');
   revalidatePath('/dashboard/inventory');
   revalidatePath('/dashboard/shifts');
   if (reservationId) revalidatePath(`/dashboard/reservations/${reservationId}`);
-  redirect('/dashboard/pos?ok=' + encodeURIComponent('تم تسجيل الطلب وحفظ البيانات بنجاح'));
+  redirect('/dashboard/pos?ok=' + encodeURIComponent('Order recorded'));
 }
 
 /* ───────── INVENTORY & STOCK ───────── */
@@ -118,7 +118,7 @@ export async function createProductAction(formData: FormData) {
   const u = await requireUser('inventory.manage');
   const returnTo = (formData.get('returnTo') as string) || '/dashboard/inventory';
   const name = (formData.get('name') as string)?.trim();
-  if (!name) redirect(`${returnTo}?err=` + encodeURIComponent('اسم الصنف مطلوب'));
+  if (!name) redirect(`${returnTo}?err=` + encodeURIComponent('Item name is required'));
 
   const category = (formData.get('category') as string) || 'other';
   const price = parseFloat((formData.get('price') as string) || '0');
@@ -138,19 +138,19 @@ export async function createProductAction(formData: FormData) {
       lowStockThreshold,
     });
   } catch (err: any) {
-    redirect(`${returnTo}?err=${encodeURIComponent(err.message || 'فشل إضافة الصنف')}`);
+    redirect(`${returnTo}?err=${encodeURIComponent(err.message || 'Could not add item')}`);
   }
 
   revalidatePath('/dashboard/inventory');
   revalidatePath('/dashboard/pos');
-  redirect(`${returnTo}?ok=` + encodeURIComponent('تمت إضافة الصنف بنجاح'));
+  redirect(`${returnTo}?ok=` + encodeURIComponent('Item added'));
 }
 
 export async function updateProductAction(formData: FormData) {
   const u = await requireUser('inventory.manage');
   const returnTo = (formData.get('returnTo') as string) || '/dashboard/inventory';
   const id = formData.get('id') as string;
-  if (!id) redirect(`${returnTo}?err=` + encodeURIComponent('معرف الصنف غير موجود'));
+  if (!id) redirect(`${returnTo}?err=` + encodeURIComponent('Item ID is missing'));
 
   const name = (formData.get('name') as string)?.trim();
   const category = (formData.get('category') as string) || undefined;
@@ -175,29 +175,29 @@ export async function updateProductAction(formData: FormData) {
       u.id
     );
   } catch (err: any) {
-    redirect(`${returnTo}?err=${encodeURIComponent(err.message || 'فشل تحديث الصنف')}`);
+    redirect(`${returnTo}?err=${encodeURIComponent(err.message || 'Could not update item')}`);
   }
 
   revalidatePath('/dashboard/inventory');
   revalidatePath('/dashboard/pos');
-  redirect(`${returnTo}?ok=` + encodeURIComponent('تم تحديث بيانات وسعر الصنف بنجاح'));
+  redirect(`${returnTo}?ok=` + encodeURIComponent('Item and price updated'));
 }
 
 export async function deleteProductAction(formData: FormData) {
   const u = await requireUser('inventory.manage');
   const returnTo = (formData.get('returnTo') as string) || '/dashboard/inventory';
   const id = formData.get('id') as string;
-  if (!id) redirect(`${returnTo}?err=` + encodeURIComponent('معرف الصنف غير موجود'));
+  if (!id) redirect(`${returnTo}?err=` + encodeURIComponent('Item ID is missing'));
 
   try {
     await deleteProduct(id);
   } catch (err: any) {
-    redirect(`${returnTo}?err=${encodeURIComponent(err.message || 'فشل حذف الصنف')}`);
+    redirect(`${returnTo}?err=${encodeURIComponent(err.message || 'Could not delete item')}`);
   }
 
   revalidatePath('/dashboard/inventory');
   revalidatePath('/dashboard/pos');
-  redirect(`${returnTo}?ok=` + encodeURIComponent('تم حذف الصنف من القائمة'));
+  redirect(`${returnTo}?ok=` + encodeURIComponent('Item removed from the menu'));
 }
 
 export async function adjustStockAction(formData: FormData) {
@@ -208,17 +208,17 @@ export async function adjustStockAction(formData: FormData) {
   const note = (formData.get('note') as string)?.trim() || undefined;
 
   if (!productId || qty === 0) {
-    redirect('/dashboard/inventory?err=' + encodeURIComponent('بيانات تعديل الكمية غير صحيحة'));
+    redirect('/dashboard/inventory?err=' + encodeURIComponent('Invalid stock adjustment'));
   }
 
   try {
     await adjustStock(productId, qty, type, note, u.id);
   } catch (err: any) {
-    redirect(`/dashboard/inventory?err=${encodeURIComponent(err.message || 'فشل تعديل المخزن')}`);
+    redirect(`/dashboard/inventory?err=${encodeURIComponent(err.message || 'Could not adjust stock')}`);
   }
 
   revalidatePath('/dashboard/inventory');
-  redirect('/dashboard/inventory?ok=' + encodeURIComponent('تم تحديث المخزن وتسجيل حركة الجرد بنجاح'));
+  redirect('/dashboard/inventory?ok=' + encodeURIComponent('Stock updated and movement logged'));
 }
 
 export async function auditStockAction(formData: FormData) {
@@ -227,18 +227,18 @@ export async function auditStockAction(formData: FormData) {
   const note = (formData.get('note') as string)?.trim() || undefined;
 
   if (!auditJson) {
-    redirect('/dashboard/inventory?err=' + encodeURIComponent('لا توجد بيانات جرد'));
+    redirect('/dashboard/inventory?err=' + encodeURIComponent('No stock count data'));
   }
 
   try {
     const parsed = JSON.parse(auditJson);
     await conductInventoryAudit(parsed, note, u.id);
   } catch (err: any) {
-    redirect(`/dashboard/inventory?err=${encodeURIComponent(err.message || 'فشل اعتماد الجرد')}`);
+    redirect(`/dashboard/inventory?err=${encodeURIComponent(err.message || 'Could not approve stock count')}`);
   }
 
   revalidatePath('/dashboard/inventory');
-  redirect('/dashboard/inventory?ok=' + encodeURIComponent('تم حفظ الجرد الفعلي وتسوية جميع الفروقات بنجاح'));
+  redirect('/dashboard/inventory?ok=' + encodeURIComponent('Stock count saved; variances reconciled'));
 }
 
 /* ───────── CASH SHIFTS & DRAWER ───────── */
@@ -261,11 +261,11 @@ export async function openShiftAction(formData: FormData) {
       notes,
     });
   } catch (err: any) {
-    redirect(`/dashboard/shifts?err=${encodeURIComponent(err.message || 'فشل فتح الوردية')}`);
+    redirect(`/dashboard/shifts?err=${encodeURIComponent(err.message || 'Could not open shift')}`);
   }
 
   revalidatePath('/dashboard/shifts');
-  redirect('/dashboard/shifts?ok=' + encodeURIComponent('تم فتح الوردية بنجاح'));
+  redirect('/dashboard/shifts?ok=' + encodeURIComponent('Shift opened'));
 }
 
 export async function closeShiftAction(formData: FormData) {
@@ -287,11 +287,11 @@ export async function closeShiftAction(formData: FormData) {
       notes,
     });
   } catch (err: any) {
-    redirect(`/dashboard/shifts?err=${encodeURIComponent(err.message || 'فشل إغلاق الوردية')}`);
+    redirect(`/dashboard/shifts?err=${encodeURIComponent(err.message || 'Could not close shift')}`);
   }
 
   revalidatePath('/dashboard/shifts');
-  redirect('/dashboard/shifts?ok=' + encodeURIComponent('تم إغلاق الوردية وتقفيل الحساب بنجاح'));
+  redirect('/dashboard/shifts?ok=' + encodeURIComponent('Shift closed and reconciled'));
 }
 
 export async function takeShiftAction(formData: FormData) {
@@ -301,11 +301,11 @@ export async function takeShiftAction(formData: FormData) {
   try {
     await markShiftTaken(shiftId, u.id);
   } catch (err: any) {
-    redirect(`/dashboard/shifts?err=${encodeURIComponent(err.message || 'فشل توريد الخزينة')}`);
+    redirect(`/dashboard/shifts?err=${encodeURIComponent(err.message || 'Could not record cash handover')}`);
   }
 
   revalidatePath('/dashboard/shifts');
-  redirect('/dashboard/shifts?ok=' + encodeURIComponent('تم اعتماد توريد واستلام نقدية الخزينة بنجاح'));
+  redirect('/dashboard/shifts?ok=' + encodeURIComponent('Cash handover to safe approved'));
 }
 
 export async function recordExpenseAction(formData: FormData) {
@@ -317,7 +317,7 @@ export async function recordExpenseAction(formData: FormData) {
   const description = (formData.get('description') as string)?.trim();
 
   if (!description || amount <= 0) {
-    redirect('/dashboard/shifts?err=' + encodeURIComponent('يرجى تحديد المبلغ ووصف المصروف'));
+    redirect('/dashboard/shifts?err=' + encodeURIComponent('Enter an amount and a description for the expense'));
   }
 
   try {
@@ -330,11 +330,11 @@ export async function recordExpenseAction(formData: FormData) {
       userId: u.id,
     });
   } catch (err: any) {
-    redirect(`/dashboard/shifts?err=${encodeURIComponent(err.message || 'فشل تسجيل المصروف')}`);
+    redirect(`/dashboard/shifts?err=${encodeURIComponent(err.message || 'Could not record expense')}`);
   }
 
   revalidatePath('/dashboard/shifts');
-  redirect('/dashboard/shifts?ok=' + encodeURIComponent('تم تسجيل المصروف وخصمه من نقدية الدرج'));
+  redirect('/dashboard/shifts?ok=' + encodeURIComponent('Expense recorded and deducted from the cash drawer'));
 }
 
 /* ───────── TOURS & TRANSFERS ───────── */
@@ -357,7 +357,7 @@ export async function createTourAction(formData: FormData) {
   const notes = (formData.get('notes') as string)?.trim() || undefined;
 
   if (!destination || !tourDate) {
-    redirect('/dashboard/tours?err=' + encodeURIComponent('وجهة الرحلة وتاريخها مطلوبان'));
+    redirect('/dashboard/tours?err=' + encodeURIComponent('Tour destination and date are required'));
   }
 
   try {
@@ -379,11 +379,11 @@ export async function createTourAction(formData: FormData) {
       notes,
     });
   } catch (err: any) {
-    redirect(`/dashboard/tours?err=${encodeURIComponent(err.message || 'فشل حجز الرحلة')}`);
+    redirect(`/dashboard/tours?err=${encodeURIComponent(err.message || 'Could not book tour')}`);
   }
 
   revalidatePath('/dashboard/tours');
-  redirect('/dashboard/tours?ok=' + encodeURIComponent('تم تسجيل حجز الرحلة بنجاح'));
+  redirect('/dashboard/tours?ok=' + encodeURIComponent('Tour booking recorded'));
 }
 
 export async function updateTourStatusAction(formData: FormData) {
@@ -394,11 +394,11 @@ export async function updateTourStatusAction(formData: FormData) {
   try {
     await updateTourStatus(tourId, status);
   } catch (err: any) {
-    redirect(`/dashboard/tours?err=${encodeURIComponent(err.message || 'فشل تعديل الحالة')}`);
+    redirect(`/dashboard/tours?err=${encodeURIComponent(err.message || 'Could not update status')}`);
   }
 
   revalidatePath('/dashboard/tours');
-  redirect('/dashboard/tours?ok=' + encodeURIComponent('تم تحديث حالة الرحلة'));
+  redirect('/dashboard/tours?ok=' + encodeURIComponent('Tour status updated'));
 }
 
 /* ───────── TOWEL & LINEN TRACKING ───────── */
@@ -427,11 +427,11 @@ export async function createTowelLoanAction(formData: FormData) {
       notes,
     });
   } catch (err: any) {
-    redirect(`/dashboard/inventory?err=${encodeURIComponent(err.message || 'فشل تسجيل تسليم الفوطة')}`);
+    redirect(`/dashboard/inventory?err=${encodeURIComponent(err.message || 'Could not record towel issue')}`);
   }
 
   revalidatePath('/dashboard/inventory');
-  redirect('/dashboard/inventory?ok=' + encodeURIComponent('تم تسجيل تسليم الفوطة للنزيل بنجاح'));
+  redirect('/dashboard/inventory?ok=' + encodeURIComponent('Towel issued to guest'));
 }
 
 export async function returnTowelAction(formData: FormData) {
@@ -442,9 +442,9 @@ export async function returnTowelAction(formData: FormData) {
   try {
     await returnTowelLoan(loanId, depositAction);
   } catch (err: any) {
-    redirect(`/dashboard/inventory?err=${encodeURIComponent(err.message || 'فشل تأكيد استلام الفوطة')}`);
+    redirect(`/dashboard/inventory?err=${encodeURIComponent(err.message || 'Could not confirm towel return')}`);
   }
 
   revalidatePath('/dashboard/inventory');
-  redirect('/dashboard/inventory?ok=' + encodeURIComponent('تم تأكيد استعادة الفوطة للمخزن بنجاح'));
+  redirect('/dashboard/inventory?ok=' + encodeURIComponent('Towel returned to stock'));
 }

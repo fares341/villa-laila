@@ -1,11 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import { q, tx } from '@/lib/db';
 import type { Q } from '@/lib/db';
+import { folioBalance } from './pms/folio';
 import { BookingError } from './errors';
 import { audit } from './audit';
 import { createIntention, paymobEnabled, type PaymobTxn } from './paymob';
 import { instapayEnabled } from './instapay';
-import { tr, type EventRow } from './events';
+import { tr, EVENT_COLS, type EventRow } from './events';
 
 const newRef = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString('hex').toUpperCase()}`;
 
@@ -16,7 +17,7 @@ export async function startEventPaymob(ticketCode: string, base: string): Promis
   if (!b) throw new BookingError('NOT_FOUND');
   if (b.status !== 'awaiting_payment' || b.total_cents <= 0) throw new BookingError('BAD_STATE');
   if (!paymobEnabled(b.currency)) throw new BookingError('INVALID_INPUT', 'paymob_off');
-  const ev = (await q<EventRow>('SELECT * FROM events WHERE id=$1', [b.event_id]))[0];
+  const ev = (await q<EventRow>(`SELECT ${EVENT_COLS} FROM events WHERE id=$1`, [b.event_id]))[0];
   const ref = newRef('EVT');
   const op = (await q<any>(
     `INSERT INTO online_payments(merchant_ref,kind,event_booking_id,provider,amount_cents,currency,status) VALUES($1,'event',$2,'paymob',$3,$4,'created') RETURNING id`,
@@ -59,9 +60,10 @@ export async function startReservationPaymob(reference: string, base: string): P
 }
 
 /** Amount still owed on a reservation after verified payments and Paymob payments already received. */
-export async function reservationDue(reservationId: string, totalCents: number): Promise<number> {
-  const paid = (await q<any>(`SELECT COALESCE(sum(amount_cents),0)::bigint n FROM payments WHERE reservation_id=$1 AND status='verified'`, [reservationId]))[0].n as number;
-  return Math.max(0, totalCents - paid);
+export async function reservationDue(reservationId: string, _totalCents?: number): Promise<number> {
+  // Same number the front desk sees: the folio balance (room nights + extras − credits − verified payments).
+  const f = await folioBalance(reservationId);
+  return Math.max(0, f.balance);
 }
 
 /** Where to send the guest after Paymob: their ticket or booking page. */
@@ -119,20 +121,31 @@ export async function applyPaymobTxn(t: PaymobTxn, raw: unknown): Promise<any | 
 
 /* ───────── InstaPay (guest-submitted, staff-verified) ───────── */
 
-export async function submitEventInstapay(ticketCode: string, payerName: string, payerRef: string) {
+export type Proof = { bytes: Buffer; mime: string };
+const MAX_PROOF = 5 * 1024 * 1024;
+function checkProof(p: Proof | null | undefined) {
+  if (!p || !p.bytes?.length) throw new BookingError('INVALID_INPUT', 'proof_required');
+  if (p.bytes.length > MAX_PROOF) throw new BookingError('INVALID_INPUT', 'proof_too_big');
+  if (!/^image\/(png|jpe?g|webp|heic|heif)$|^application\/pdf$/.test(p.mime)) throw new BookingError('INVALID_INPUT', 'proof_type');
+}
+
+export async function submitEventInstapay(ticketCode: string, payerName: string, payerRef: string, proof: Proof | null) {
+  checkProof(proof);
   const b = (await q<any>('SELECT * FROM event_bookings WHERE ticket_code=$1', [ticketCode]))[0];
   if (!b) throw new BookingError('NOT_FOUND');
   if (!['awaiting_payment', 'pending_verification'].includes(b.status)) throw new BookingError('BAD_STATE');
   if (!instapayEnabled(b.currency)) throw new BookingError('INVALID_INPUT', 'instapay_off');
   await tx(async (c) => {
-    await c.query(`INSERT INTO online_payments(merchant_ref,kind,event_booking_id,provider,amount_cents,currency,status,payer_name,payer_reference)
-                   VALUES($1,'event',$2,'instapay',$3,$4,'submitted',$5,$6)`, [newRef('IPE'), b.id, b.total_cents, b.currency, payerName, payerRef]);
+    await c.query(`UPDATE online_payments SET status='rejected', updated_at=now() WHERE event_booking_id=$1 AND provider='instapay' AND status='submitted'`, [b.id]);
+    await c.query(`INSERT INTO online_payments(merchant_ref,kind,event_booking_id,provider,amount_cents,currency,status,payer_name,payer_reference,proof,proof_mime)
+                   VALUES($1,'event',$2,'instapay',$3,$4,'submitted',$5,$6,$7,$8)`, [newRef('IPE'), b.id, b.total_cents, b.currency, payerName, payerRef, proof!.bytes, proof!.mime]);
     await c.query(`UPDATE event_bookings SET status='pending_verification', pay_method='instapay', hold_expires_at=NULL, updated_at=now() WHERE id=$1`, [b.id]);
   });
   await audit('website', 'instapay.submit', 'event_booking', b.id, { payerRef });
 }
 
-export async function submitReservationInstapay(reference: string, payerName: string, payerRef: string) {
+export async function submitReservationInstapay(reference: string, payerName: string, payerRef: string, proof: Proof | null) {
+  checkProof(proof);
   const r = (await q<any>('SELECT * FROM reservations WHERE reference=$1', [reference]))[0];
   if (!r) throw new BookingError('NOT_FOUND');
   if (!['pending', 'confirmed', 'hold'].includes(r.status)) throw new BookingError('BAD_STATE');
@@ -141,14 +154,15 @@ export async function submitReservationInstapay(reference: string, payerName: st
   if (due <= 0) throw new BookingError('BAD_STATE');
   const open = (await q<any>(`SELECT 1 FROM online_payments WHERE reservation_id=$1 AND provider='instapay' AND status='submitted'`, [r.id]))[0];
   if (open) return; // already waiting for staff
-  await q(`INSERT INTO online_payments(merchant_ref,kind,reservation_id,provider,amount_cents,currency,status,payer_name,payer_reference)
-           VALUES($1,'room',$2,'instapay',$3,$4,'submitted',$5,$6)`, [newRef('IPR'), r.id, due, r.currency, payerName, payerRef]);
+  await q(`INSERT INTO online_payments(merchant_ref,kind,reservation_id,provider,amount_cents,currency,status,payer_name,payer_reference,proof,proof_mime)
+           VALUES($1,'room',$2,'instapay',$3,$4,'submitted',$5,$6,$7,$8)`, [newRef('IPR'), r.id, due, r.currency, payerName, payerRef, proof!.bytes, proof!.mime]);
   await q(`INSERT INTO reservation_events(reservation_id,actor,action,detail) VALUES($1,'website','instapay.submitted',$2)`, [r.id, JSON.stringify({ payerRef, amount: due })]);
 }
 
 export async function listInstapaySubmissions() {
   return q<any>(`
-    SELECT op.*, eb.ticket_code, eb.full_name AS event_guest, eb.event_date, ev.title AS event_title,
+    SELECT op.id, op.kind, op.amount_cents, op.currency, op.payer_name, op.payer_reference, op.created_at, (op.proof IS NOT NULL) has_proof, op.proof_mime,
+           eb.ticket_code, eb.full_name AS event_guest, eb.event_date, ev.title AS event_title,
            r.reference AS res_ref, g.full_name AS res_guest
     FROM online_payments op
     LEFT JOIN event_bookings eb ON eb.id = op.event_booking_id

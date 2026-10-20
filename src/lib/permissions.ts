@@ -28,6 +28,14 @@ const MAP: Record<string, Role[]> = {
   'reports.view': ['owner', 'manager'],
   'import.run': ['owner', 'manager'],
   'audit.view': ['owner', 'manager'],
+  'frontdesk.use': ['owner', 'manager', 'receptionist'],
+  'staff.manage': ['owner', 'manager'],
+  'staff.view': ['owner', 'manager'],
+  'rate.override': ['owner', 'manager'],
+  'comp.approve': ['owner', 'manager'],
+  'channel.manage': ['owner', 'manager'],
+  'events.manage': ['owner', 'manager'],
+  'catalog.manage': ['owner', 'manager'],
 };
 export type Perm = keyof typeof MAP;
 export function can(role: Role, perm: string): boolean {

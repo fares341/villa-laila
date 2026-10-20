@@ -53,7 +53,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
     sp.payment === 'pending' ? { cls: 'wait', text: L('Your payment is processing. This page updates once Paymob confirms it.', 'الدفع قيد المعالجة. ستتحدث الصفحة بعد تأكيد Paymob.') } :
     sp.payment === 'submitted' ? { cls: 'wait', text: L('Thanks! We’ll check the InstaPay transfer and activate your ticket shortly.', 'شكرًا! سنراجع تحويل InstaPay ونفعّل تذكرتك قريبًا.') } :
     sp.payment === 'unavailable' ? { cls: 'bad', text: L('Card payment isn’t available right now. Pay with InstaPay or message us on WhatsApp.', 'الدفع بالبطاقة غير متاح الآن. ادفع بـ InstaPay أو راسلنا على واتساب.') } :
-    sp.error ? { cls: 'bad', text: sp.error === 'instapay_input' ? L('Enter the sender name and the transfer reference.', 'اكتب اسم المحوِّل ورقم العملية.') : L('Something went wrong. Please try again.', 'حدث خطأ. حاول مرة أخرى.') } :
+    sp.error ? { cls: 'bad', text: sp.error === 'proof_required' ? L('Attach the screenshot of your InstaPay transfer.', 'ارفع صورة إيصال تحويل InstaPay.') : sp.error === 'instapay_input' ? L('Enter the sender name and the transfer reference.', 'اكتب اسم المحوِّل ورقم العملية.') : L('Something went wrong. Please try again.', 'حدث خطأ. حاول مرة أخرى.') } :
     null;
 
   return (
@@ -129,6 +129,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
                     {ip.link && <a className="btn btn-line btn-sm" href={ip.link} target="_blank" rel="noopener noreferrer">{L('Open InstaPay link', 'افتح رابط InstaPay')}</a>}
                     <div className="evb-field"><label htmlFor="ip-name">{L('Sender name', 'اسم المحوِّل')}</label><input id="ip-name" name="payerName" required minLength={2} maxLength={80} defaultValue={b.full_name} /></div>
                     <div className="evb-field"><label htmlFor="ip-ref">{L('Transfer reference number', 'رقم العملية (Reference)')}</label><input id="ip-ref" name="payerRef" required minLength={3} maxLength={60} dir="ltr" /></div>
+                    <div className="evb-field"><label htmlFor="ip-proof">{L('Transfer screenshot (required)', 'صورة إيصال التحويل (مطلوبة)')}</label><input id="ip-proof" name="proof" type="file" accept="image/*,application/pdf" required /></div>
                     <button className="btn btn-primary" type="submit">{L('I’ve sent the transfer', 'حوّلت المبلغ')}</button>
                   </form>
                 )}

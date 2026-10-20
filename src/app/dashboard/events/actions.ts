@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
+import { openShiftRow } from '@/services/pms/pos';
 import { markEventBookingPaid, checkInTicket, cancelEventBooking, updateEventSettings } from '@/services/events';
 import { decideInstapay } from '@/services/online-payments';
 import { q } from '@/lib/db';
@@ -12,7 +13,7 @@ const fail = (e: unknown, back = P) => redirect(`${back}${back.includes('?') ? '
 const safeBack = (v: FormDataEntryValue | null) => { const s = String(v || ''); return s.startsWith('/') && !s.startsWith('//') ? s : P; };
 
 export async function decideInstapayAction(formData: FormData) {
-  const u = await requireUser('payment.verify');
+  const u = await requireUser('frontdesk.use');
   const id = String(formData.get('id'));
   const ok = formData.get('decision') === 'verify';
   try { await decideInstapay(id, ok, u.id, u.email); } catch (e) { fail(e); }
@@ -22,8 +23,9 @@ export async function decideInstapayAction(formData: FormData) {
 export async function markEventPaidAction(formData: FormData) {
   const u = await requireUser('tours.manage');
   const id = String(formData.get('id'));
-  try { await markEventBookingPaid(id, u.email, 'Paid at the desk'); } catch (e) { fail(e); }
-  done('Marked as paid');
+  const shift = await openShiftRow();
+  try { await markEventBookingPaid(id, u.email, shift ? `Paid cash at the desk · shift #${shift.shift_no}` : 'Paid at the desk', { shiftId: shift?.id ?? null }); } catch (e) { fail(e); }
+  done(`Paid in cash · added to the drawer of shift #${shift?.shift_no}`);
 }
 
 export async function checkInEventAction(formData: FormData) {

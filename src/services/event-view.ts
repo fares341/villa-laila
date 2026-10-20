@@ -28,5 +28,7 @@ export function toEventCard(e: PublicEvent, lang: string): EventCard {
     time: `${timeLabel(e.start_time, lang)} – ${timeLabel(e.end_time, lang)}`,
     next: e.nextDate ? whenLabel(e.nextDate, lang) : '',
     soon: !!e.nextDate && (e.nextDate === today || e.nextDate === addDays(today, 1)),
+    soldOut: !!e.soldOut,
+    left: e.seatsLeftNext ?? null,
   };
 }

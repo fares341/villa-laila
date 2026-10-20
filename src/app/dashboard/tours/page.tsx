@@ -1,90 +1,79 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
-import { PageHeader, Card, Flash, fmt, dt, Btn, BtnGhost } from '@/components/dash';
-import { getTourBookings } from '@/services/frontdesk';
-import { createTourAction, updateTourStatusAction } from '../frontdesk-actions';
-import { ToursClient } from './tours-client';
+import { todayLocal, addDays } from '@/lib/dates';
+import { PageHeader, Card, fmt, dt, BtnGhost, Input, Stat, Pill } from '@/components/dash';
+import { Icon } from '@/components/icons';
 
-export default async function ToursPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | undefined>>;
-}) {
-  const user = await requireUser('tours.manage');
+export const dynamic = 'force-dynamic';
+
+export default async function ToursDesk({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  await requireUser('tours.manage');
   const sp = await searchParams;
-
-  const tours = await getTourBookings({
-    from: sp.from || undefined,
-    to: sp.to || undefined,
-    status: sp.status || undefined,
-  });
-
-  // Fetch in-house checked-in guests for 1-click booking
-  const inHouseGuests = await q<any>(`
-    SELECT r.id, r.reference, g.full_name, g.phone,
-      (SELECT string_agg(rm.name || ' ' || u.label, ', ')
-       FROM reservation_units ru
-       JOIN units u ON u.id = ru.unit_id
-       JOIN rooms rm ON rm.id = u.room_id
-       WHERE ru.reservation_id = r.id AND ru.active) as room_label
-    FROM reservations r
-    JOIN guests g ON g.id = r.guest_id
-    WHERE r.status = 'checked_in'
-    ORDER BY r.check_out ASC
-  `);
-
-  const scheduledCount = tours.filter((t) => t.status === 'scheduled').length;
-  const totalRevenueEgp = tours.filter((t) => t.currency === 'EGP').reduce((s, t) => s + t.price_cents, 0);
-  const totalRevenueUsd = tours.filter((t) => t.currency === 'USD').reduce((s, t) => s + t.price_cents, 0);
-  const totalPax = tours.reduce((s, t) => s + (t.guests_count || 1), 0);
+  const today = todayLocal();
+  const from = sp.from && /^\d{4}-\d{2}-\d{2}$/.test(sp.from) ? sp.from : addDays(today, -29);
+  const to = sp.to && /^\d{4}-\d{2}-\d{2}$/.test(sp.to) ? sp.to : today;
+  const sales = await q<any>(`
+    SELECT s.id, s.created_at, s.item_name, s.quantity, s.amount_cents, s.unit_cost_cents, s.payment_method, s.payment_status, s.guest_name,
+           t.name tour, t.organizer, r.reference, st.full_name cashier
+    FROM service_orders s JOIN tours_catalog t ON t.id=s.tour_id
+    LEFT JOIN reservations r ON r.id=s.reservation_id LEFT JOIN staff st ON st.id=s.pos_staff_id
+    WHERE s.created_at >= $1::date AND s.created_at < $2::date + 1 AND s.payment_status <> 'void'
+    ORDER BY s.created_at DESC`, [from, to]);
+  const byOrg = new Map<string, { pax: number; revenue: number; cost: number }>();
+  for (const s of sales) {
+    const o = byOrg.get(s.organizer) ?? { pax: 0, revenue: 0, cost: 0 };
+    o.pax += s.quantity; o.revenue += Number(s.amount_cents); o.cost += Number(s.unit_cost_cents) * s.quantity; byOrg.set(s.organizer, o);
+  }
+  const rev = sales.reduce((a, s) => a + Number(s.amount_cents), 0);
+  const cost = sales.reduce((a, s) => a + Number(s.unit_cost_cents) * s.quantity, 0);
+  const METHOD: Record<string, string> = { cash: 'Cash', card_terminal: 'Card', room_charge: 'Room', comp: 'Owner comp' };
 
   return (
     <>
-      <PageHeader
-        title="مكتب الرحلات وتنقلات المطار (Tours & Transfers Desk)"
-        sub="حجز وإدارة الجولات السياحية للأهرامات، سقارة، الإسكندرية، العشاء النيلي، وتنسيق السائقين والمرشدين وتوصيل المطار."
-      >
-        <Link href="/dashboard/pos" className={BtnGhost}>
-          🛒 نقطة البيع السريعة
-        </Link>
-        <Link href="/dashboard/reports/services" className={BtnGhost}>
-          📊 تقرير مبيعات الخدمات
-        </Link>
+      <PageHeader title="Tours desk" sub="Tours are sold on the POS (Tours tab). Hotel profit = sell price − organizer cost.">
+        <form className="flex items-center gap-2">
+          <input type="date" name="from" defaultValue={from} className={Input + ' w-40'} aria-label="From" />
+          <input type="date" name="to" defaultValue={to} className={Input + ' w-40'} aria-label="To" />
+          <button className={BtnGhost}>Show</button>
+        </form>
+        <Link href="/dashboard/catalog?tab=tours" className={BtnGhost}><Icon name="settings" size={16} /> Tours & prices</Link>
       </PageHeader>
-
-      <Flash sp={sp} />
-
-      {/* Top Stat Cards */}
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div className="rounded-2xl border border-amber-200/70 bg-gradient-to-br from-amber-50 to-amber-100/40 p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">إجمالي حجوزات الرحلات</p>
-          <p className="mt-1 text-2xl font-bold text-amber-950">{tours.length} حجز</p>
-          <p className="mt-1 text-xs text-amber-700">{scheduledCount} رحلة مجدولة قادمة</p>
-        </div>
-        <div className="rounded-2xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-emerald-100/40 p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">إجمالي إيراد الرحلات (EGP)</p>
-          <p className="mt-1 text-2xl font-bold text-emerald-950">{fmt(totalRevenueEgp, 'EGP')}</p>
-          <p className="mt-1 text-xs text-emerald-700">جولات الأهرامات والإسكندرية</p>
-        </div>
-        <div className="rounded-2xl border border-blue-200/70 bg-gradient-to-br from-blue-50 to-blue-100/40 p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider text-blue-800">إيراد الرحلات بالدولار</p>
-          <p className="mt-1 text-2xl font-bold text-blue-950">${(totalRevenueUsd / 100).toFixed(2)}</p>
-          <p className="mt-1 text-xs text-blue-700">دفعات مباشرة بالعملة الأجنبية</p>
-        </div>
-        <div className="rounded-2xl border border-purple-200/70 bg-gradient-to-br from-purple-50 to-purple-100/40 p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider text-purple-800">إجمالي عدد الأفراد (Pax)</p>
-          <p className="mt-1 text-2xl font-bold text-purple-950">{totalPax} فرد</p>
-          <p className="mt-1 text-xs text-purple-700">نزلاء وضيوف في الجولات</p>
-        </div>
+      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Guests booked" value={sales.reduce((a, s) => a + s.quantity, 0)} />
+        <Stat label="Sales" value={fmt(rev)} />
+        <Stat label="Owed to organizers" value={fmt(cost)} />
+        <Stat label="Hotel net profit" value={fmt(rev - cost)} tone="ok" />
       </div>
-
-      <ToursClient
-        tours={tours}
-        inHouseGuests={inHouseGuests}
-        createTourAction={createTourAction}
-        updateTourStatusAction={updateTourStatusAction}
-      />
+      <div className="grid gap-5 xl:grid-cols-3">
+        <Card title="By organizer">
+          <ul className="space-y-2 text-sm">
+            {[...byOrg.entries()].map(([org, o]) => (
+              <li key={org} className="rounded-lg border border-slate-100 p-3"><b>{org}</b>
+                <div className="mt-1 grid grid-cols-3 gap-1 text-xs text-slate-600"><span>{o.pax} pax</span><span>Pay {fmt(o.cost)}</span><span className="text-emerald-700">Profit {fmt(o.revenue - o.cost)}</span></div></li>
+            ))}
+            {byOrg.size === 0 && <li className="text-slate-500">No tour sales in this period.</li>}
+          </ul>
+        </Card>
+        <Card title="Tour sales" className="xl:col-span-2">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-slate-500"><tr><th className="py-2">When</th><th>Tour</th><th>Guest</th><th className="text-right">Pax</th><th className="text-right">Sell</th><th className="text-right">Profit</th><th>Paid by</th></tr></thead>
+              <tbody>{sales.map((s) => (
+                <tr key={s.id} className="border-t border-slate-100">
+                  <td className="py-2">{dt(s.created_at)}<div className="text-xs text-slate-500">{s.cashier}</div></td>
+                  <td>{s.tour}<div className="text-xs text-slate-500">{s.organizer}</div></td>
+                  <td>{s.guest_name || 'Walk-in'}{s.reference && <div className="font-mono text-xs text-slate-500">{s.reference}</div>}</td>
+                  <td className="text-right tabular-nums">{s.quantity}</td>
+                  <td className="text-right tabular-nums">{fmt(Number(s.amount_cents))}</td>
+                  <td className="text-right tabular-nums text-emerald-700">{fmt(Number(s.amount_cents) - Number(s.unit_cost_cents) * s.quantity)}</td>
+                  <td><Pill tone={s.payment_method === 'room_charge' ? 'amber' : 'slate'}>{METHOD[s.payment_method] ?? s.payment_method}</Pill></td>
+                </tr>))}
+                {sales.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-slate-500">No tour sales in this period.</td></tr>}</tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
     </>
   );
 }

@@ -32,6 +32,7 @@ export default async function Booked({ params, searchParams }: { params: Promise
   const canPaymob = open && pay.due > 0 && paymobEnabled(r.currency);
   const canInstapay = open && pay.due > 0 && !pay.pendingInstapay && instapayEnabled(r.currency);
   const ip = instapayDetails();
+  const extras = await q<any>(`SELECT name, price_cents, currency, unit_label FROM products WHERE is_active AND public_visible ORDER BY sort_order, name`).catch(() => []);
 
   const banner =
     sp.payment === 'paid' ? { cls: 'ok', text: L('Payment received — thank you! It’s already on your booking.', 'تم استلام الدفع — شكرًا! تم تسجيله على حجزك.') } :
@@ -39,7 +40,7 @@ export default async function Booked({ params, searchParams }: { params: Promise
     sp.payment === 'pending' ? { cls: 'wait', text: L('Your payment is processing. Refresh this page in a minute.', 'الدفع قيد المعالجة. حدّث الصفحة بعد دقيقة.') } :
     sp.payment === 'submitted' ? { cls: 'wait', text: L('Thanks! We’ll check your InstaPay transfer and confirm.', 'شكرًا! سنراجع تحويل InstaPay ونؤكد.') } :
     sp.payment === 'unavailable' ? { cls: 'bad', text: L('Card payment isn’t available right now. Your request is saved; pay with InstaPay or at the villa.', 'الدفع بالبطاقة غير متاح الآن. طلبك محفوظ؛ ادفع بـ InstaPay أو في الفيلا.') } :
-    sp.payment === 'error' || sp.error ? { cls: 'bad', text: sp.error === 'instapay_input' ? L('Enter the sender name and the transfer reference.', 'اكتب اسم المحوِّل ورقم العملية.') : L('Something went wrong. Please try again.', 'حدث خطأ. حاول مرة أخرى.') } :
+    sp.payment === 'error' || sp.error ? { cls: 'bad', text: sp.error === 'proof_required' ? L('Attach the screenshot of your InstaPay transfer.', 'ارفع صورة إيصال تحويل InstaPay.') : sp.error === 'instapay_input' ? L('Enter the sender name and the transfer reference.', 'اكتب اسم المحوِّل ورقم العملية.') : L('Something went wrong. Please try again.', 'حدث خطأ. حاول مرة أخرى.') } :
     null;
 
   return (
@@ -98,11 +99,22 @@ export default async function Booked({ params, searchParams }: { params: Promise
                     {ip.link && <a className="btn btn-line btn-sm" href={ip.link} target="_blank" rel="noopener noreferrer">{L('Open InstaPay link', 'افتح رابط InstaPay')}</a>}
                     <div className="evb-field"><label htmlFor="ip-name">{L('Sender name', 'اسم المحوِّل')}</label><input id="ip-name" name="payerName" required minLength={2} maxLength={80} /></div>
                     <div className="evb-field"><label htmlFor="ip-ref">{L('Transfer reference number', 'رقم العملية (Reference)')}</label><input id="ip-ref" name="payerRef" required minLength={3} maxLength={60} dir="ltr" /></div>
+                    <div className="evb-field"><label htmlFor="ip-proof">{L('Transfer screenshot (required)', 'صورة إيصال التحويل (مطلوبة)')}</label><input id="ip-proof" name="proof" type="file" accept="image/*,application/pdf" required /></div>
                     <button className="btn btn-primary" type="submit">{L('I’ve sent the transfer', 'حوّلت المبلغ')}</button>
                   </form>
                 )}
               </div>
               <p className="evb-fine">{L('Prefer to pay at check-in? No need to do anything now.', 'تفضّل الدفع عند الوصول؟ مش محتاج تعمل حاجة دلوقتي.')}</p>
+            </section>
+          )}
+
+          {extras.length > 0 && (
+            <section className="bkd-next" aria-labelledby="exH">
+              <h2 id="exH">{L('Extras at the villa', 'إضافات متاحة في الفيلا')}</h2>
+              <p className="bkd-sub">{L('Ask at reception during your stay; it is added to your room bill.', 'اطلبها من الاستقبال أثناء إقامتك وتُضاف على فاتورة غرفتك.')}</p>
+              <ul className="bkd-extras">
+                {extras.map((x: any) => <li key={x.name}><span>{x.name}{x.unit_label ? ` · ${x.unit_label}` : ''}</span><b dir="ltr">{money(Number(x.price_cents), x.currency, lang)}</b></li>)}
+              </ul>
             </section>
           )}
 

@@ -10,10 +10,10 @@ export default async function Payments({ searchParams }: { searchParams: Promise
   const u = await requireUser('payment.record');
   const sp = await searchParams;
   const waiting = await q<any>(`SELECT p.*, r.reference, r.currency, g.full_name FROM payments p JOIN reservations r ON r.id=p.reservation_id JOIN guests g ON g.id=r.guest_id WHERE p.status='recorded' ORDER BY p.created_at`);
-  const owing = await q<any>(`SELECT r.id, r.reference, r.status, r.check_in, r.total_cents, r.currency, g.full_name, g.phone, p.paid FROM reservations r JOIN guests g ON g.id=r.guest_id
+  const owing = await q<any>(`SELECT r.id, r.reference, r.status, r.check_in, r.total_cents, folio_charges(r.id)::bigint charges_cents, r.currency, g.full_name, g.phone, p.paid FROM reservations r JOIN guests g ON g.id=r.guest_id
      LEFT JOIN LATERAL (SELECT COALESCE(SUM(amount_cents) FILTER (WHERE status='verified'),0)::bigint paid FROM payments WHERE reservation_id=r.id) p ON true
-     WHERE r.status IN ('confirmed','checked_in','checked_out') AND r.total_cents - p.paid > 0 ORDER BY r.check_in LIMIT 100`);
-  const total = owing.reduce((s, r) => s + (r.total_cents - r.paid), 0);
+     WHERE r.status IN ('confirmed','checked_in','checked_out') AND folio_charges(r.id) - p.paid > 0 ORDER BY r.check_in LIMIT 100`);
+  const total = owing.reduce((s, r) => s + (r.charges_cents - r.paid), 0);
   return (
     <>
       <PageHeader title="Payments" sub="Recorded vs verified. Only verified payments reduce a balance." />
@@ -27,7 +27,7 @@ export default async function Payments({ searchParams }: { searchParams: Promise
       </Card>
       <Card title={`Outstanding balances — ${fmt(total)} across ${owing.length} reservation(s)`} className="mt-6">
         {owing.length === 0 ? <p className="text-sm text-slate-500">No outstanding balances.</p> : <table className="w-full text-sm"><thead className="text-left text-xs uppercase text-slate-500"><tr><th>Reservation</th><th>Guest</th><th>Check-in</th><th>Total</th><th>Verified paid</th><th>Balance</th></tr></thead><tbody className="divide-y">{owing.map((r) => (
-          <tr key={r.id}><td className="py-2"><Link className="underline" href={`/dashboard/reservations/${r.id}`}>{r.reference}</Link></td><td>{r.full_name}<span className="block text-xs text-slate-500">{r.phone}</span></td><td>{r.check_in}</td><td>{fmt(r.total_cents, r.currency)}</td><td>{fmt(r.paid, r.currency)}</td><td className="font-semibold text-red-800">{fmt(r.total_cents - r.paid, r.currency)}</td></tr>))}</tbody></table>}
+          <tr key={r.id}><td className="py-2"><Link className="underline" href={`/dashboard/reservations/${r.id}`}>{r.reference}</Link></td><td>{r.full_name}<span className="block text-xs text-slate-500">{r.phone}</span></td><td>{r.check_in}</td><td>{fmt(r.charges_cents, r.currency)}</td><td>{fmt(r.paid, r.currency)}</td><td className="font-semibold text-red-800">{fmt(r.charges_cents - r.paid, r.currency)}</td></tr>))}</tbody></table>}
       </Card>
     </>
   );

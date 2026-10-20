@@ -89,7 +89,12 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           <aside className="evd-book" id="book" aria-labelledby="bookH">
             <h2 id="bookH">{isAr ? 'احجز تذكرتك' : 'Book your ticket'}</h2>
             {errMsg && <p role="alert" className="form-msg">{errMsg}</p>}
-            {ev.methods.length === 0 ? (
+            {dates.length > 0 && dates.every((d) => d.left === 0) ? (
+              <div className="evd-off">
+                <p><b>{isAr ? 'نفدت التذاكر' : 'Sold out'}</b> · {isAr ? 'كل الأماكن في الأيام القادمة محجوزة. تابعنا للمواعيد الجديدة.' : 'Every place for the coming dates is taken. Follow us for the next dates.'}</p>
+                <a className="btn btn-line" href={wa} target="_blank" rel="noopener noreferrer">{isAr ? 'اسأل على واتساب' : 'Ask on WhatsApp'}</a>
+              </div>
+            ) : ev.methods.length === 0 ? (
               <div className="evd-off">
                 <p>{isAr ? 'الحجز أونلاين غير متاح لهذه الفعالية الآن. احجز مكانك على واتساب.' : 'Online booking isn’t open for this event right now. Reserve your place on WhatsApp.'}</p>
                 <a className="btn btn-wa" href={wa} target="_blank" rel="noopener noreferrer">{isAr ? 'احجز على واتساب' : 'Book on WhatsApp'}</a>
@@ -99,7 +104,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 lang={lang}
                 slug={ev.slug}
                 dates={dates}
-                initialDate={sp.date && dates.some((d) => d.date === sp.date) ? sp.date : dates[0]?.date ?? ''}
+                initialDate={sp.date && dates.some((d) => d.date === sp.date && d.left !== 0) ? sp.date : dates.find((d) => d.left !== 0)?.date ?? ''}
                 options={ev.options.map((o) => ({ key: o.key, label: isAr ? o.ar : o.en }))}
                 priceCents={ev.price_cents}
                 guestPriceCents={ev.guest_price_cents}

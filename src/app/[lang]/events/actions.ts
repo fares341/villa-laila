@@ -16,6 +16,12 @@ const schema = z.object({
   payMethod: z.enum(['paymob', 'instapay', 'cash']), website: z.string().optional(),
 });
 
+async function readProof(v: FormDataEntryValue | null): Promise<{ bytes: Buffer; mime: string } | null> {
+  if (!v || typeof v === 'string' || !(v as File).size) return null;
+  const f = v as File;
+  return { bytes: Buffer.from(await f.arrayBuffer()), mime: f.type || 'application/octet-stream' };
+}
+
 const errCode = (e: unknown) => (e instanceof BookingError ? `${e.code.toLowerCase()}${e.message && e.message !== e.code ? ':' + e.message : ''}` : 'generic');
 
 export async function bookEventAction(formData: FormData) {
@@ -68,7 +74,9 @@ export async function submitEventInstapayAction(formData: FormData) {
   const ref = String(formData.get('payerRef') || '').trim().slice(0, 60);
   if (!rateLimit('ipe:' + (await clientIp()), 10, 10 * 60_000)) redirect(`/${lang}/tickets/${code}?error=rate_limit`);
   if (name.length < 2 || ref.length < 3) redirect(`/${lang}/tickets/${code}?error=instapay_input#pay`);
-  try { await submitEventInstapay(code, name, ref); }
+  const proof = await readProof(formData.get('proof'));
+  if (!proof) redirect(`/${lang}/tickets/${code}?error=proof_required#pay`);
+  try { await submitEventInstapay(code, name, ref, proof); }
   catch (e) { redirect(`/${lang}/tickets/${code}?error=${encodeURIComponent(errCode(e))}`); }
   redirect(`/${lang}/tickets/${code}?payment=submitted`);
 }

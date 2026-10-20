@@ -4,7 +4,7 @@ import { payState } from './payments';
 
 export type ResFilters = { q?: string; status?: string; source?: string; roomType?: string; payment?: string; from?: string; to?: string; sort?: string; page?: number; limit?: number };
 
-const SORTS: Record<string, string> = { created: 'r.created_at DESC', checkin: 'r.check_in ASC, r.created_at', checkin_desc: 'r.check_in DESC', updated: 'r.updated_at DESC', balance: '(r.total_cents - p.paid) DESC' };
+const SORTS: Record<string, string> = { created: 'r.created_at DESC', checkin: 'r.check_in ASC, r.created_at', checkin_desc: 'r.check_in DESC', updated: 'r.updated_at DESC', balance: '(folio_charges(r.id) - p.paid) DESC' };
 
 export async function reservationRows(f: ResFilters) {
   const where: string[] = ['TRUE']; const args: any[] = [];
@@ -16,15 +16,15 @@ export async function reservationRows(f: ResFilters) {
   if (f.from) add('r.check_out > ?::date', f.from);   // stay overlaps [from,to]
   if (f.to) add('r.check_in <= ?::date', f.to);
   let having = '';
-  if (f.payment) having = f.payment === 'unpaid' ? 'AND p.paid <= 0' : f.payment === 'partial' ? 'AND p.paid > 0 AND p.paid < r.total_cents' : f.payment === 'paid' ? 'AND p.paid >= r.total_cents AND r.total_cents > 0' : '';
+  if (f.payment) having = f.payment === 'unpaid' ? 'AND p.paid <= 0' : f.payment === 'partial' ? 'AND p.paid > 0 AND p.paid < folio_charges(r.id)' : f.payment === 'paid' ? 'AND p.paid >= folio_charges(r.id) AND folio_charges(r.id) > 0' : '';
   const limit = Math.min(f.limit ?? 50, 5000), offset = ((f.page ?? 1) - 1) * limit;
   const rows = await q<any>(
-    `SELECT r.*, g.full_name, g.email, g.phone, g.language, t.name rt_name, t.kind rt_kind, p.paid, p.unverified,
+    `SELECT r.*, folio_charges(r.id)::bigint charges_cents, g.full_name, g.email, g.phone, g.language, t.name rt_name, t.kind rt_kind, p.paid, p.unverified,
        (SELECT string_agg(rm.name || ' / ' || u.label, ', ' ORDER BY rm.name, u.label) FROM reservation_units ru JOIN units u ON u.id=ru.unit_id JOIN rooms rm ON rm.id=u.room_id WHERE ru.reservation_id=r.id AND ru.active) beds
      FROM reservations r JOIN guests g ON g.id=r.guest_id JOIN room_types t ON t.id=r.room_type_id
      LEFT JOIN LATERAL (SELECT COALESCE(SUM(amount_cents) FILTER (WHERE status='verified'),0)::bigint paid, COALESCE(SUM(amount_cents) FILTER (WHERE status='recorded'),0)::bigint unverified FROM payments WHERE reservation_id=r.id) p ON true
      WHERE ${where.join(' AND ')} ${having} ORDER BY ${SORTS[f.sort ?? 'created'] ?? SORTS.created} LIMIT ${limit} OFFSET ${offset}`, args);
-  return rows.map((r) => ({ ...r, balance: r.total_cents - r.paid, payState: payState(r.total_cents, r.paid) }));
+  return rows.map((r) => ({ ...r, balance: r.charges_cents - r.paid, payState: payState(r.charges_cents, r.paid) }));
 }
 
 export async function overview() {
@@ -46,7 +46,7 @@ export async function overview() {
              EXISTS (SELECT 1 FROM reservation_units ru JOIN reservations r ON r.id=ru.reservation_id WHERE ru.unit_id=u.id AND ru.active AND ru.during @> $1::date AND NOT (r.status IN ('hold','pending') AND r.hold_expires_at < now())) occupied
            FROM units u JOIN rooms rm ON rm.id=u.room_id JOIN room_types t2 ON t2.id=rm.room_type_id WHERE u.active AND rm.active AND t2.active) x
      JOIN room_types t ON t.id=x.room_type_id`, [today]);
-  const outstanding = await one(`SELECT COALESCE(SUM(GREATEST(r.total_cents - p.paid,0)),0)::bigint n, count(*) FILTER (WHERE r.total_cents - p.paid > 0)::int c
+  const outstanding = await one(`SELECT COALESCE(SUM(GREATEST(folio_charges(r.id) - p.paid,0)),0)::bigint n, count(*) FILTER (WHERE folio_charges(r.id) - p.paid > 0)::int c
      FROM reservations r LEFT JOIN LATERAL (SELECT COALESCE(SUM(amount_cents) FILTER (WHERE status='verified'),0) paid FROM payments WHERE reservation_id=r.id) p ON true WHERE r.status IN ('confirmed','checked_in','checked_out')`);
   const review = (await one(`SELECT (SELECT count(*) FROM reservations WHERE needs_review AND status IN ('pending','hold'))::int a, (SELECT count(*) FROM conversations WHERE status='needs_staff')::int b, (SELECT count(*) FROM extension_requests WHERE status IN ('pending','conflict'))::int c, (SELECT count(*) FROM payments WHERE status='recorded')::int d`));
   const tasks = await q<any>(`SELECT * FROM tasks WHERE status='open' ORDER BY COALESCE(due_at, created_at) LIMIT 8`);
@@ -81,7 +81,7 @@ export async function reportData(from: string, to: string) {
       (SELECT COALESCE(SUM(amount_cents),0)::bigint FROM payments WHERE status='verified' AND created_at >= $1::date AND created_at < $2::date) received,
       (SELECT COALESCE(SUM(amount_cents),0)::bigint FROM payments WHERE status='recorded') unverified
     FROM reservations r WHERE r.check_in >= $1::date AND r.check_in < $2::date`, [from, to]);
-  const outstanding = await one(`SELECT COALESCE(SUM(GREATEST(r.total_cents - p.paid,0)),0)::bigint n FROM reservations r LEFT JOIN LATERAL (SELECT COALESCE(SUM(amount_cents) FILTER (WHERE status='verified'),0) paid FROM payments WHERE reservation_id=r.id) p ON true WHERE r.status IN ('confirmed','checked_in','checked_out')`, []);
+  const outstanding = await one(`SELECT COALESCE(SUM(GREATEST(folio_charges(r.id) - p.paid,0)),0)::bigint n FROM reservations r LEFT JOIN LATERAL (SELECT COALESCE(SUM(amount_cents) FILTER (WHERE status='verified'),0) paid FROM payments WHERE reservation_id=r.id) p ON true WHERE r.status IN ('confirmed','checked_in','checked_out')`, []);
   return { sold, unitCount, days, occupancy: unitCount ? Math.round((sold / (unitCount * days)) * 1000) / 10 : 0, bySource, cancels, ext, money, outstanding: outstanding.n, nights };
 }
 
@@ -106,5 +106,9 @@ export async function houseView() {
 export async function navCounts() {
   return (await q<any>(`SELECT (SELECT count(*) FROM reservations WHERE status IN ('pending','hold') AND (hold_expires_at IS NULL OR hold_expires_at > now()))::int pending,
     (SELECT count(*) FROM conversations WHERE status='needs_staff')::int inbox, (SELECT count(*) FROM payments WHERE status='recorded')::int payments,
-    (SELECT count(*) FROM extension_requests WHERE status IN ('pending','conflict'))::int extensions`))[0];
+    (SELECT count(*) FROM extension_requests WHERE status IN ('pending','conflict'))::int extensions,
+    (SELECT count(*) FROM online_payments WHERE provider='instapay' AND status='submitted')::int instapay,
+    (SELECT count(*) FROM reservations WHERE status IN ('pending','confirmed') AND check_in = (now() AT TIME ZONE 'Africa/Cairo')::date)::int arrivals,
+    (SELECT count(*) FROM rooms WHERE active AND hk_status='dirty')::int dirty,
+    (SELECT count(*) FROM products WHERE is_active AND track_stock AND stock_quantity <= low_stock_threshold)::int lowstock`))[0];
 }

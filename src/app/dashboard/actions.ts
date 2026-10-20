@@ -7,7 +7,9 @@ import { q } from '@/lib/db';
 import { requireUser, login, createSession, destroySession, hash } from '@/lib/auth';
 import { toCents } from '@/lib/money';
 import { BookingError } from '@/services/errors';
-import { createReservation, confirmReservation, cancelReservation, rejectReservation, markNoShow, checkIn, checkOut, changeStay, reassignUnit, addNote } from '@/services/reservations';
+import { createReservation, confirmReservation, cancelReservation, rejectReservation, markNoShow, changeStay, reassignUnit, addNote } from '@/services/reservations';
+import { checkInGuest, checkOutGuest } from '@/services/pms/frontdesk';
+import { snapshotStay, afterStayChange } from '@/services/pms/sync';
 import { requestExtension, decideExtension } from '@/services/extensions';
 import { recordPayment, verifyPayment, type PaymentMethod } from '@/services/payments';
 import { takeOver, staffSend, resolve, reopen, resumeBot, assign } from '@/services/conversations';
@@ -89,16 +91,17 @@ export async function cancelAction(f: FormData) {
   const u = await requireUser('reservation.cancel'); const id = S(f, 'id');
   return run(`/dashboard/reservations/${id}`, async () => { await cancelReservation(id, S(f, 'reason') || null, u.email); const s = await notifyGuest(id, 'cancelled'); return s ? 'Cancelled and guest notified.' : 'Cancelled.'; });
 }
-export async function checkInAction(f: FormData) { const u = await requireUser('reservation.edit'); const id = S(f, 'id'); return run(`/dashboard/reservations/${id}`, async () => { await checkIn(id, u.email); return 'Checked in.'; }); }
-export async function checkOutAction(f: FormData) { const u = await requireUser('reservation.edit'); const id = S(f, 'id'); return run(`/dashboard/reservations/${id}`, async () => { await checkOut(id, u.email); return 'Checked out.'; }); }
+// Check-in / out go through the front-desk service so the folio, housekeeping and Little Hotelier stay in step.
+export async function checkInAction(f: FormData) { const u = await requireUser('reservation.edit'); const id = S(f, 'id'); return run(`/dashboard/reservations/${id}`, async () => { await checkInGuest(id, u.email, u.id); return 'Checked in. Room nights are posted to the folio.'; }); }
+export async function checkOutAction(f: FormData) { const u = await requireUser('reservation.edit'); const id = S(f, 'id'); return run(`/dashboard/reservations/${id}`, async () => { await checkOutGuest(id, u.email); return 'Checked out. Room marked dirty.'; }); }
 export async function noShowAction(f: FormData) { const u = await requireUser('reservation.edit'); const id = S(f, 'id'); return run(`/dashboard/reservations/${id}`, async () => { await markNoShow(id, u.email); return 'Marked as no-show.'; }); }
 export async function changeDatesAction(f: FormData) {
   const u = await requireUser('reservation.edit'); const id = S(f, 'id');
-  return run(`/dashboard/reservations/${id}`, async () => { const r = await changeStay(id, S(f, 'checkIn'), S(f, 'checkOut'), u.email); return `Dates changed. New total ${(r.totalCents / 100).toFixed(2)}.`; });
+  return run(`/dashboard/reservations/${id}`, async () => { const before = await snapshotStay(id); const r = await changeStay(id, S(f, 'checkIn'), S(f, 'checkOut'), u.email); await afterStayChange(id, before, u.id, 'reservation.change_dates'); return `Dates changed. New total ${(r.totalCents / 100).toFixed(2)}.`; });
 }
 export async function reassignAction(f: FormData) {
   const u = await requireUser('reservation.edit'); const id = S(f, 'id');
-  return run(`/dashboard/reservations/${id}`, async () => { await reassignUnit(S(f, 'ruId'), S(f, 'unitId'), u.email); return 'Bed assignment changed.'; });
+  return run(`/dashboard/reservations/${id}`, async () => { await reassignUnit(S(f, 'ruId'), S(f, 'unitId'), u.email); await afterStayChange(id, null, u.id, 'reservation.reassign'); return 'Bed assignment changed.'; });
 }
 export async function addNoteAction(f: FormData) {
   const u = await requireUser('reservation.edit'); const id = S(f, 'id');
@@ -129,8 +132,11 @@ export async function createExtensionAction(f: FormData) {
 export async function decideExtensionAction(f: FormData) {
   const u = await requireUser('extension.decide'); const dec = S(f, 'decision') === 'approve' ? 'approve' : 'reject';
   return run(safeBack(back(f, '/dashboard/extensions')), async () => {
+    const extRes = (await q<any>('SELECT reservation_id FROM extension_requests WHERE id=$1', [S(f, 'id')]))[0];
+    const before = extRes ? await snapshotStay(extRes.reservation_id) : null;
     const r = await decideExtension(S(f, 'id'), dec, u.email, u.id);
     if (r.status === 'conflict') return `Cannot extend: ${r.detail}. Nothing was changed.`;
+    if (r.status === 'applied') await afterStayChange(r.reservationId, before, u.id, 'extension.apply');
     const sent = await notifyGuest(r.reservationId, r.status === 'applied' ? 'extension_applied' : 'extension_rejected', { extraCents: r.extra_cents });
     return (r.status === 'applied' ? 'Extension applied.' : 'Extension rejected.') + (sent ? ' Guest notified.' : '');
   });

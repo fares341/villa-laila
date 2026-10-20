@@ -239,19 +239,19 @@ async function handoff(conv: Conversation, reason: string, recommended: string, 
 }
 
 async function guestReservations(conv: Conversation, statuses: string[]) {
-  return q<any>(`SELECT r.*, COALESCE((SELECT SUM(amount_cents) FROM payments p WHERE p.reservation_id=r.id AND p.status='verified'),0)::bigint paid
+  return q<any>(`SELECT r.*, folio_charges(r.id)::bigint charges_cents, COALESCE((SELECT SUM(amount_cents) FROM payments p WHERE p.reservation_id=r.id AND p.status='verified'),0)::bigint paid
     FROM reservations r JOIN guests g ON g.id=r.guest_id WHERE g.telegram_chat_id=$1 AND r.status = ANY($2::text[]) ORDER BY r.check_in DESC LIMIT 6`, [Number(conv.external_id), statuses]);
 }
 
 async function showReservation(conv: Conversation, r: any) {
   const lang = L(conv);
-  await reply(conv, t(lang, 'res_details', { ref: r.reference, status: t(lang, 'status_' + r.status), checkin: r.check_in, checkout: r.check_out, guests: r.guests_count, total: fmtMoney(r.total_cents, r.currency), paid: fmtMoney(r.paid, r.currency), balance: fmtMoney(r.total_cents - r.paid, r.currency) }),
+  await reply(conv, t(lang, 'res_details', { ref: r.reference, status: t(lang, 'status_' + r.status), checkin: r.check_in, checkout: r.check_out, guests: r.guests_count, total: fmtMoney(r.total_cents, r.currency), paid: fmtMoney(r.paid, r.currency), balance: fmtMoney(r.charges_cents - r.paid, r.currency) }),
     { inline: [...(['confirmed', 'checked_in'].includes(r.status) ? [[{ text: t(lang, 'menu_extend'), data: 'e:' + r.id }]] : []), [{ text: t(lang, 'nav_menu'), data: 'm:menu' }]] });
 }
 
 async function lookupByReference(conv: Conversation, refRaw: string): Promise<any | 'notyours' | null> {
   const ref = refRaw.trim().toUpperCase().replace(/\s+/g, '');
-  const r = (await q<any>(`SELECT r.*, g.telegram_chat_id tgc, COALESCE((SELECT SUM(amount_cents) FROM payments p WHERE p.reservation_id=r.id AND p.status='verified'),0)::bigint paid FROM reservations r JOIN guests g ON g.id=r.guest_id WHERE r.reference=$1`, [ref]))[0];
+  const r = (await q<any>(`SELECT r.*, folio_charges(r.id)::bigint charges_cents, g.telegram_chat_id tgc, COALESCE((SELECT SUM(amount_cents) FROM payments p WHERE p.reservation_id=r.id AND p.status='verified'),0)::bigint paid FROM reservations r JOIN guests g ON g.id=r.guest_id WHERE r.reference=$1`, [ref]))[0];
   if (!r) return null;
   if (r.tgc && Number(r.tgc) !== Number(conv.external_id)) return 'notyours';
   if (!r.tgc) { await q('UPDATE guests SET telegram_chat_id=$2 WHERE id=$1 AND telegram_chat_id IS NULL', [r.guest_id, Number(conv.external_id)]); await saveState(conv.id, { guest_id: r.guest_id }); }

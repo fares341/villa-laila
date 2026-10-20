@@ -28,7 +28,7 @@ export default async function Conversation({ params, searchParams }: { params: P
               {msgs.map((m) => (
                 <div key={m.id} className={`flex ${m.direction === 'in' ? 'justify-start' : 'justify-end'}`}>
                   <div className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${m.direction === 'in' ? 'bg-white' : m.sender === 'staff' ? 'bg-emerald-100' : 'bg-sky-100'}`}>
-                    <p className="mb-0.5 text-[10px] uppercase text-slate-500">{m.sender}{m.kind === 'voice' ? ' · 🎤 voice (transcribed)' : ''} · {dt(m.created_at)}{m.delivery_status === 'failed' ? ' · ⚠ not delivered' : ''}</p>{m.text}</div></div>))}
+                    <p className="mb-0.5 text-[10px] uppercase text-slate-500">{m.sender}{m.kind === 'voice' ? ' · voice (transcribed)' : ''} · {dt(m.created_at)}{m.delivery_status === 'failed' ? ' · not delivered' : ''}</p>{m.text}</div></div>))}
             </div>
             {mine ? (
               <form action={replyAction} className="mt-4 space-y-2"><input type="hidden" name="id" value={id} /><Lbl htmlFor="tx">Reply to guest (sent on Telegram)</Lbl><textarea id="tx" name="text" rows={3} required className={Input} /><button className={Btn}>Send</button></form>

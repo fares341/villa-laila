@@ -4,6 +4,7 @@ import { tx, q } from '@/lib/db';
 import type { Q } from '@/lib/db';
 import { validateStay, rangeStr, todayLocal, nightsBetween } from '@/lib/dates';
 import { BookingError } from './errors';
+import { pushAvailability } from './pms/channel';
 import { freeUnits, pickUnits } from './availability';
 import { quote } from './pricing';
 import { upsertGuest, type GuestInput } from './guests';
@@ -18,11 +19,12 @@ const makeRef = () => 'VL-' + Array.from({ length: 6 }, () => ALPHABET[randomInt
 export type CreateInput = {
   guest: GuestInput;
   roomTypeId: string; checkIn: string; checkOut: string; guestsCount: number;
-  source: 'website' | 'telegram' | 'staff' | 'import';
+  source: 'website' | 'telegram' | 'staff' | 'import' | 'walk_in' | 'channel';
   status: 'hold' | 'pending' | 'confirmed';
   guestNotes?: string; staffNotes?: string; createdBy?: string | null; actor: string;
   facts?: Facts;            // policy facts, e.g. { nationality: 'EG' }
   skipPastCheck?: boolean;  // import of historic data only
+  unitIds?: string[];       // front desk: put the guest in these exact beds/rooms (must be free and of this type)
 };
 
 /** Release inventory of holds/pending requests whose time ran out. Safe to call repeatedly. */
@@ -44,6 +46,13 @@ async function lockType(c: Q, roomTypeId: string) {
 }
 
 export async function createReservation(input: CreateInput) {
+  const res = await createReservationCore(input);
+  // Website / staff bookings that are confirmed straight away take the room off Little Hotelier. Walk-ins push their own stop-sell.
+  if (res.status === 'confirmed' && input.source !== 'walk_in') await channelPush(res.id, -1, 'reservation.create');
+  return res;
+}
+
+async function createReservationCore(input: CreateInput) {
   const maxNights = await getSetting<number>('max_nights');
   const today = todayLocal();
   if (!input.skipPastCheck) {
@@ -74,7 +83,20 @@ export async function createReservation(input: CreateInput) {
       }
 
       const free = await freeUnits(cq, input.roomTypeId, input.checkIn, input.checkOut);
-      const picked = pickUnits(t.kind, free, input.guestsCount);
+      let picked = pickUnits(t.kind, free, input.guestsCount);
+      if (input.unitIds?.length) {
+        const chosen = input.unitIds.map((id) => free.find((u) => u.id === id));
+        if (chosen.some((u) => !u)) throw new BookingError('NO_AVAILABILITY', 'That bed/room is not free for these dates');
+        // Dorm party bigger than the beds picked: add more free beds, same room first.
+        if (t.kind === 'dorm' && chosen.length < input.guestsCount) {
+          const rest = free.filter((u) => !chosen.some((x) => x!.id === u.id)).sort((a, b) => Number(b.room_id === chosen[0]!.room_id) - Number(a.room_id === chosen[0]!.room_id));
+          chosen.push(...rest.slice(0, input.guestsCount - chosen.length));
+        }
+        const cap = chosen.reduce((s2, u) => s2 + (t.kind === 'dorm' ? 1 : u!.capacity), 0);
+        if (cap < input.guestsCount) throw new BookingError('CONFLICT', 'Not enough beds/capacity in the chosen units');
+        let left = input.guestsCount;
+        picked = chosen.map((u) => { const g = t.kind === 'dorm' ? 1 : Math.min(u!.capacity, left); left -= g; return { unit: u!, guests: Math.max(1, g) }; });
+      }
       if (!picked) throw new BookingError('NO_AVAILABILITY');
       const qt = await quote(cq, input.roomTypeId, input.checkIn, input.checkOut, picked.length);
 
@@ -153,13 +175,27 @@ export async function confirmReservation(id: string, actor: string, staffUserId:
     return r;
   }).catch((e: any) => { if (e?.code === '23P01') throw new BookingError('NO_AVAILABILITY'); throw e; });
   await cancelFollowups({ reservationId: id, kinds: ['pending_reminder', 'staff_unreviewed', 'payment_followup_pending'] });
+  await channelPush(id, -1, 'reservation.confirm');
   return out;
 }
 
+/** Tell Little Hotelier that this stay's rooms are taken (-1) or free again (+1). Never throws. */
+async function channelPush(reservationId: string, sign: 1 | -1, reason: string, prior?: { room_type_id: string; check_in: string; check_out: string; units: number }) {
+  try {
+    const r = prior ?? (await q<any>(`SELECT room_type_id, check_in, check_out, (SELECT count(*)::int FROM reservation_units WHERE reservation_id=$1 AND active) units FROM reservations WHERE id=$1`, [reservationId]))[0];
+    if (!r || !r.units) return;
+    const today = todayLocal();
+    const from = sign > 0 && r.check_in < today ? today : r.check_in;
+    if (from >= r.check_out) return;
+    await pushAvailability(null, { roomTypeId: r.room_type_id, from, to: r.check_out, delta: sign * r.units, reason });
+  } catch (e) { console.error('[channel push]', (e as Error).message); }
+}
+
 async function end(id: string, status: 'cancelled' | 'rejected' | 'no_show', reason: string | null, actor: string) {
-  await tx(async (c) => {
+  const prior = await tx(async (c) => {
     const cq = c as unknown as Q;
     const r = await lockReservation(c, id);
+    r.units = (await c.query('SELECT count(*)::int n FROM reservation_units WHERE reservation_id=$1 AND active', [id])).rows[0].n;
     if (['cancelled', 'rejected', 'checked_out', 'expired'].includes(r.status)) throw new BookingError('BAD_STATE', `Already ${r.status}`);
     if (status === 'rejected' && !['hold', 'pending'].includes(r.status)) throw new BookingError('BAD_STATE', 'Only requests can be rejected; cancel instead');
     await c.query('UPDATE reservation_units SET active=false WHERE reservation_id=$1', [id]);
@@ -173,8 +209,10 @@ async function end(id: string, status: 'cancelled' | 'rejected' | 'no_show', rea
     }
     await c.query('INSERT INTO reservation_events(reservation_id,actor,action,detail) VALUES($1,$2,$3,$4)', [id, actor, status, JSON.stringify({ reason })]);
     await audit(actor, 'reservation.' + status, 'reservation', id, { reason }, cq);
+    return r;
   });
   await cancelFollowups({ reservationId: id });
+  if (['confirmed', 'checked_in'].includes(prior.status)) await channelPush(id, 1, 'reservation.' + status, prior);
 }
 export const cancelReservation = (id: string, reason: string | null, actor: string) => end(id, 'cancelled', reason, actor);
 export const rejectReservation = (id: string, reason: string | null, actor: string) => end(id, 'rejected', reason, actor);

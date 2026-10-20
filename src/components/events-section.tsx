@@ -10,6 +10,8 @@ export type EventCard = {
   time: string;             // "8:00 AM – 11:00 AM"
   next: string;             // "Today", "Tomorrow", "Wed, 21 Oct"
   soon: boolean;            // runs today or tomorrow
+  soldOut?: boolean;        // every upcoming date (next 2 weeks) is full
+  left?: number | null;     // places left on the next open date (null = unlimited)
 };
 
 const ic = {
@@ -54,7 +56,9 @@ export function EventsSection({ lang, events }: { lang: string; events: EventCar
             <article key={e.slug} className="ev-card">
               <a href={`/${lang}/events/${e.slug}`} className="ev-media" aria-label={e.title}>
                 {e.image && <img src={e.image} alt="" loading="lazy" />}
-                <span className={`ev-when ${e.soon ? 'soon' : ''}`}>{e.next}</span>
+                {e.soldOut
+                  ? <span className="ev-when sold">{isAr ? 'نفدت التذاكر' : 'Sold out'}</span>
+                  : <span className={`ev-when ${e.soon ? 'soon' : ''}`}>{e.next}{e.left != null && e.left <= 10 ? (isAr ? ` · باقي ${e.left}` : ` · ${e.left} left`) : ''}</span>}
               </a>
               <div className="ev-body">
                 <div className="meta">
@@ -68,10 +72,14 @@ export function EventsSection({ lang, events }: { lang: string; events: EventCar
                     <small>{isAr ? 'للشخص' : 'Per person'}</small>
                     <b className="num" dir="ltr">{e.price}</b>
                   </div>
-                  <a className="btn btn-primary btn-sm" href={`/${lang}/events/${e.slug}`}>
-                    {ic.ticket}
-                    {isAr ? 'احجز تذكرة' : 'Get tickets'}
-                  </a>
+                  {e.soldOut ? (
+                    <span className="btn btn-line btn-sm" aria-disabled="true">{isAr ? 'نفدت التذاكر' : 'Sold out'}</span>
+                  ) : (
+                    <a className="btn btn-primary btn-sm" href={`/${lang}/events/${e.slug}`}>
+                      {ic.ticket}
+                      {isAr ? 'احجز تذكرة' : 'Get tickets'}
+                    </a>
+                  )}
                 </div>
               </div>
             </article>

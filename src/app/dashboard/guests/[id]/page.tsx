@@ -13,12 +13,12 @@ export default async function GuestPage({ params, searchParams }: { params: Prom
   const g = (await q<any>('SELECT * FROM guests WHERE id=$1', [id]))[0];
   if (!g) notFound();
   const today = todayLocal();
-  const stays = await q<any>(`SELECT r.*, COALESCE((SELECT SUM(amount_cents) FROM payments p WHERE p.reservation_id=r.id AND p.status='verified'),0)::bigint paid FROM reservations r WHERE guest_id=$1 ORDER BY check_in DESC`, [id]);
+  const stays = await q<any>(`SELECT r.*, folio_charges(r.id)::bigint charges_cents, COALESCE((SELECT SUM(amount_cents) FROM payments p WHERE p.reservation_id=r.id AND p.status='verified'),0)::bigint paid FROM reservations r WHERE guest_id=$1 ORDER BY check_in DESC`, [id]);
   const convs = await q<any>(`SELECT c.id, c.status, c.mode, c.last_guest_message_at FROM conversations c WHERE guest_id=$1 ORDER BY updated_at DESC`, [id]);
   const msgs = await q<any>(`SELECT m.* FROM messages m JOIN conversations c ON c.id=m.conversation_id WHERE c.guest_id=$1 ORDER BY m.created_at DESC LIMIT 15`, [id]);
   const tasks = await q<any>(`SELECT t.* FROM tasks t WHERE t.status='open' AND (t.reservation_id = ANY($1::uuid[]) OR t.conversation_id = ANY($2::uuid[]))`, [stays.map((s) => s.id), convs.map((c) => c.id)]);
   const current = stays.find((s) => s.status === 'checked_in'), upcoming = stays.filter((s) => ['confirmed', 'pending', 'hold'].includes(s.status) && s.check_in >= today);
-  const owing = stays.filter((s) => ['confirmed', 'checked_in', 'checked_out'].includes(s.status)).reduce((a, s) => a + (s.total_cents - s.paid), 0);
+  const owing = stays.filter((s) => ['confirmed', 'checked_in', 'checked_out'].includes(s.status)).reduce((a, s) => a + (s.charges_cents - s.paid), 0);
   return (
     <>
       <PageHeader title={g.full_name} sub={`Guest since ${dt(g.created_at)}`}><Link href="/dashboard/guests" className={BtnGhost}>← Guests</Link></PageHeader>

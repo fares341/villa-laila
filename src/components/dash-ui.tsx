@@ -1,3 +1,4 @@
+import { Icon } from './icons';
 import React from 'react';
 
 export const STATUS_STYLE: Record<string, string> = {
@@ -53,15 +54,15 @@ export const dt = (v: string | Date | null) =>
   v ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(v)) : '—';
 
 export function Flash({ sp }: { sp: Record<string, string | undefined> }) {
-  if (sp.ok) return <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-emerald-900">✓ {sp.ok}</p>;
-  if (sp.err) return <p role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-red-900">✕ {sp.err}</p>;
+  if (sp.ok) return <p role="status" className="mb-4 flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-emerald-900"><Icon name="check-circle" size={18} /> {sp.ok}</p>;
+  if (sp.err) return <p role="alert" className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-red-900"><Icon name="alert-triangle" size={18} /> {sp.err}</p>;
   return null;
 }
 
 export const PageHeader = ({ title, children, sub }: { title: string; sub?: string; children?: React.ReactNode }) => (
   <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
     <div>
-      <h1 className="text-3xl font-semibold text-lapis-800" style={{ fontFamily: "'El Messiri Variable', sans-serif" }}>
+      <h1 className="text-[28px] font-extrabold tracking-tight text-cocoa-800">
         {title}
       </h1>
       {sub && <p className="mt-1 text-sm text-slate-600">{sub}</p>}
@@ -77,18 +78,43 @@ export const Empty = ({ children }: { children: React.ReactNode }) => (
 );
 
 export const Card = ({ title, children, className = '' }: { title?: string; children: React.ReactNode; className?: string }) => (
-  <section className={`rounded-2xl border border-lapis-100 bg-white p-5 ${className}`}>
-    {title && <h2 className="mb-3 text-lg font-semibold text-lapis-800">{title}</h2>}
+  <section className={`rounded-2xl border border-cocoa-200 bg-white p-5 shadow-[0_1px_2px_rgba(81,64,47,.06)] ${className}`}>
+    {title && <h2 className="mb-3 text-lg font-bold text-cocoa-800">{title}</h2>}
     {children}
   </section>
 );
 
-export const Btn = 'inline-flex items-center justify-center rounded-lg bg-lapis-800 px-4 py-2 text-sm font-semibold text-white hover:bg-lapis-600';
-export const BtnGhost = 'inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50';
-export const BtnDanger = 'inline-flex items-center justify-center rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800';
-export const Input = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm';
+export const Btn = 'inline-flex items-center justify-center gap-1.5 rounded-lg bg-cocoa-800 px-4 py-2 text-sm font-semibold text-white hover:bg-cocoa-600 disabled:opacity-50';
+export const BtnGhost = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-cocoa-200 bg-white px-4 py-2 text-sm font-semibold text-cocoa-800 hover:border-cocoa-600 hover:bg-cocoa-50';
+export const BtnDanger = 'inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800';
+export const Input = 'w-full rounded-lg border border-cocoa-200 bg-white px-3 py-2 text-sm focus:border-cocoa-600 focus:outline-none';
 export const Lbl = ({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) => (
   <label htmlFor={htmlFor} className="mb-1 block text-sm font-medium text-slate-700">
     {children}
   </label>
 );
+
+export const Stat = ({ label, value, tone = 'default', hint }: { label: string; value: React.ReactNode; tone?: 'default' | 'due' | 'ok' | 'credit' | 'warn'; hint?: React.ReactNode }) => {
+  const c = { default: 'text-cocoa-800', due: 'text-red-700', ok: 'text-emerald-700', credit: 'text-sky-700', warn: 'text-amber-700' }[tone];
+  return (
+    <div className="rounded-2xl border border-cocoa-200 bg-white p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-1 text-2xl font-bold tabular-nums ${c}`}>{value}</p>
+      {hint && <p className="mt-0.5 text-xs text-slate-500">{hint}</p>}
+    </div>
+  );
+};
+
+export const Pill = ({ tone = 'slate', children }: { tone?: 'slate' | 'red' | 'green' | 'blue' | 'amber' | 'cocoa'; children: React.ReactNode }) => {
+  const c = { slate: 'bg-slate-100 text-slate-700', red: 'bg-red-100 text-red-800', green: 'bg-emerald-100 text-emerald-800', blue: 'bg-sky-100 text-sky-800', amber: 'bg-amber-100 text-amber-900', cocoa: 'bg-cocoa-100 text-cocoa-800' }[tone];
+  return <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${c}`}>{children}</span>;
+};
+
+export const BalancePill = ({ state, cents, cur = 'EGP' }: { state: 'due' | 'settled' | 'credit'; cents: number; cur?: string }) =>
+  state === 'due' ? <Pill tone="red">Balance due {fmt(cents, cur)}</Pill>
+  : state === 'credit' ? <Pill tone="blue">Credit {fmt(-cents, cur)}</Pill>
+  : <Pill tone="green">Fully settled</Pill>;
+
+export const HK_LABEL: Record<string, [string, 'green' | 'red' | 'blue' | 'slate']> = {
+  clean: ['Clean', 'green'], dirty: ['Dirty', 'red'], inspected: ['Inspected', 'blue'], out_of_order: ['Out of order', 'slate'],
+};

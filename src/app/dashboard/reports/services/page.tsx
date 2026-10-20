@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { PageHeader, Card, Flash, fmt, Btn, BtnGhost } from '@/components/dash';
 import { getDailyServicesMatrix } from '@/services/frontdesk';
 import { ExportCsvButton } from './export-client';
+import { Icon } from '@/components/icons';
 
 export default async function ServicesReportPage({
   searchParams,
@@ -52,14 +53,14 @@ export default async function ServicesReportPage({
   return (
     <>
       <PageHeader
-        title="تقرير مبيعات الخدمات اليومية (Daily Services Matrix)"
-        sub="تحليل تفصيلي لمبيعات كل خدمة يومياً (فطور، غسيل، مسبح، فوط، مياه، رحلات، تاكسي) مطابقة لدفتر الإكسيل."
+        title="Daily services sales"
+        sub="Daily sales per service (breakfast, laundry, pool, towels, water, tours, taxi), matching the Excel ledger."
       >
         <Link href="/dashboard/reports" className={BtnGhost}>
-          ← تقرير الإشغال المالي العام
+          ← Occupancy & revenue report
         </Link>
         <Link href="/dashboard/pos" className={BtnGhost}>
-          🛒 نقطة البيع
+          <Icon name="shopping-cart" size={16} className="me-1 inline-block align-text-bottom" />Point of sale
         </Link>
         <ExportCsvButton rows={rows} from={from} to={to} />
       </PageHeader>
@@ -70,7 +71,7 @@ export default async function ServicesReportPage({
       <Card className="mb-6">
         <form method="GET" className="flex flex-wrap items-end gap-3 text-sm">
           <div>
-            <label htmlFor="rep_from" className="block text-xs font-semibold text-slate-700 mb-1">من تاريخ</label>
+            <label htmlFor="rep_from" className="block text-xs font-semibold text-slate-700 mb-1">From</label>
             <input
               id="rep_from"
               type="date"
@@ -80,7 +81,7 @@ export default async function ServicesReportPage({
             />
           </div>
           <div>
-            <label htmlFor="rep_to" className="block text-xs font-semibold text-slate-700 mb-1">إلى تاريخ</label>
+            <label htmlFor="rep_to" className="block text-xs font-semibold text-slate-700 mb-1">To</label>
             <input
               id="rep_to"
               type="date"
@@ -93,55 +94,55 @@ export default async function ServicesReportPage({
             type="submit"
             className="rounded-lg bg-amber-700 px-4 py-1.5 text-xs font-bold text-white hover:bg-amber-800"
           >
-            تحديث التقرير
+            Update report
           </button>
         </form>
       </Card>
 
       {/* Summary KPI Cards */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-right">
-          <span className="text-[11px] text-slate-500 font-medium">🍳 فطور</span>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-left">
+          <span className="text-[11px] text-slate-500 font-medium">Breakfast</span>
           <p className="font-bold text-slate-900 mt-0.5">{fmt(totals.breakfast)}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-right">
-          <span className="text-[11px] text-slate-500 font-medium">🧺 غسيل ملابس</span>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-left">
+          <span className="text-[11px] text-slate-500 font-medium">Laundry</span>
           <p className="font-bold text-slate-900 mt-0.5">{fmt(totals.laundry)}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-right">
-          <span className="text-[11px] text-slate-500 font-medium">🏛️ رحلات سياحية</span>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-left">
+          <span className="text-[11px] text-slate-500 font-medium">Tours</span>
           <p className="font-bold text-slate-900 mt-0.5">{fmt(totals.tour)}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-right">
-          <span className="text-[11px] text-slate-500 font-medium">🚕 تاكسي وتوصيل</span>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-left">
+          <span className="text-[11px] text-slate-500 font-medium">Taxi & transfers</span>
           <p className="font-bold text-slate-900 mt-0.5">{fmt(totals.taxi)}</p>
         </div>
-        <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3 text-right">
-          <span className="text-[11px] text-amber-900 font-bold">إجمالي مبيعات الخدمات</span>
+        <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3 text-left">
+          <span className="text-[11px] text-amber-900 font-bold">Total services sales</span>
           <p className="text-lg font-bold text-amber-950 mt-0.5">{fmt(totals.totalDaily)}</p>
         </div>
       </div>
 
       {/* Services Matrix Table */}
-      <Card title={`تفصيل المبيعات اليومية (${from} إلى ${to})`}>
+      <Card title={`Daily sales breakdown (${from} to ${to})`}>
         {rows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-500">لا توجد مبيعات خدمات مسجلة في هذا النطاق الزمني.</p>
+          <p className="py-8 text-center text-sm text-slate-500">No services sales recorded in this period.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
+            <table className="w-full text-left text-xs">
               <thead className="border-b border-slate-200 bg-slate-50 font-bold text-slate-700">
                 <tr>
-                  <th className="py-2.5 px-2">التاريخ (Date)</th>
-                  <th className="py-2.5 px-2">فطور (Breakfast)</th>
-                  <th className="py-2.5 px-2">فوط (Towel)</th>
-                  <th className="py-2.5 px-2">تاكسي (Taxi)</th>
-                  <th className="py-2.5 px-2">مسبح (Pool)</th>
-                  <th className="py-2.5 px-2">غسيل (Wash)</th>
-                  <th className="py-2.5 px-2">مياه (Water)</th>
-                  <th className="py-2.5 px-2">مشروبات وسناك</th>
-                  <th className="py-2.5 px-2">رحلات (Tours)</th>
-                  <th className="py-2.5 px-2">وجبات (Meals)</th>
-                  <th className="py-2.5 px-2 font-bold text-slate-900">إجمالي اليوم</th>
+                  <th className="py-2.5 px-2">Date</th>
+                  <th className="py-2.5 px-2">Breakfast</th>
+                  <th className="py-2.5 px-2">Towel</th>
+                  <th className="py-2.5 px-2">Taxi</th>
+                  <th className="py-2.5 px-2">Pool</th>
+                  <th className="py-2.5 px-2">Laundry</th>
+                  <th className="py-2.5 px-2">Water</th>
+                  <th className="py-2.5 px-2">Drinks & snacks</th>
+                  <th className="py-2.5 px-2">Tours</th>
+                  <th className="py-2.5 px-2">Meals</th>
+                  <th className="py-2.5 px-2 font-bold text-slate-900">Daily total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
@@ -165,7 +166,7 @@ export default async function ServicesReportPage({
               </tbody>
               <tfoot className="border-t-2 border-slate-300 bg-slate-100/80 font-mono font-bold text-slate-900">
                 <tr>
-                  <td className="py-2.5 px-2">المجموع الكلي</td>
+                  <td className="py-2.5 px-2">Grand total</td>
                   <td className="py-2.5 px-2">{fmt(totals.breakfast)}</td>
                   <td className="py-2.5 px-2">{fmt(totals.towel)}</td>
                   <td className="py-2.5 px-2">{fmt(totals.taxi)}</td>

@@ -77,6 +77,9 @@ export async function submitReservationInstapayAction(formData: FormData) {
   if (!rateLimit('ipr:' + ip, 10, 10 * 60_000)) redirect(`/${lang}/booked/${ref}?error=rate_limit`);
   if (name.length < 2 || tref.length < 3) redirect(`/${lang}/booked/${ref}?pay=instapay&error=instapay_input#pay`);
   let failed = false;
-  try { await submitReservationInstapay(ref, name, tref); } catch (e) { console.error('[instapay room]', e); failed = true; }
+  const pf = formData.get('proof');
+  const proof = pf && typeof pf !== 'string' && (pf as File).size ? { bytes: Buffer.from(await (pf as File).arrayBuffer()), mime: (pf as File).type || 'application/octet-stream' } : null;
+  if (!proof) redirect(`/${lang}/booked/${ref}?pay=instapay&error=proof_required#pay`);
+  try { await submitReservationInstapay(ref, name, tref, proof); } catch (e) { console.error('[instapay room]', e); failed = true; }
   redirect(`/${lang}/booked/${ref}?payment=${failed ? 'error' : 'submitted'}`);
 }

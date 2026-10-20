@@ -113,14 +113,14 @@ async function decide(row: any): Promise<Decision> {
     if (conv.flow !== 'booking') return { send: false, reason: 'booking flow no longer active' };
     return { send: true, conversationId: conv.id, text: t(lang, 'fu_incomplete'), kb: { inline: [[{ text: t(lang, 'btn_continue'), data: 'a:resume' }]] } };
   }
-  const res = row.reservation_id ? (await q<any>(`SELECT r.*, COALESCE((SELECT SUM(amount_cents) FROM payments p WHERE p.reservation_id=r.id AND p.status='verified'),0)::bigint paid FROM reservations r WHERE r.id=$1`, [row.reservation_id]))[0] : null;
+  const res = row.reservation_id ? (await q<any>(`SELECT r.*, folio_charges(r.id)::bigint charges_cents, COALESCE((SELECT SUM(amount_cents) FROM payments p WHERE p.reservation_id=r.id AND p.status='verified'),0)::bigint paid FROM reservations r WHERE r.id=$1`, [row.reservation_id]))[0] : null;
   if (!res) return { send: false, reason: 'reservation missing' };
-  const vars = { ref: res.reference, checkin: res.check_in, checkout: res.check_out, balance: fmtMoney(res.total_cents - res.paid, res.currency) };
+  const vars = { ref: res.reference, checkin: res.check_in, checkout: res.check_out, balance: fmtMoney(res.charges_cents - res.paid, res.currency) };
   const keyDate = row.dedupe_key.split(':')[2];
 
   switch (kind) {
     case 'pending_reminder': return ['pending', 'hold'].includes(res.status) ? { send: true, conversationId: conv.id, text: t(lang, 'fu_pending_reminder', vars) } : { send: false, reason: `reservation is ${res.status}` };
-    case 'payment_followup': return ['confirmed', 'checked_in'].includes(res.status) && res.total_cents - res.paid > 0 ? { send: true, conversationId: conv.id, text: t(lang, 'fu_payment', vars) } : { send: false, reason: 'nothing due or not active' };
+    case 'payment_followup': return ['confirmed', 'checked_in'].includes(res.status) && res.charges_cents - res.paid > 0 ? { send: true, conversationId: conv.id, text: t(lang, 'fu_payment', vars) } : { send: false, reason: 'nothing due or not active' };
     case 'pre_arrival': return res.status === 'confirmed' && res.check_in === keyDate && res.check_in >= today ? { send: true, conversationId: conv.id, text: t(lang, 'fu_pre_arrival', vars) } : { send: false, reason: 'stale or not confirmed' };
     case 'checkin_reminder': return res.status === 'confirmed' && res.check_in === keyDate ? { send: true, conversationId: conv.id, text: t(lang, 'fu_checkin', vars) } : { send: false, reason: 'stale or not confirmed' };
     case 'checkout_reminder': return ['confirmed', 'checked_in'].includes(res.status) && res.check_out === keyDate ? { send: true, conversationId: conv.id, text: t(lang, 'fu_checkout', vars) } : { send: false, reason: 'stale or not active' };

@@ -1,4 +1,6 @@
 import { q } from '@/lib/db';
+import { can } from '@/lib/permissions';
+import * as insights from './pms/insights';
 import { overview, reservationRows, calendarData, reportData } from './queries';
 import {
   createReservation,
@@ -39,7 +41,7 @@ export async function getLiveOperationalSnapshot() {
     `).catch(() => []),
     q<any>(`
       SELECT r.id, r.reference, g.full_name, g.phone, t.name rt_name, t.code rt_code, r.check_in, r.check_out, r.guests_count,
-             (r.total_cents - COALESCE(p.paid,0))::bigint as balance_cents,
+             (folio_charges(r.id) - COALESCE(p.paid,0))::bigint as balance_cents,
              (SELECT string_agg(rm.name || ' / ' || u.label, ', ') FROM reservation_units ru JOIN units u ON u.id=ru.unit_id JOIN rooms rm ON rm.id=u.room_id WHERE ru.reservation_id=r.id AND ru.active) beds
       FROM reservations r
       JOIN guests g ON g.id=r.guest_id
@@ -49,7 +51,7 @@ export async function getLiveOperationalSnapshot() {
       ORDER BY r.check_out
     `).catch(() => []),
     q<any>(`
-      SELECT r.id, r.reference, g.full_name, g.phone, r.status, r.check_in, r.check_out, r.total_cents,
+      SELECT r.id, r.reference, g.full_name, g.phone, r.status, r.check_in, r.check_out, r.total_cents, folio_charges(r.id)::bigint charges_cents,
              COALESCE(p.paid, 0)::bigint AS paid_cents, t.name rt_name
       FROM reservations r
       JOIN guests g ON g.id=r.guest_id
@@ -60,11 +62,11 @@ export async function getLiveOperationalSnapshot() {
     `).catch(() => []),
     q<any>(`
       SELECT r.id, r.reference, g.full_name, g.phone, r.status, r.check_in, r.check_out,
-             (r.total_cents - COALESCE(p.paid,0))::bigint AS balance_cents, r.total_cents
+             (folio_charges(r.id) - COALESCE(p.paid,0))::bigint AS balance_cents, r.total_cents
       FROM reservations r
       JOIN guests g ON g.id=r.guest_id
       LEFT JOIN LATERAL (SELECT COALESCE(SUM(amount_cents) FILTER (WHERE status='verified'),0) paid FROM payments WHERE reservation_id=r.id) p ON true
-      WHERE r.status IN ('confirmed','checked_in') AND (r.total_cents - COALESCE(p.paid,0)) > 0
+      WHERE r.status IN ('confirmed','checked_in') AND (folio_charges(r.id) - COALESCE(p.paid,0)) > 0
       ORDER BY balance_cents DESC
       LIMIT 8
     `).catch(() => []),
@@ -185,7 +187,7 @@ export async function getLiveOperationalSnapshot() {
       stay: `${r.check_in} → ${r.check_out}`,
       status: r.status,
       totalEgp: r.total_cents / 100,
-      balanceEgp: (r.total_cents - r.paid_cents) / 100,
+      balanceEgp: (r.charges_cents - r.paid_cents) / 100,
       link: `/dashboard/reservations/${r.id}`
     })),
     unpaidBalances: unpaidList.map((r: any) => ({
@@ -199,7 +201,19 @@ export async function getLiveOperationalSnapshot() {
   };
 }
 
+/** The executive assistant only reads. Every change goes through the dashboard or the POS, where it is audited. */
+const READ_ONLY_BASE = new Set([
+  'get_today_overview', 'get_in_house_guests', 'get_unpaid_balances', 'search_reservations', 'get_reservation_details',
+  'check_room_availability', 'search_guests', 'get_financial_report', 'get_inventory_status',
+]);
+const isReadOnly = (name: string) => READ_ONLY_BASE.has(name) || name in EXEC_TOOLS;
+
 export async function executeAgentTool(name: string, args: any, user: SessionUser): Promise<any> {
+  if (!isReadOnly(name)) return { error: 'The assistant is read-only. Do this in the dashboard or on the POS so it is recorded and audited.' };
+  if (EXEC_TOOLS[name]) {
+    if (!can(user.role, 'reports.view') && name !== 'get_low_stock') return { error: 'This report is for managers and owners.' };
+    return EXEC_TOOLS[name](args ?? {});
+  }
   const actor = user.email || 'staff@villalayla.com';
   const userId = user.id;
 
@@ -251,7 +265,7 @@ export async function executeAgentTool(name: string, args: any, user: SessionUse
     case 'get_in_house_guests': {
       const rows = await q<any>(`
         SELECT r.id, r.reference, g.full_name, g.phone, g.nationality, t.name rt_name, r.check_in, r.check_out, r.guests_count,
-               r.total_cents, COALESCE(p.paid,0)::bigint as paid_cents,
+               r.total_cents, folio_charges(r.id)::bigint charges_cents, COALESCE(p.paid,0)::bigint as paid_cents,
                (SELECT string_agg(rm.name || ' / ' || u.label, ', ') FROM reservation_units ru JOIN units u ON u.id=ru.unit_id JOIN rooms rm ON rm.id=u.room_id WHERE ru.reservation_id=r.id AND ru.active) beds
         FROM reservations r
         JOIN guests g ON g.id=r.guest_id
@@ -271,7 +285,7 @@ export async function executeAgentTool(name: string, args: any, user: SessionUse
         checkIn: r.check_in,
         checkOut: r.check_out,
         totalEgp: r.total_cents / 100,
-        balanceEgp: (r.total_cents - r.paid_cents) / 100,
+        balanceEgp: (r.charges_cents - r.paid_cents) / 100,
         link: `/dashboard/reservations/${r.id}`
       }));
     }
@@ -279,11 +293,11 @@ export async function executeAgentTool(name: string, args: any, user: SessionUse
     case 'get_unpaid_balances': {
       const rows = await q<any>(`
         SELECT r.id, r.reference, g.full_name, g.phone, r.status, r.check_in, r.check_out,
-               (r.total_cents - COALESCE(p.paid,0))::bigint AS balance_cents, r.total_cents, COALESCE(p.paid,0)::bigint as paid_cents
+               (folio_charges(r.id) - COALESCE(p.paid,0))::bigint AS balance_cents, r.total_cents, folio_charges(r.id)::bigint charges_cents, COALESCE(p.paid,0)::bigint as paid_cents
         FROM reservations r
         JOIN guests g ON g.id=r.guest_id
         LEFT JOIN LATERAL (SELECT COALESCE(SUM(amount_cents) FILTER (WHERE status='verified'),0) paid FROM payments WHERE reservation_id=r.id) p ON true
-        WHERE r.status IN ('confirmed','checked_in','checked_out') AND (r.total_cents - COALESCE(p.paid,0)) > 0
+        WHERE r.status IN ('confirmed','checked_in','checked_out') AND (folio_charges(r.id) - COALESCE(p.paid,0)) > 0
         ORDER BY balance_cents DESC
         LIMIT 15
       `);
@@ -331,7 +345,7 @@ export async function executeAgentTool(name: string, args: any, user: SessionUse
     case 'get_reservation_details': {
       const refOrId = String(args.referenceOrId || '').trim();
       const rows = await q<any>(
-        `SELECT r.*, g.full_name, g.phone, g.email, g.nationality, g.language,
+        `SELECT r.*, folio_charges(r.id)::bigint charges_cents, g.full_name, g.phone, g.email, g.nationality, g.language,
                 t.name rt_name, t.code rt_code, t.kind rt_kind,
                 COALESCE((SELECT SUM(amount_cents) FILTER (WHERE status='verified') FROM payments WHERE reservation_id=r.id),0)::bigint paid,
                 (SELECT string_agg(rm.name || ' / ' || u.label, ', ') FROM reservation_units ru JOIN units u ON u.id=ru.unit_id JOIN rooms rm ON rm.id=u.room_id WHERE ru.reservation_id=r.id AND ru.active) units_allocated
@@ -362,7 +376,7 @@ export async function executeAgentTool(name: string, args: any, user: SessionUse
         financials: {
           totalEgp: r.total_cents / 100,
           paidEgp: r.paid / 100,
-          balanceEgp: (r.total_cents - r.paid) / 100,
+          balanceEgp: (r.charges_cents - r.paid) / 100,
           currency: r.currency,
         },
         status: r.status,
@@ -726,7 +740,7 @@ export async function executeAgentTool(name: string, args: any, user: SessionUse
   }
 }
 
-export const DASHBOARD_TOOLS = [
+const ALL_TOOLS = [
   {
     type: 'function',
     function: {
@@ -1016,4 +1030,38 @@ export const DASHBOARD_TOOLS = [
       },
     },
   },
+];
+
+
+/* ───────── Executive KPIs (read-only) ───────── */
+
+const EXEC_DEFS: { name: string; description: string; properties?: Record<string, any> }[] = [
+  { name: 'get_revenue', description: 'Money collected for a day or date range: POS sales paid on the spot, payments on guest folios, event tickets. Use for "today\'s revenue", "how much did we make".',
+    properties: { from: { type: 'string', description: 'YYYY-MM-DD, default today' }, to: { type: 'string', description: 'YYYY-MM-DD, default = from' } } },
+  { name: 'get_market_sales', description: 'POS sales by item and section (market, meals, services, tours) with gross profit, for a date range.',
+    properties: { from: { type: 'string' }, to: { type: 'string' } } },
+  { name: 'get_event_profit', description: 'Tickets sold, revenue and net profit per event or day-use package. Net profit = (price − cost per attendee) × tickets.',
+    properties: { from: { type: 'string' }, to: { type: 'string' } } },
+  { name: 'get_low_stock', description: 'Items at or below their low-stock alert level.' },
+  { name: 'get_unpaid_in_house', description: 'In-house guests with an open folio balance who have been in house at least N days (default 1).',
+    properties: { minDays: { type: 'number' } } },
+  { name: 'get_shift_reports', description: 'POS shift summaries: cashier, expected vs counted cash, variance, sales, owner allowances.',
+    properties: { from: { type: 'string' }, to: { type: 'string' } } },
+  { name: 'get_attendance', description: 'Staff attendance for a month: target vs worked hours, lateness, deductions, and who was late today.',
+    properties: { month: { type: 'string', description: 'YYYY-MM, default this month' } } },
+];
+
+const EXEC_TOOLS: Record<string, (a: any) => Promise<any>> = {
+  get_revenue: (a) => insights.revenueSummary(a.from, a.to),
+  get_market_sales: (a) => insights.marketSales(a.from, a.to),
+  get_event_profit: (a) => insights.eventProfits(a.from, a.to),
+  get_low_stock: () => insights.lowStock(),
+  get_unpaid_in_house: (a) => insights.unpaidInHouse(Number.isFinite(Number(a.minDays)) ? Number(a.minDays) : 1),
+  get_shift_reports: (a) => insights.shiftSummaries(a.from, a.to),
+  get_attendance: (a) => insights.attendanceSummary(a.month),
+};
+
+export const DASHBOARD_TOOLS = [
+  ...ALL_TOOLS.filter((t: any) => READ_ONLY_BASE.has(t.function.name)),
+  ...EXEC_DEFS.map((d) => ({ type: 'function', function: { name: d.name, description: d.description, parameters: { type: 'object', properties: d.properties ?? {} } } })),
 ];
