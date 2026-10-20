@@ -6,6 +6,7 @@ import type { Q } from '@/lib/db';
 import { tg } from './telegram';
 import { handleTelegramUpdate } from './flow';
 import { sweepExpired } from '@/services/reservations';
+import { sweepMovedOutRooms } from '@/services/pms/frontdesk';
 import { scanAndSchedule, runDue, schedule } from '@/services/followups';
 import { botSend, notifyStaff } from '@/services/conversations';
 import { syncHostelworldData } from '@/services/hostelworld-sync';
@@ -19,6 +20,8 @@ async function tick() {
       const r = (await q<any>('SELECT guest_id FROM reservations WHERE id=$1', [id]))[0];
       await schedule('expiry_notice', new Date(), `expiry:${id}`, { reservationId: id, guestId: r?.guest_id });
     }
+    const moved = await sweepMovedOutRooms();
+    if (moved) log('rooms vacated by a room move marked dirty:', moved);
     await scanAndSchedule();
     const n = await runDue(async (conv, text, kb) => botSend(conv, text, kb), notifyStaff);
     if (n) log('processed follow-ups:', n);

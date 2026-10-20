@@ -35,7 +35,7 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
         },
       ]);
     }
-  }, [user]);
+  }, [user, messages.length]);
 
   useEffect(() => {
     if (isOpen) {

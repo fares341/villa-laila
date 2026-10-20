@@ -220,3 +220,19 @@ export async function moveRoom(input: { reservationUnitId?: string; reservationI
   }
   for (const p of pushes) await pushAvailability(null, { ...p, reason: 'room_move' });
 }
+
+
+/**
+ * A move booked for a later night: on that day the room the guest leaves needs cleaning.
+ * Runs from the worker; a room cleaned later the same day is not marked again.
+ */
+export async function sweepMovedOutRooms(day = todayLocal()) {
+  const r = await q<any>(`
+    UPDATE rooms rm SET hk_status='dirty', hk_updated_at=now()
+    WHERE rm.hk_status <> 'dirty' AND rm.hk_status <> 'out_of_order'
+      AND (rm.hk_updated_at IS NULL OR (rm.hk_updated_at AT TIME ZONE 'Africa/Cairo')::date < $1::date)
+      AND EXISTS (SELECT 1 FROM reservation_units ru JOIN reservations r ON r.id=ru.reservation_id JOIN units u ON u.id=ru.unit_id
+                  WHERE u.room_id=rm.id AND ru.active AND r.status='checked_in' AND upper(ru.during)=$1::date AND r.check_out > $1::date)
+    RETURNING rm.id`, [day]);
+  return r.length;
+}
