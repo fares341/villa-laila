@@ -151,7 +151,7 @@ export async function moveOptions(reservationId: string) {
     const free = await freeUnits(pool() as unknown as Q, t.id, from, res.check_out, reservationId);
     const rooms = await q<any>(`SELECT id, hk_status FROM rooms WHERE room_type_id=$1`, [t.id]);
     const hk = new Map(rooms.map((r: any) => [r.id, r.hk_status]));
-    for (const u of free) options.push({ unitId: u.id, label: t.kind === 'dorm' ? `${u.room_name} · bed ${u.label}` : u.room_name, roomTypeId: t.id, typeName: t.name?.en ?? t.code, kind: t.kind, hk: hk.get(u.room_id) ?? 'clean', capacity: u.capacity });
+    for (const u of free) options.push({ unitId: u.id, label: t.kind === 'dorm' ? `${u.room_name} · ${u.label}` : u.room_name, roomTypeId: t.id, typeName: t.name?.en ?? t.code, kind: t.kind, hk: hk.get(u.room_id) ?? 'clean', capacity: u.capacity });
   }
   return { from, options };
 }

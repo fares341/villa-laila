@@ -39,7 +39,7 @@ export async function postStayNights(c: PoolClient, reservationId: string, userI
       const exists = (await c.query(`SELECT 1 FROM folio_entries WHERE reservation_id=$1 AND entry_date=$2 AND unit_id=$3 AND kind='room' AND NOT voided`, [reservationId, night, u.unit_id])).rows[0];
       if (exists) continue;
       const rate = await nightRate(cq, res, u.room_type_id, night);
-      const label = u.kind === 'dorm' ? `${u.room} · bed ${u.label}` : u.room;
+      const label = u.kind === 'dorm' ? `${u.room} · ${u.label}` : u.room;
       await c.query(
         `INSERT INTO folio_entries(reservation_id,entry_date,kind,description,quantity,unit_cents,amount_cents,currency,unit_id,room_type_id,rate_source,created_by)
          VALUES($1,$2,'room',$3,1,$4,$4,$5,$6,$7,$8,$9)`,

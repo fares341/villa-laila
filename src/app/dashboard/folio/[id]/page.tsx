@@ -155,7 +155,7 @@ export default async function Folio({ params, searchParams }: { params: Promise<
                 const [hl, ht] = HK_LABEL[x.hk_status] ?? [x.hk_status, 'slate'];
                 return (
                   <li key={x.id} className="rounded-lg border border-slate-100 p-2">
-                    <div className="flex items-center justify-between gap-2"><b>{x.kind === 'dorm' ? `${x.room} · bed ${x.label}` : x.room}</b><Pill tone={ht}>{hl}</Pill></div>
+                    <div className="flex items-center justify-between gap-2"><b>{x.kind === 'dorm' ? `${x.room} · ${x.label}` : x.room}</b><Pill tone={ht}>{hl}</Pill></div>
                     <p className="text-xs text-slate-500">{nameOf(x.type_name, x.code)} · {x.during.slice(1, 11)} → {x.during.slice(12, 22)} · {x.guests} pax</p>
                   </li>
                 );
@@ -166,7 +166,7 @@ export default async function Folio({ params, searchParams }: { params: Promise<
                 <input type="hidden" name="id" value={id} />
                 {active.length > 1 && (
                   <div><Lbl htmlFor="m-ru">Move which</Lbl>
-                    <select id="m-ru" name="ruId" className={Input}>{active.map((x) => <option key={x.id} value={x.id}>{x.kind === 'dorm' ? `${x.room} · bed ${x.label}` : x.room}</option>)}</select></div>
+                    <select id="m-ru" name="ruId" className={Input}>{active.map((x) => <option key={x.id} value={x.id}>{x.kind === 'dorm' ? `${x.room} · ${x.label}` : x.room}</option>)}</select></div>
                 )}
                 <div><Lbl htmlFor="m-to">Move to (free until check-out)</Lbl>
                   <select id="m-to" name="unitId" required className={Input}>

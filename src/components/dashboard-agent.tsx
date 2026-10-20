@@ -139,12 +139,9 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
           <div className="flex flex-col text-start">
             <span
               className="text-xs font-bold tracking-wide text-white drop-shadow-sm flex items-center gap-1.5"
-              style={{ fontFamily: "'El Messiri Variable', sans-serif" }}
+              
             >
               Executive assistant
-              <span className="text-[9px] font-semibold text-amber-300 uppercase px-1.5 py-0.2 rounded-full bg-amber-400/20 border border-amber-300/40">
-                PRO
-              </span>
             </span>
             <span className="text-[10px] text-amber-200/70 font-medium">
               Operations insights
@@ -165,7 +162,7 @@ export function DashboardAgent({ user }: { user: SessionUser }) {
                 </svg>
               </div>
               <div>
-                <h3 className="text-sm font-bold leading-tight flex items-center gap-2" style={{ fontFamily: "'El Messiri Variable', sans-serif" }}>
+                <h3 className="text-sm font-bold leading-tight flex items-center gap-2" >
                   <span>Villa Layla assistant</span>
                   <span className="text-[10px] text-amber-300 px-1.5 py-0.5 rounded-full bg-amber-400/15 border border-amber-300/30">
                     Read-only

@@ -122,7 +122,7 @@ export default async function FrontDesk({ searchParams }: { searchParams: Promis
               {walk.map(({ t, rate, free }) => (
                 <optgroup key={t.id} label={`${nameOf(t.name, t.code)} · ${rate ? fmt(rate.cents) + ' tonight' + (rate.source === 'little_hotelier' ? ' (Little Hotelier)' : '') : 'no rate set'}`}>
                   {free.length === 0 ? <option disabled>Full tonight</option> : free.map((f: any) => (
-                    <option key={f.id} value={f.id}>{t.kind === 'dorm' ? `${f.room_name} · bed ${f.label}` : f.room_name}</option>
+                    <option key={f.id} value={f.id}>{t.kind === 'dorm' ? `${f.room_name} · ${f.label}` : f.room_name}</option>
                   ))}
                 </optgroup>
               ))}
