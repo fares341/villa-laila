@@ -9,34 +9,34 @@ import { DashNavLink } from '@/components/dash-nav-link';
 
 export * from './dash-ui';
 
-type Count = 'pending' | 'inbox' | 'payments' | 'extensions' | 'instapay' | 'arrivals' | 'dirty' | 'lowstock';
-type NavItem = { href: string; label: string; perm: string; icon: string; count?: Count; external?: boolean };
+type Count = 'pending' | 'inbox' | 'payments' | 'instapay' | 'arrivals' | 'dirty' | 'lowstock' | 'taxis' | 'tasks' | 'shortages';
+type NavItem = { href: string; label: string; perm: string; icon: string; count?: Count; external?: boolean; match?: string[] };
+/**
+ * One menu entry per job. Related screens are reached as tabs inside the page
+ * (Team: roster / attendance / shift tasks; Reports: money / services / activity),
+ * and the entry stays highlighted on all of them.
+ */
 const NAV: [string, NavItem[]][] = [
   ['Front office', [
-    { href: '/dashboard', label: 'Today', perm: 'dashboard.view', icon: 'layout-dashboard' },
-    { href: '/dashboard/frontdesk', label: 'Movement cockpit', perm: 'frontdesk.use', icon: 'door-open', count: 'arrivals' },
-    { href: '/dashboard/housekeeping', label: 'Rooms & housekeeping', perm: 'frontdesk.use', icon: 'brush', count: 'dirty' },
-    { href: '/dashboard/taxi', label: 'Airport taxi', perm: 'frontdesk.use', icon: 'map' },
-    { href: '/dashboard/reservations', label: 'Reservations', perm: 'reservation.view', icon: 'bed', count: 'pending' },
+    { href: '/dashboard', label: 'Today', perm: 'dashboard.view', icon: 'layout-dashboard', count: 'arrivals' },
+    { href: '/dashboard/reservations', label: 'Reservations', perm: 'reservation.view', icon: 'bed', count: 'pending', match: ['/dashboard/extensions', '/dashboard/folio'] },
     { href: '/dashboard/calendar', label: 'Calendar', perm: 'reservation.view', icon: 'calendar-days' },
+    { href: '/dashboard/housekeeping', label: 'Rooms & housekeeping', perm: 'frontdesk.use', icon: 'brush', count: 'dirty' },
+    { href: '/dashboard/taxi', label: 'Airport taxi', perm: 'frontdesk.use', icon: 'map', count: 'taxis' },
     { href: '/dashboard/inbox', label: 'Inbox', perm: 'inbox.use', icon: 'inbox', count: 'inbox' },
   ]],
   ['Sales', [
     { href: '/pos', label: 'Point of Sale', perm: 'pos.use', icon: 'shopping-cart', external: true },
-    { href: '/dashboard/catalog', label: 'Catalog & stock', perm: 'inventory.manage', icon: 'package', count: 'lowstock' },
+    { href: '/dashboard/catalog', label: 'Catalog, stock & tours', perm: 'inventory.manage', icon: 'package', count: 'lowstock', match: ['/dashboard/tours'] },
     { href: '/dashboard/events', label: 'Events & InstaPay', perm: 'tours.manage', icon: 'ticket', count: 'instapay' },
-    { href: '/dashboard/tours', label: 'Tours desk', perm: 'tours.manage', icon: 'map' },
   ]],
   ['Money', [
-    { href: '/dashboard/shift-reports', label: 'Shifts & Z-reports', perm: 'reports.view', icon: 'receipt' },
-    { href: '/dashboard/payments', label: 'Payments', perm: 'payment.record', icon: 'wallet', count: 'payments' },
-    { href: '/dashboard/extensions', label: 'Extensions', perm: 'extension.decide', icon: 'arrow-left-right', count: 'extensions' },
+    { href: '/dashboard/shift-reports', label: 'Shifts & cash', perm: 'reports.view', icon: 'receipt', count: 'shortages' },
+    { href: '/dashboard/payments', label: 'Payments to verify', perm: 'payment.record', icon: 'wallet', count: 'payments' },
     { href: '/dashboard/guests', label: 'Guests', perm: 'guest.view', icon: 'users' },
   ]],
   ['Team', [
-    { href: '/dashboard/staff', label: 'Staff & roster', perm: 'staff.view', icon: 'user-plus' },
-    { href: '/dashboard/staff/timesheet', label: 'Attendance & hours', perm: 'staff.view', icon: 'clock' },
-    { href: '/dashboard/tasks', label: 'Shift tasks', perm: 'staff.view', icon: 'clipboard-list' },
+    { href: '/dashboard/staff', label: 'Team & shift tasks', perm: 'staff.view', icon: 'user-plus', match: ['/dashboard/tasks'] },
   ]],
   ['Setup', [
     { href: '/dashboard/rooms', label: 'Rooms & rates', perm: 'inventory.manage', icon: 'settings' },
@@ -46,9 +46,7 @@ const NAV: [string, NavItem[]][] = [
     { href: '/dashboard/import', label: 'Import Excel', perm: 'import.run', icon: 'upload' },
   ]],
   ['Insight', [
-    { href: '/dashboard/reports', label: 'Financial reports', perm: 'reports.view', icon: 'bar-chart' },
-    { href: '/dashboard/reports/services', label: 'Services breakdown', perm: 'reports.view', icon: 'clipboard-list' },
-    { href: '/dashboard/audit', label: 'Activity log', perm: 'audit.view', icon: 'file-text' },
+    { href: '/dashboard/reports', label: 'Reports', perm: 'reports.view', icon: 'bar-chart', match: ['/dashboard/audit'] },
   ]],
 ];
 
@@ -74,7 +72,7 @@ export async function DashShell({ user, children }: { user: SessionUser; childre
                 <div key={group} className="mt-3">
                   <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-cocoa-400">{group}</p>
                   {visible.map((i) => (
-                    <DashNavLink key={i.href} href={i.href} external={i.external}>
+                    <DashNavLink key={i.href} href={i.href} external={i.external} match={i.match}>
                       <Icon name={i.icon} size={17} />
                       <span className="flex-1">{i.label}</span>
                       {i.external && <Icon name="external-link" size={13} className="opacity-60" />}

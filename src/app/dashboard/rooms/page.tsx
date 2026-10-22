@@ -21,7 +21,7 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<Re
   const anyDemo = types.some((t) => t.is_demo);
   return (
     <>
-      <PageHeader title="Rooms, beds & rates" sub="Changing inventory never alters past reservations — items are deactivated, not deleted." />
+      <PageHeader title="Rooms, beds & rates" sub="Changing inventory never alters past reservations — items are deactivated, not deleted. Price for a night: a Little Hotelier daily rate wins when one exists for that date; otherwise the rates below apply." />
       <Flash sp={sp} />
       {anyDemo && <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950"><Icon name="alert-triangle" size={16} className="me-1 inline-block align-text-bottom" />You are looking at <b>DEMO</b> rooms and prices created for testing. Replace them with the real ones before going live (edit names, set real rates, deactivate the demo types).</p>}
       {types.map((t) => {

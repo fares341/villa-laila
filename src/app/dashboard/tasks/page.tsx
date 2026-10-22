@@ -3,7 +3,7 @@ import { can } from '@/lib/permissions';
 import { q } from '@/lib/db';
 import { todayLocal } from '@/lib/dates';
 import { getSetting } from '@/services/settings';
-import { PageHeader, Card, Flash, dt, Btn, BtnGhost, Input, Lbl, Pill, Stat } from '@/components/dash';
+import { PageHeader, Card, Flash, dt, Btn, BtnGhost, Input, Lbl, Pill, Stat, SubTabs, TEAM_TABS } from '@/components/dash';
 import { Icon } from '@/components/icons';
 import { syncCurrentRun, runView, handoverText, taskStats, kindLabel, onDuty } from '@/services/pms/tasks';
 import { taskTemplateSave, taskRedistribute, taskReassign, taskSettingsSave } from '../pms-actions';
@@ -39,6 +39,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
       <PageHeader title="Shift tasks" sub="The same checklist every shift, shared at random between the staff clocked in on the POS, balanced by the time each task takes.">
         {manage && <a href="?edit=new#templates" className={Btn}><Icon name="plus" size={16} /> Add task</a>}
       </PageHeader>
+      <SubTabs tabs={TEAM_TABS} current="/dashboard/tasks" />
       <Flash sp={sp} />
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">

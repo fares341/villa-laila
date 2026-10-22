@@ -572,7 +572,7 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
           <div className="pos-menu">
             <button className="pos-btn" onClick={() => setModal('expense')}><Icon name="receipt" /> Record petty expense</button>
             {st.takers?.length > 0 && <button className="pos-btn" onClick={() => setModal('taken')}><Icon name="wallet" /> Cash taken (owner)</button>}
-            <a className="pos-btn" href="/dashboard/frontdesk" target="_blank" rel="noopener"><Icon name="door-open" /> Front desk cockpit</a>
+            <a className="pos-btn" href="/dashboard" target="_blank" rel="noopener"><Icon name="door-open" /> Front desk (Today)</a>
             <a className="pos-btn" href="/dashboard" target="_blank" rel="noopener"><Icon name="layout-dashboard" /> Dashboard</a>
             <p className="pos-fine">Device signed in as {device}. Channel manager {st.channel ? 'connected' : 'not connected'}.</p>
           </div>

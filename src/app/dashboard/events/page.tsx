@@ -154,11 +154,11 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
                           <td><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>{b.checked_in_at && <div className="mt-1 text-xs text-emerald-800">Checked in {dt(b.checked_in_at)}</div>}</td>
                           <td className="whitespace-nowrap">
                             <div className="flex flex-wrap gap-1">
-                              {['paid', 'pay_on_site'].includes(b.status) && !b.checked_in_at && (
+                              {b.status === 'paid' && !b.checked_in_at && (
                                 <form action={checkInEventAction}><input type="hidden" name="id" value={b.id} /><button className={Btn}>Check in</button></form>
                               )}
                               {['pay_on_site', 'awaiting_payment'].includes(b.status) && (
-                                <form action={markEventPaidAction}><input type="hidden" name="id" value={b.id} /><button className={BtnGhost}>Paid cash</button></form>
+                                <form action={markEventPaidAction}><input type="hidden" name="id" value={b.id} /><button className={b.status === 'pay_on_site' ? Btn : BtnGhost} title="Goes into the open POS drawer">Take cash</button></form>
                               )}
                               {b.status !== 'cancelled' && !b.checked_in_at && (
                                 <form action={cancelEventBookingAction}><input type="hidden" name="id" value={b.id} /><button className={BtnGhost}>Cancel</button></form>

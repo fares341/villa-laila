@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { can } from '@/lib/permissions';
 import { todayLocal } from '@/lib/dates';
-import { PageHeader, Card, Flash, fmt, dt, Btn, BtnGhost, Input, Lbl, Pill, Stat } from '@/components/dash';
+import { PageHeader, Card, Flash, fmt, dt, Btn, BtnGhost, Input, Lbl, Pill, Stat, SubTabs, TEAM_TABS } from '@/components/dash';
 import { Icon } from '@/components/icons';
 import { monthlyTimesheet, attendanceList, latenessPolicy } from '@/services/pms/staff';
 import { attendanceWaive, latenessPolicySave } from '../../pms-actions';
@@ -32,8 +32,8 @@ export default async function Timesheet({ searchParams }: { searchParams: Promis
         <Link href={`?month=${prev}`} className={BtnGhost} aria-label="Previous month"><Icon name="chevron-left" size={16} /></Link>
         <span className="self-center font-semibold text-cocoa-800">{monthName}</span>
         <Link href={`?month=${next}`} className={BtnGhost} aria-label="Next month"><Icon name="chevron-right" size={16} /></Link>
-        <Link href="/dashboard/staff" className={BtnGhost}><Icon name="calendar-days" size={16} /> Roster</Link>
       </PageHeader>
+      <SubTabs tabs={TEAM_TABS} current="/dashboard/staff/timesheet" />
       <Flash sp={sp} />
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">

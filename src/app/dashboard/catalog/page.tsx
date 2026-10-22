@@ -57,6 +57,7 @@ export default async function Catalog({ searchParams }: { searchParams: Promise<
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${tab === t.k ? 'border-cocoa-800 bg-cocoa-800 text-white' : 'border-cocoa-200 bg-white text-cocoa-800 hover:border-cocoa-600'}`}>
             <Icon name={t.icon} size={15} /> {t.label}</Link>
         ))}
+        <Link href="/dashboard/tours" className="inline-flex items-center gap-1.5 rounded-full border border-cocoa-200 bg-white px-3 py-1.5 text-sm font-semibold text-cocoa-800 hover:border-cocoa-600"><Icon name="bar-chart" size={15} /> Tour sales & profit</Link>
       </nav>
 
       <div className="grid gap-5 xl:grid-cols-3">
@@ -144,7 +145,7 @@ export default async function Catalog({ searchParams }: { searchParams: Promise<
                 <div><Lbl htmlFor="p-b">Barcode</Lbl><input id="p-b" name="barcode" dir="ltr" placeholder="Scan into this field" defaultValue={sel.barcode ?? ''} className={Input + ' font-mono'} /></div>
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="trackStock" defaultChecked={sel.track_stock ?? tab === 'market'} /> Track stock</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <div><Lbl htmlFor="p-s">{sel.id ? 'Stock now (counted)' : 'Opening stock'}</Lbl><input id="p-s" name="stock" type="number" defaultValue={sel.id ? sel.stock_quantity : ''} className={Input} /></div>
+                  <div><Lbl htmlFor="p-s">{sel.id ? 'Stock now (counted)' : 'Opening stock'}</Lbl><input id="p-s" name="stock" type="number" defaultValue={sel.id ? sel.stock_quantity : ''} className={Input} />{sel.id && <input type="hidden" name="stockWas" value={sel.stock_quantity} />}</div>
                   <div><Lbl htmlFor="p-t">Low-stock alert at</Lbl><input id="p-t" name="threshold" type="number" min={0} defaultValue={sel.low_stock_threshold ?? 5} className={Input} /></div>
                 </div>
                 <p className="text-xs text-slate-500">Changing the stock number logs a stock movement (stock in or count adjustment).</p>

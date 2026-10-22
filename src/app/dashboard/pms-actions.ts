@@ -25,21 +25,21 @@ const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 /* ───────── Front desk ───────── */
 
 export async function fdCheckIn(fd: FormData) {
-  const u = await requireUser('frontdesk.use'); const back = safe(fd.get('back'), '/dashboard/frontdesk');
+  const u = await requireUser('frontdesk.use'); const back = safe(fd.get('back'), '/dashboard');
   try { await checkInGuest(str(fd.get('id')), u.email, u.id); } catch (e) { go(back, 'err', msg(e)); }
-  revalidatePath('/dashboard/frontdesk'); go(back, 'ok', 'Checked in');
+  revalidatePath('/dashboard'); go(back, 'ok', 'Checked in');
 }
 
 export async function fdCheckOut(fd: FormData) {
-  const u = await requireUser('frontdesk.use'); const back = safe(fd.get('back'), '/dashboard/frontdesk');
+  const u = await requireUser('frontdesk.use'); const back = safe(fd.get('back'), '/dashboard');
   const force = fd.get('force') === '1';
   if (force) await requireUser('reservation.cancel'); // owner / manager only
   try { await checkOutGuest(str(fd.get('id')), u.email, { force }); } catch (e) { go(back, 'err', msg(e)); }
-  revalidatePath('/dashboard/frontdesk'); go(back, 'ok', 'Checked out · room marked dirty');
+  revalidatePath('/dashboard'); go(back, 'ok', 'Checked out · room marked dirty');
 }
 
 export async function fdWalkIn(fd: FormData) {
-  const u = await requireUser('frontdesk.use'); const back = '/dashboard/frontdesk';
+  const u = await requireUser('frontdesk.use'); const back = '/dashboard';
   let id = '';
   try {
     const unitId = str(fd.get('unitId'));
@@ -51,8 +51,8 @@ export async function fdWalkIn(fd: FormData) {
       nights: parseInt(str(fd.get('nights')), 10) || 1, guests: parseInt(str(fd.get('guests')), 10) || 1, actor: u.email, userId: u.id,
     });
     id = r.id;
-  } catch (e) { go(back + '?walkin=1', 'err', msg(e)); }
-  revalidatePath('/dashboard/frontdesk');
+  } catch (e) { go('/dashboard?walkin=1', 'err', msg(e)); }
+  revalidatePath('/dashboard');
   go(`/dashboard/folio/${id}`, 'ok', 'Walk-in checked in · Little Hotelier notified');
 }
 
@@ -161,18 +161,22 @@ export async function productSave(fd: FormData) {
     if (id) {
       await q(`UPDATE products SET name=$2, pos_category=$3, price_cents=$4, cost_cents=$5, track_stock=$6, low_stock_threshold=$7, barcode=$8, public_visible=$9, unit_label=$10, is_active=$11 WHERE id=$1`, [id, ...vals]);
       const stock = str(fd.get('stock'));
-      if (stock !== '') {
-        const p = (await q<any>(`SELECT stock_quantity FROM products WHERE id=$1`, [id]))[0];
-        const n = parseInt(stock, 10);
-        if (Number.isFinite(n) && p && n !== p.stock_quantity) {
-          await q(`UPDATE products SET stock_quantity=$2 WHERE id=$1`, [id, n]);
-          await q(`INSERT INTO inventory_movements(product_id,movement_type,quantity,previous_stock,new_stock,note,created_by) VALUES($1,$2,$3,$4,$5,'Set from catalog',$6)`,
-            [id, n > p.stock_quantity ? 'purchase' : 'adjustment_audit', n - p.stock_quantity, p.stock_quantity, n, u.id]);
-        }
+      // Apply the change the person made (counted − what the form showed) on top of the live number,
+      // so a POS sale that lands while the form is open is not overwritten.
+      const n = parseInt(stock, 10), was = parseInt(str(fd.get('stockWas')), 10);
+      if (stock !== '' && Number.isFinite(n)) {
+        const delta = Number.isFinite(was) ? n - was : null;
+        const row = delta === null
+          ? (await q<any>(`UPDATE products p SET stock_quantity=$2 FROM (SELECT stock_quantity old FROM products WHERE id=$1 FOR UPDATE) o WHERE p.id=$1 RETURNING o.old, p.stock_quantity new`, [id, n]))[0]
+          : delta !== 0 ? (await q<any>(`UPDATE products SET stock_quantity=stock_quantity+$2 WHERE id=$1 RETURNING stock_quantity-$2 old, stock_quantity new`, [id, delta]))[0] : null;
+        if (row && row.new !== row.old) await q(`INSERT INTO inventory_movements(product_id,movement_type,quantity,previous_stock,new_stock,note,created_by) VALUES($1,$2,$3,$4,$5,'Set from catalog',$6)`,
+          [id, row.new > row.old ? 'purchase' : 'adjustment_audit', row.new - row.old, row.old, row.new, u.id]);
       }
     } else {
-      await q(`INSERT INTO products(name,pos_category,price_cents,cost_cents,track_stock,low_stock_threshold,barcode,public_visible,unit_label,is_active,category,stock_quantity)
-               VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, [...vals, cat, parseInt(str(fd.get('stock')), 10) || 0]);
+      const opening = parseInt(str(fd.get('stock')), 10) || 0;
+      const np = (await q<any>(`INSERT INTO products(name,pos_category,price_cents,cost_cents,track_stock,low_stock_threshold,barcode,public_visible,unit_label,is_active,category,stock_quantity)
+               VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`, [...vals, cat, opening]))[0];
+      if (opening) await q(`INSERT INTO inventory_movements(product_id,movement_type,quantity,previous_stock,new_stock,note,created_by) VALUES($1,'purchase',$2,0,$2,'Opening stock',$3)`, [np.id, opening, u.id]);
     }
   } catch (e: any) { go(back, 'err', e?.code === '23505' ? 'That barcode is already used by another item' : msg(e)); }
   await audit(u.email, id ? 'product.update' : 'product.create', 'product', id || null, { name: vals[0] });

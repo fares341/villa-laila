@@ -657,24 +657,27 @@ export async function returnTowelLoan(loanId: string, depositAction: 'refund' | 
 /* ───────── DAILY REVENUE & SERVICES MATRIX BREAKDOWN ───────── */
 
 export async function getDailyServicesMatrix(from: string, to: string) {
+  // POS sales (not voided, not owner comps) + airport taxis charged to folios, per day.
   const rows = await q<any>(
-    `SELECT
-       order_date,
-       COALESCE(SUM(amount_cents) FILTER (WHERE service_type = 'breakfast'), 0)::bigint as breakfast_cents,
-       COALESCE(SUM(amount_cents) FILTER (WHERE service_type = 'towel'), 0)::bigint as towel_cents,
-       COALESCE(SUM(amount_cents) FILTER (WHERE service_type = 'taxi'), 0)::bigint as taxi_cents,
-       COALESCE(SUM(amount_cents) FILTER (WHERE service_type = 'pool'), 0)::bigint as pool_cents,
-       COALESCE(SUM(amount_cents) FILTER (WHERE service_type = 'laundry'), 0)::bigint as laundry_cents,
-       COALESCE(SUM(amount_cents) FILTER (WHERE service_type = 'water'), 0)::bigint as water_cents,
-       COALESCE(SUM(amount_cents) FILTER (WHERE service_type IN ('drinks', 'snack')), 0)::bigint as drinks_snack_cents,
-       COALESCE(SUM(amount_cents) FILTER (WHERE service_type = 'tour'), 0)::bigint as tour_cents,
-       COALESCE(SUM(amount_cents) FILTER (WHERE service_type = 'meal'), 0)::bigint as meal_cents,
-       COALESCE(SUM(amount_cents) FILTER (WHERE service_type = 'extra_bed'), 0)::bigint as extra_bed_cents,
-       COALESCE(SUM(amount_cents), 0)::bigint as total_daily_cents
-     FROM service_orders
-     WHERE order_date >= $1 AND order_date <= $2
-     GROUP BY order_date
-     ORDER BY order_date DESC`,
+    `WITH so AS (
+       SELECT order_date d, service_type st, amount_cents a FROM service_orders
+       WHERE order_date >= $1 AND order_date <= $2 AND payment_status NOT IN ('void','comp')
+     ), tx AS (
+       SELECT entry_date d, sum(amount_cents) a FROM folio_entries WHERE kind='taxi' AND NOT voided AND entry_date >= $1 AND entry_date <= $2 GROUP BY entry_date
+     ), days AS (SELECT d FROM so UNION SELECT d FROM tx)
+     SELECT days.d AS order_date,
+       COALESCE((SELECT sum(a) FROM so WHERE so.d=days.d AND st = 'breakfast'),0)::bigint breakfast_cents,
+       COALESCE((SELECT sum(a) FROM so WHERE so.d=days.d AND st = 'towel'),0)::bigint towel_cents,
+       (COALESCE((SELECT sum(a) FROM so WHERE so.d=days.d AND st = 'taxi'),0) + COALESCE((SELECT a FROM tx WHERE tx.d=days.d),0))::bigint taxi_cents,
+       COALESCE((SELECT sum(a) FROM so WHERE so.d=days.d AND st = 'pool'),0)::bigint pool_cents,
+       COALESCE((SELECT sum(a) FROM so WHERE so.d=days.d AND st = 'laundry'),0)::bigint laundry_cents,
+       COALESCE((SELECT sum(a) FROM so WHERE so.d=days.d AND st = 'water'),0)::bigint water_cents,
+       COALESCE((SELECT sum(a) FROM so WHERE so.d=days.d AND st IN ('drinks','snack','market')),0)::bigint drinks_snack_cents,
+       COALESCE((SELECT sum(a) FROM so WHERE so.d=days.d AND st = 'tour'),0)::bigint tour_cents,
+       COALESCE((SELECT sum(a) FROM so WHERE so.d=days.d AND st = 'meal'),0)::bigint meal_cents,
+       COALESCE((SELECT sum(a) FROM so WHERE so.d=days.d AND st NOT IN ('breakfast','towel','taxi','pool','laundry','water','drinks','snack','market','tour','meal')),0)::bigint other_cents,
+       (COALESCE((SELECT sum(a) FROM so WHERE so.d=days.d),0) + COALESCE((SELECT a FROM tx WHERE tx.d=days.d),0))::bigint total_daily_cents
+     FROM days ORDER BY days.d DESC`,
     [from, to]
   );
 

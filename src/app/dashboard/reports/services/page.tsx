@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
-import { PageHeader, Card, Flash, fmt, Btn, BtnGhost } from '@/components/dash';
+import { PageHeader, Card, Flash, fmt, Btn, BtnGhost, SubTabs, REPORT_TABS } from '@/components/dash';
 import { getDailyServicesMatrix } from '@/services/frontdesk';
 import { ExportCsvButton } from './export-client';
 import { Icon } from '@/components/icons';
@@ -34,6 +34,7 @@ export default async function ServicesReportPage({
       drinks: acc.drinks + Number(r.drinks_snack_cents),
       tour: acc.tour + Number(r.tour_cents),
       meal: acc.meal + Number(r.meal_cents),
+      other: acc.other + Number(r.other_cents),
       totalDaily: acc.totalDaily + Number(r.total_daily_cents),
     }),
     {
@@ -46,6 +47,7 @@ export default async function ServicesReportPage({
       drinks: 0,
       tour: 0,
       meal: 0,
+      other: 0,
       totalDaily: 0,
     }
   );
@@ -54,17 +56,15 @@ export default async function ServicesReportPage({
     <>
       <PageHeader
         title="Daily services sales"
-        sub="Daily sales per service (breakfast, laundry, pool, towels, water, tours, taxi), matching the Excel ledger."
+        sub="Daily POS sales per service plus airport taxis, without owner comps or voided sales."
       >
-        <Link href="/dashboard/reports" className={BtnGhost}>
-          ← Occupancy & revenue report
-        </Link>
-        <Link href="/dashboard/pos" className={BtnGhost}>
+        <Link href="/pos" className={BtnGhost}>
           <Icon name="shopping-cart" size={16} className="me-1 inline-block align-text-bottom" />Point of sale
         </Link>
         <ExportCsvButton rows={rows} from={from} to={to} />
       </PageHeader>
 
+      <SubTabs tabs={REPORT_TABS} current="/dashboard/reports/services" />
       <Flash sp={sp} />
 
       {/* Date Filter Bar */}
@@ -139,9 +139,10 @@ export default async function ServicesReportPage({
                   <th className="py-2.5 px-2">Pool</th>
                   <th className="py-2.5 px-2">Laundry</th>
                   <th className="py-2.5 px-2">Water</th>
-                  <th className="py-2.5 px-2">Drinks & snacks</th>
+                  <th className="py-2.5 px-2">Market</th>
                   <th className="py-2.5 px-2">Tours</th>
                   <th className="py-2.5 px-2">Meals</th>
+                  <th className="py-2.5 px-2">Other</th>
                   <th className="py-2.5 px-2 font-bold text-slate-900">Daily total</th>
                 </tr>
               </thead>
@@ -158,6 +159,7 @@ export default async function ServicesReportPage({
                     <td className="py-2 px-2">{fmt(r.drinks_snack_cents)}</td>
                     <td className="py-2 px-2">{fmt(r.tour_cents)}</td>
                     <td className="py-2 px-2">{fmt(r.meal_cents)}</td>
+                    <td className="py-2 px-2">{fmt(r.other_cents)}</td>
                     <td className="py-2 px-2 font-bold text-amber-950 bg-amber-50/40">
                       {fmt(r.total_daily_cents)}
                     </td>
@@ -176,6 +178,7 @@ export default async function ServicesReportPage({
                   <td className="py-2.5 px-2">{fmt(totals.drinks)}</td>
                   <td className="py-2.5 px-2">{fmt(totals.tour)}</td>
                   <td className="py-2.5 px-2">{fmt(totals.meal)}</td>
+                  <td className="py-2.5 px-2">{fmt(totals.other)}</td>
                   <td className="py-2.5 px-2 text-amber-900 font-black">{fmt(totals.totalDaily)}</td>
                 </tr>
               </tfoot>

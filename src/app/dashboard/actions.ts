@@ -8,7 +8,7 @@ import { requireUser, login, createSession, destroySession, hash } from '@/lib/a
 import { toCents } from '@/lib/money';
 import { BookingError } from '@/services/errors';
 import { createReservation, confirmReservation, cancelReservation, rejectReservation, markNoShow, changeStay, reassignUnit, addNote } from '@/services/reservations';
-import { checkInGuest, checkOutGuest } from '@/services/pms/frontdesk';
+import { checkInGuest, checkOutGuest, moveRoom } from '@/services/pms/frontdesk';
 import { snapshotStay, afterStayChange } from '@/services/pms/sync';
 import { requestExtension, decideExtension } from '@/services/extensions';
 import { recordPayment, verifyPayment, type PaymentMethod } from '@/services/payments';
@@ -101,7 +101,8 @@ export async function changeDatesAction(f: FormData) {
 }
 export async function reassignAction(f: FormData) {
   const u = await requireUser('reservation.edit'); const id = S(f, 'id');
-  return run(`/dashboard/reservations/${id}`, async () => { await reassignUnit(S(f, 'ruId'), S(f, 'unitId'), u.email); await afterStayChange(id, null, u.id, 'reservation.reassign'); return 'Bed assignment changed.'; });
+  // Same service as the folio's Move room: the old room goes to housekeeping if the guest was in it.
+  return run(`/dashboard/reservations/${id}`, async () => { await moveRoom({ reservationUnitId: S(f, 'ruId'), reservationId: id, newUnitId: S(f, 'unitId'), actor: u.email, userId: u.id }); return 'Bed assignment changed.'; });
 }
 export async function addNoteAction(f: FormData) {
   const u = await requireUser('reservation.edit'); const id = S(f, 'id');
@@ -112,6 +113,8 @@ export async function addNoteAction(f: FormData) {
 export async function recordPaymentAction(f: FormData) {
   const u = await requireUser('payment.record'); const id = S(f, 'id');
   return run(`/dashboard/reservations/${id}`, async () => {
+    // Cash and card taken at the desk go through the folio so they land in the open shift drawer.
+    if (['cash', 'card_terminal'].includes(S(f, 'method'))) throw new BookingError('INVALID_INPUT', 'Cash and card at the desk: use Take payment on the folio, so it goes into the shift drawer.');
     await recordPayment(id, toCents(S(f, 'amount')), S(f, 'method') as PaymentMethod, S(f, 'reference') || null, S(f, 'note') || null, u.id, u.email);
     return 'Payment recorded. It counts toward the balance only after a manager verifies it.';
   });

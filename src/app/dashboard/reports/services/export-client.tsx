@@ -20,9 +20,10 @@ export function ExportCsvButton({
       'Pool (EGP)',
       'Laundry (EGP)',
       'Water (EGP)',
-      'Drinks & Snacks (EGP)',
+      'Market (EGP)',
       'Tours (EGP)',
       'Meals (EGP)',
+      'Other (EGP)',
       'Total Daily (EGP)',
     ];
 
@@ -40,6 +41,7 @@ export function ExportCsvButton({
           (Number(r.drinks_snack_cents) / 100).toFixed(2),
           (Number(r.tour_cents) / 100).toFixed(2),
           (Number(r.meal_cents) / 100).toFixed(2),
+          (Number(r.other_cents) / 100).toFixed(2),
           (Number(r.total_daily_cents) / 100).toFixed(2),
         ].join(',')
       ),

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { can } from '@/lib/permissions';
 import { todayLocal, addDays } from '@/lib/dates';
-import { PageHeader, Card, Flash, fmt, Btn, BtnGhost, Input, Lbl, Pill, Stat } from '@/components/dash';
+import { PageHeader, Card, Flash, fmt, Btn, BtnGhost, Input, Lbl, Pill, Stat, SubTabs, TEAM_TABS } from '@/components/dash';
 import { Icon } from '@/components/icons';
 import { listStaff, shiftTypes, rosterRange, onShiftNow } from '@/services/pms/staff';
 import { staffSave, rosterSaveWeek } from '../pms-actions';
@@ -29,9 +29,9 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader title="Staff & roster" sub="Profiles, POS PINs and the weekly schedule. Lateness is measured against this roster when staff clock in on the POS.">
-        <Link href="/dashboard/staff/timesheet" className={BtnGhost}><Icon name="clock" size={16} /> Attendance & hours</Link>
         {manage && <a href="#profile" className={Btn}><Icon name="user-plus" size={16} /> Add staff</a>}
       </PageHeader>
+      <SubTabs tabs={TEAM_TABS} current="/dashboard/staff" />
       <Flash sp={sp} />
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">

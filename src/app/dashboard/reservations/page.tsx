@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { reservationRows } from '@/services/queries';
-import { Badge, PayBadge, PageHeader, Empty, Flash, fmt, dt, Input, Btn, BtnGhost, Lbl } from '@/components/dash';
+import { Badge, PayBadge, PageHeader, Empty, Flash, fmt, dt, Input, Btn, BtnGhost, Lbl, SubTabs } from '@/components/dash';
+import { navCounts } from '@/services/queries';
 import { can } from '@/lib/permissions';
 import { Icon } from '@/components/icons';
 
@@ -14,6 +15,7 @@ export default async function Reservations({ searchParams }: { searchParams: Pro
   const page = Math.max(1, parseInt(sp.page ?? '1', 10) || 1);
   const rows = await reservationRows({ q: sp.q, status: sp.status, source: sp.source, roomType: sp.roomType, payment: sp.payment, from: sp.from, to: sp.to, sort: sp.sort, page, limit: 50 });
   const types = await q<any>('SELECT id, name FROM room_types ORDER BY sort_order');
+  const ext = ((await navCounts().catch(() => ({}) as any)) as any).extensions ?? 0;
   const qs = new URLSearchParams(Object.entries(sp).filter(([k, v]) => v && !['page', 'ok', 'err'].includes(k)) as [string, string][]);
   return (
     <>
@@ -21,6 +23,7 @@ export default async function Reservations({ searchParams }: { searchParams: Pro
         {can(u.role, 'reservation.export') && <a className={BtnGhost} href={`/dashboard/reservations/export?${qs}`}>Download CSV</a>}
         <Link className={Btn} href="/dashboard/reservations/new">+ New reservation</Link>
       </PageHeader>
+      {can(u.role, 'extension.decide') && <SubTabs current="/dashboard/reservations" tabs={[{ href: '/dashboard/reservations', label: 'All reservations', icon: 'bed' }, { href: '/dashboard/extensions', label: 'Stay extensions', icon: 'arrow-left-right', count: ext }]} />}
       <Flash sp={sp} />
       <form className="mb-5 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4" method="get">
         <div className="sm:col-span-2"><Lbl htmlFor="q">Search (reference, name, email, phone)</Lbl><input id="q" name="q" defaultValue={sp.q} className={Input} /></div>
@@ -36,7 +39,7 @@ export default async function Reservations({ searchParams }: { searchParams: Pro
       {rows.length === 0 ? <Empty>No reservations match. Try clearing the filters, or <Link className="underline" href="/dashboard/reservations/new">create one</Link>.</Empty> : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr>{['Reference', 'Guest', 'Dates', 'Bed / room', 'Guests', 'Source', 'Status', 'Payment', 'Total', 'Balance', 'Notes', 'Created / updated'].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr></thead>
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr>{['Reference', 'Guest', 'Dates', 'Bed / room', 'Guests', 'Source', 'Status', 'Payment', 'Total (room + extras)', 'Balance', 'Notes', 'Created / updated'].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr></thead>
             <tbody className="divide-y">
               {rows.map((r) => (
                 <tr key={r.id} className="align-top hover:bg-slate-50">
@@ -48,7 +51,7 @@ export default async function Reservations({ searchParams }: { searchParams: Pro
                   <td className="px-3 py-2 capitalize">{r.source}</td>
                   <td className="px-3 py-2"><Badge status={r.status} /></td>
                   <td className="px-3 py-2"><PayBadge state={r.payState} awaiting={r.unverified > 0} /></td>
-                  <td className="whitespace-nowrap px-3 py-2">{fmt(r.total_cents, r.currency)}</td>
+                  <td className="whitespace-nowrap px-3 py-2">{fmt(r.charges_cents, r.currency)}</td>
                   <td className={`whitespace-nowrap px-3 py-2 ${r.balance > 0 ? 'font-semibold text-red-800' : ''}`}>{fmt(r.balance, r.currency)}</td>
                   <td className="max-w-[14rem] truncate px-3 py-2 text-xs text-slate-600" title={r.staff_notes ?? ''}>{r.staff_notes ?? ''}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{dt(r.created_at)}<br />{dt(r.updated_at)}</td>

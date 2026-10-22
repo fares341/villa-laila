@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { todayLocal, addDays } from '@/lib/dates';
-import { PageHeader, Card, fmt, dt, BtnGhost, Input, Stat, Pill } from '@/components/dash';
+import { PageHeader, Card, fmt, dt, BtnGhost, Input, Stat, Pill, SubTabs } from '@/components/dash';
 import { Icon } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
@@ -37,8 +37,8 @@ export default async function ToursDesk({ searchParams }: { searchParams: Promis
           <input type="date" name="to" defaultValue={to} className={Input + ' w-40'} aria-label="To" />
           <button className={BtnGhost}>Show</button>
         </form>
-        <Link href="/dashboard/catalog?tab=tours" className={BtnGhost}><Icon name="settings" size={16} /> Tours & prices</Link>
       </PageHeader>
+      <SubTabs current="/dashboard/tours" tabs={[{ href: '/dashboard/catalog', label: 'Items & stock', icon: 'package' }, { href: '/dashboard/catalog?tab=tours', label: 'Tours & prices', icon: 'map' }, { href: '/dashboard/tours', label: 'Tour sales & profit', icon: 'bar-chart' }]} />
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Guests booked" value={sales.reduce((a, s) => a + s.quantity, 0)} />
         <Stat label="Sales" value={fmt(rev)} />
@@ -58,7 +58,7 @@ export default async function ToursDesk({ searchParams }: { searchParams: Promis
         <Card title="Tour sales" className="xl:col-span-2">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-slate-500"><tr><th className="py-2">When</th><th>Tour</th><th>Guest</th><th className="text-right">Pax</th><th className="text-right">Sell</th><th className="text-right">Profit</th><th>Paid by</th></tr></thead>
+              <thead className="text-left text-slate-500"><tr><th className="py-2">When</th><th>Tour</th><th>Guest</th><th className="text-right">Pax</th><th className="text-right">Sell</th><th className="text-right">Profit</th><th className="pl-4">Paid by</th></tr></thead>
               <tbody>{sales.map((s) => (
                 <tr key={s.id} className="border-t border-slate-100">
                   <td className="py-2">{dt(s.created_at)}<div className="text-xs text-slate-500">{s.cashier}</div></td>
@@ -67,7 +67,7 @@ export default async function ToursDesk({ searchParams }: { searchParams: Promis
                   <td className="text-right tabular-nums">{s.quantity}</td>
                   <td className="text-right tabular-nums">{fmt(Number(s.amount_cents))}</td>
                   <td className="text-right tabular-nums text-emerald-700">{fmt(Number(s.amount_cents) - Number(s.unit_cost_cents) * s.quantity)}</td>
-                  <td><Pill tone={s.payment_method === 'room_charge' ? 'amber' : 'slate'}>{METHOD[s.payment_method] ?? s.payment_method}</Pill></td>
+                  <td className="pl-4"><Pill tone={s.payment_method === 'room_charge' ? 'amber' : 'slate'}>{METHOD[s.payment_method] ?? s.payment_method}</Pill></td>
                 </tr>))}
                 {sales.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-slate-500">No tour sales in this period.</td></tr>}</tbody>
             </table>

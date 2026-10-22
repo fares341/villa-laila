@@ -23,13 +23,13 @@ export default async function ReservationPage({ params, searchParams }: { params
   const pays = await q<any>(`SELECT p.*, a.name rec, b.name ver FROM payments p LEFT JOIN users a ON a.id=p.recorded_by LEFT JOIN users b ON b.id=p.verified_by WHERE reservation_id=$1 ORDER BY created_at`, [id]);
   const events = await q<any>('SELECT * FROM reservation_events WHERE reservation_id=$1 ORDER BY created_at DESC LIMIT 40', [id]);
   const ext = await q<any>('SELECT * FROM extension_requests WHERE reservation_id=$1 ORDER BY created_at DESC', [id]);
-  const serviceOrders = await q<any>('SELECT * FROM service_orders WHERE reservation_id=$1 ORDER BY created_at DESC', [id]).catch(() => []);
   // Balance comes from the folio: room nights + POS / custom charges − credits − verified payments.
   const folio = await getFolio(id);
   const paid = folio.paid;
   const unverified = folio.pending;
   const charges = folio.charges + folio.credits;
   const balance = folio.balance;
+  const extras = folio.lines.filter((l: any) => l.kind !== 'room');
   const live = ['hold', 'pending', 'confirmed', 'checked_in'].includes(res.status);
   const free = live ? await freeUnits(pool() as any, res.room_type_id, res.check_in, res.check_out, id) : [];
   const state = paid <= 0 && charges > 0 ? 'unpaid' : balance > 0 ? 'partial' : balance === 0 ? 'paid' : 'overpaid';
@@ -51,36 +51,36 @@ export default async function ReservationPage({ params, searchParams }: { params
               {res.needs_review && <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">Needs review</span>}</div>
             {res.needs_review && <p className="mt-2 text-sm text-amber-900">{res.review_reason}</p>}
             {['hold', 'pending'].includes(res.status) && res.hold_expires_at && <p className="mt-2 text-sm text-slate-600">Beds are held until <b>{dt(res.hold_expires_at)}</b>, then released automatically.</p>}
-            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <div><dt className="text-slate-500">Guest</dt><dd className="font-medium"><Link className="underline" href={`/dashboard/guests/${res.gid}`}>{res.full_name}</Link></dd></div>
-              <div><dt className="text-slate-500">Contact</dt><dd>{res.phone ?? '—'} · {res.email ?? '—'}</dd></div>
-              <div><dt className="text-slate-500">Stay</dt><dd className="font-medium">{res.check_in} → {res.check_out}</dd></div>
-              <div><dt className="text-slate-500">Guests / type</dt><dd>{res.guests_count} · {res.tname.en}</dd></div>
-              <div><dt className="text-slate-500">Room total / all charges</dt><dd className="font-medium">{fmt(res.total_cents, res.currency)} / {fmt(charges, res.currency)}</dd></div>
-              <div><dt className="text-slate-500">Verified paid / balance</dt><dd>{fmt(paid, res.currency)} / <b className={balance > 0 ? 'text-red-800' : balance < 0 ? 'text-sky-700' : 'text-emerald-700'}>{balance < 0 ? `Credit ${fmt(-balance, res.currency)}` : fmt(balance, res.currency)}</b> · <Link className="underline" href={`/dashboard/folio/${id}`}>Folio</Link></dd></div>
+            <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+              <div><dt className="text-xs uppercase tracking-wide text-cocoa-500">Guest</dt><dd className="font-semibold"><Link className="underline" href={`/dashboard/guests/${res.gid}`}>{res.full_name}</Link> <span className="font-normal text-cocoa-600">· {res.phone ?? res.email ?? 'no contact'}</span></dd></div>
+              <div><dt className="text-xs uppercase tracking-wide text-cocoa-500">Stay</dt><dd className="font-semibold">{res.check_in} → {res.check_out} <span className="font-normal text-cocoa-600">· {res.guests_count} guest(s) · {res.tname.en}</span></dd></div>
             </dl>
-            {res.guest_notes && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm"><b>Guest note:</b> {res.guest_notes}</p>}
-            {policy?.appliedRules?.length > 0 && <p className="mt-3 text-xs text-slate-500">Policy version <code>{res.policy_version}</code> applied: {policy.appliedRules.map((x: any) => x.name).join(', ')}{policy.reviewedBy ? ` · reviewed by ${policy.reviewedBy}` : ''}</p>}
-          </Card>
-
-          <Card title="Actions">
-            <div className="flex flex-wrap gap-3">
+            <div className="mt-4 grid grid-cols-3 divide-x divide-cocoa-100 rounded-xl border border-cocoa-100 bg-cocoa-50/60 text-center">
+              <div className="p-3"><p className="text-xs uppercase tracking-wide text-cocoa-500">Total</p><p className="text-lg font-bold tabular-nums">{fmt(charges, res.currency)}</p><p className="text-[11px] text-cocoa-500">room {fmt(res.total_cents, res.currency)} + extras</p></div>
+              <div className="p-3"><p className="text-xs uppercase tracking-wide text-cocoa-500">Paid</p><p className="text-lg font-bold tabular-nums text-emerald-800">{fmt(paid, res.currency)}</p>{unverified > 0 && <p className="text-[11px] text-amber-700">{fmt(unverified, res.currency)} to verify</p>}</div>
+              <div className="p-3"><p className="text-xs uppercase tracking-wide text-cocoa-500">{balance < 0 ? 'Credit' : 'Balance'}</p><p className={`text-lg font-bold tabular-nums ${balance > 0 ? 'text-red-800' : balance < 0 ? 'text-sky-700' : 'text-emerald-700'}`}>{fmt(Math.abs(balance), res.currency)}</p></div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
               {['hold', 'pending', 'expired'].includes(res.status) && can(u.role, 'reservation.confirm') && (
                 <form action={confirmAction}><input type="hidden" name="id" value={id} /><ConfirmButton className={Btn} message="Confirm this reservation? The guest will be told it is confirmed.">Confirm reservation</ConfirmButton></form>)}
               {res.status === 'confirmed' && <form action={checkInAction}><input type="hidden" name="id" value={id} /><button className={Btn}>Check in</button></form>}
               {res.status === 'checked_in' && <form action={checkOutAction}><input type="hidden" name="id" value={id} /><ConfirmButton className={Btn} message="Check this guest out?">Check out</ConfirmButton></form>}
+              {balance > 0 && live && <Link href={`/dashboard/folio/${id}#pay`} className={BtnGhost}>Take payment</Link>}
               {res.status === 'confirmed' && <form action={noShowAction}><input type="hidden" name="id" value={id} /><ConfirmButton className={BtnGhost} message="Mark as no-show? The bed will be released.">No-show</ConfirmButton></form>}
             </div>
+          </Card>
+
+          {(['hold', 'pending'].includes(res.status) && can(u.role, 'reservation.confirm')) || (live && res.status !== 'checked_in' && can(u.role, 'reservation.cancel')) ? (
+          <Card title="Reject or cancel">
             {['hold', 'pending'].includes(res.status) && can(u.role, 'reservation.confirm') && (
-              <form action={rejectAction} className="mt-4 flex flex-wrap items-end gap-2"><input type="hidden" name="id" value={id} />
+              <form action={rejectAction} className="flex flex-wrap items-end gap-2"><input type="hidden" name="id" value={id} />
                 <div className="min-w-[14rem] flex-1"><Lbl htmlFor="rj">Reject request (reason, optional)</Lbl><input id="rj" name="reason" className={Input} /></div>
                 <ConfirmButton className={BtnDanger} message="Reject this request and release the beds?">Reject</ConfirmButton></form>)}
-            {live && can(u.role, 'reservation.cancel') && (
-              <form action={cancelAction} className="mt-4 flex flex-wrap items-end gap-2"><input type="hidden" name="id" value={id} />
+            {live && res.status !== 'checked_in' && can(u.role, 'reservation.cancel') && (
+              <form action={cancelAction} className="mt-3 flex flex-wrap items-end gap-2"><input type="hidden" name="id" value={id} />
                 <div className="min-w-[14rem] flex-1"><Lbl htmlFor="cr">Cancel reservation (reason)</Lbl><input id="cr" name="reason" className={Input} /></div>
                 <ConfirmButton className={BtnDanger} message="Cancel this reservation? Beds are released and the guest may be notified. This cannot be undone.">Cancel reservation</ConfirmButton></form>)}
-            {!live && <p className="text-sm text-slate-500">This reservation is {res.status.replace('_', ' ')} — no further actions.</p>}
-          </Card>
+          </Card>) : null}
 
           {live && (
             <Card title="Change dates or bed">
@@ -106,70 +106,25 @@ export default async function ReservationPage({ params, searchParams }: { params
                     <ConfirmButton name="decision" value="verify" className="text-emerald-800 underline" message="Only verify after you have seen the money (cash in hand / bank statement). Verify?">Verify</ConfirmButton>
                     <button name="decision" value="reject" className="text-red-800 underline">Reject</button></form>)}</td></tr>)}
               </tbody></table>)}
-            <p className="mt-2 text-xs text-slate-500">A payment counts toward the balance only after a manager/owner verifies it. A guest message or screenshot is never enough.</p>
+            <p className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-cocoa-50 p-3 text-sm text-cocoa-800">Cash or card at the desk? <Link href={`/dashboard/folio/${id}#pay`} className="font-semibold underline">Take payment on the folio</Link> — it goes straight into the shift drawer and the balance.</p>
+            <p className="mt-2 text-xs text-slate-500">Transfers below count toward the balance only after a manager/owner verifies them. A guest message or screenshot is never enough.</p>
             {can(u.role, 'payment.record') && (
               <form action={recordPaymentAction} className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-5"><input type="hidden" name="id" value={id} />
                 <div><Lbl htmlFor="pa">Amount ({res.currency})</Lbl><input id="pa" name="amount" required inputMode="decimal" className={Input} /></div>
-                <div><Lbl htmlFor="pm">Method</Lbl><select id="pm" name="method" className={Input}>{METHODS.map((m) => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}</select></div>
+                <div><Lbl htmlFor="pm">Method</Lbl><select id="pm" name="method" className={Input}>{METHODS.filter((m) => !['cash', 'card_terminal'].includes(m)).map((m) => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}</select></div>
                 <div><Lbl htmlFor="pr">Reference</Lbl><input id="pr" name="reference" className={Input} /></div>
                 <div><Lbl htmlFor="pn">Note</Lbl><input id="pn" name="note" className={Input} /></div>
                 <div className="flex items-end"><button className={Btn}>Record payment</button></div></form>)}
           </Card>
 
-          <Card title={`Extra services & purchases (${serviceOrders.length})`}>
-            {serviceOrders.length === 0 ? (
-              <p className="text-sm text-slate-500">No extra services have been recorded for this reservation yet.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b text-xs font-semibold uppercase text-slate-500">
-                    <tr>
-                      <th className="py-1">Date</th>
-                      <th>Service / item</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                      <th>Staff</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {serviceOrders.map((so: any) => (
-                      <tr key={so.id}>
-                        <td className="py-2 text-xs text-slate-500">{so.order_date}</td>
-                        <td className="font-medium text-slate-900 capitalize">
-                          {so.service_type === 'breakfast' && 'Breakfast'}
-                          {so.service_type === 'laundry' && 'Laundry'}
-                          {so.service_type === 'towel' && 'Towel'}
-                          {so.service_type === 'pool' && 'Pool'}
-                          {so.service_type === 'water' && 'Water'}
-                          {so.service_type === 'drinks' && 'Drinks'}
-                          {so.service_type === 'tour' && 'Tour'}
-                          {so.service_type === 'taxi' && 'Taxi'}
-                          {so.service_type === 'meal' && 'Meal'}
-                          {so.service_type === 'other' && 'Other'}
-                          {so.quantity > 1 ? ` × ${so.quantity}` : ''}
-                          {so.comment && <span className="block text-xs font-normal text-slate-500">{so.comment}</span>}
-                        </td>
-                        <td className="font-semibold text-slate-900">{fmt(so.amount_cents, so.currency)}</td>
-                        <td className="text-xs">
-                          {so.payment_status === 'paid' ? (
-                            <span className="font-medium text-emerald-800">Paid ({so.payment_method})</span>
-                          ) : so.payment_status === 'charged_to_room' ? (
-                            <span className="font-medium text-amber-800">Charged to room</span>
-                          ) : (
-                            <span className="font-medium text-red-800">Unpaid</span>
-                          )}
-                        </td>
-                        <td className="text-xs text-slate-500">{so.staff_name || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <div className="mt-3 border-t pt-2">
-              <Link href="/dashboard/pos" className="text-xs font-semibold text-amber-800 underline hover:text-amber-950">
-                + Add a service, drink or tour from the POS →
-              </Link>
+          <Card title={`Extras on the folio (${extras.length})`}>
+            {extras.length === 0 ? <p className="text-sm text-slate-500">No extras yet. Anything sold on the POS to this room, a taxi or a custom charge shows here.</p> : (
+              <ul className="divide-y divide-cocoa-100 text-sm">{extras.map((l: any) => (
+                <li key={l.id} className="flex items-center justify-between gap-3 py-2"><span><span className="me-2 rounded-full bg-cocoa-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-cocoa-700">{l.kind}</span>{l.description}{l.quantity > 1 ? ` × ${l.quantity}` : ''}<span className="ms-2 text-xs text-slate-400">{l.date}</span></span>
+                  <b className={`tabular-nums ${l.amount_cents < 0 ? 'text-emerald-700' : ''}`}>{fmt(l.amount_cents, res.currency)}</b></li>))}</ul>)}
+            <div className="mt-3 flex flex-wrap gap-4 border-t border-cocoa-100 pt-3 text-sm font-semibold">
+              <Link href={`/dashboard/folio/${id}`} className="text-cocoa-700 underline">Add a charge or taxi on the folio</Link>
+              <a href="/pos" target="_blank" rel="noopener" className="text-cocoa-700 underline">Sell on the POS</a>
             </div>
           </Card>
 
@@ -184,7 +139,7 @@ export default async function ReservationPage({ params, searchParams }: { params
         </div>
 
         <div className="space-y-5">
-          <Card title="Beds assigned">{alloc.length === 0 ? <p className="text-sm text-slate-500">None (history only).</p> : <ul className="text-sm">{alloc.map((a) => <li key={a.id} className={a.active ? '' : 'text-slate-400 line-through'}>{a.room} / {a.label} · {a.guests} guest(s)</li>)}</ul>}</Card>
+          {!live && <Card title="Beds assigned">{alloc.length === 0 ? <p className="text-sm text-slate-500">None (history only).</p> : <ul className="text-sm">{alloc.map((a) => <li key={a.id} className={a.active ? '' : 'text-slate-400 line-through'}>{a.room} / {a.label} · {a.guests} guest(s)</li>)}</ul>}</Card>}
           <Card title="Staff notes">
             <pre className="mb-3 max-h-48 overflow-auto whitespace-pre-wrap text-sm text-slate-700">{res.staff_notes || 'No notes yet.'}</pre>
             <form action={addNoteAction} className="space-y-2"><input type="hidden" name="id" value={id} /><textarea name="note" rows={2} required className={Input} placeholder="Add a note…" /><button className={BtnGhost}>Add note</button></form>

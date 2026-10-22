@@ -182,8 +182,11 @@ export async function markEventBookingPaid(bookingId: string, actor: string, not
 }
 
 export async function checkInTicket(bookingId: string, actor: string) {
-  const r = await q(`UPDATE event_bookings SET checked_in_at=now(), updated_at=now() WHERE id=$1 AND status IN ('paid','pay_on_site') AND checked_in_at IS NULL RETURNING id`, [bookingId]);
-  if (!r.length) throw new BookingError('BAD_STATE', 'Ticket is not valid or already used');
+  const r = await q(`UPDATE event_bookings SET checked_in_at=now(), updated_at=now() WHERE id=$1 AND status='paid' AND checked_in_at IS NULL RETURNING id`, [bookingId]);
+  if (!r.length) {
+    const b = (await q<any>(`SELECT status FROM event_bookings WHERE id=$1`, [bookingId]))[0];
+    throw new BookingError('BAD_STATE', b?.status === 'pay_on_site' ? 'Take the cash first (it goes into the drawer), then check the guest in' : 'Ticket is not valid or already used');
+  }
   await audit(actor, 'event_booking.checkin', 'event_booking', bookingId);
 }
 

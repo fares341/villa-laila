@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
-import { PageHeader, Card, Empty, Flash, fmt, dt, Btn, BtnDanger } from '@/components/dash';
+import { PageHeader, Card, Empty, Flash, fmt, dt, Btn, BtnDanger, SubTabs } from '@/components/dash';
 import { ConfirmButton } from '@/components/ConfirmButton';
 import { Icon } from '@/components/icons';
 import { decideExtensionAction } from '../actions';
@@ -14,6 +14,7 @@ export default async function Extensions({ searchParams }: { searchParams: Promi
   return (
     <>
       <PageHeader title="Stay extensions" sub="A guest asked to stay longer. The system has already checked the beds and the price — you decide." />
+      <SubTabs current="/dashboard/extensions" tabs={[{ href: '/dashboard/reservations', label: 'All reservations', icon: 'bed' }, { href: '/dashboard/extensions', label: 'Stay extensions', icon: 'arrow-left-right', count: open.length }]} />
       <Flash sp={sp} />
       {open.length === 0 ? <Empty>No extension requests are waiting.</Empty> : (
         <div className="space-y-4">{open.map((e) => (

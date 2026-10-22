@@ -85,9 +85,11 @@ export async function decideExtension(extensionId: string, decision: 'approve' |
         await c.query(`UPDATE extension_requests SET status='conflict', conflict_detail=$2 WHERE id=$1`, [extensionId, conflict]);
         return { status: 'conflict' as const, reservationId: r.id, detail: conflict };
       }
-      const unitCount = (await c.query('SELECT count(*)::int n FROM reservation_units WHERE reservation_id=$1 AND active', [r.id])).rows[0].n;
+      // Only the bed(s) the guest is in on the last night are extended. After a room move the earlier
+      // segment ends at the move date and must stay as it is.
+      const unitCount = (await c.query('SELECT count(*)::int n FROM reservation_units WHERE reservation_id=$1 AND active AND upper(during)=$2::date', [r.id, ext.old_check_out])).rows[0].n;
       const qt = await quote(cq, r.room_type_id, ext.old_check_out, ext.new_check_out, unitCount); // throws NO_RATE rather than guessing
-      await c.query(`UPDATE reservation_units SET during = daterange(lower(during), $2::date, '[)') WHERE reservation_id=$1 AND active`, [r.id, ext.new_check_out]);
+      await c.query(`UPDATE reservation_units SET during = daterange(lower(during), $2::date, '[)') WHERE reservation_id=$1 AND active AND upper(during)=$3::date`, [r.id, ext.new_check_out, ext.old_check_out]);
       const lines = [...(r.price_breakdown ?? []), ...qt.lines];
       await c.query('UPDATE reservations SET check_out=$2, total_cents=total_cents+$3, price_breakdown=$4, updated_at=now() WHERE id=$1', [r.id, ext.new_check_out, qt.totalCents, JSON.stringify(lines)]);
       await c.query(`UPDATE extension_requests SET status='applied', extra_cents=$2, decided_by=$3, decided_at=now() WHERE id=$1`, [extensionId, qt.totalCents, staffUserId]);

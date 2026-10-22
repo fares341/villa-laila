@@ -8,9 +8,10 @@ import {
   cancelReservation,
   rejectReservation,
   markNoShow,
-  checkIn,
-  checkOut,
 } from './reservations';
+import { checkInGuest, checkOutGuest } from './pms/frontdesk';
+import { openShiftRow, shiftTotals, takeFolioPayment } from './pms/pos';
+import { toursList } from './pms/tasks';
 import { recordPayment, verifyPayment, type PaymentMethod, METHODS } from './payments';
 import { getSetting, hostelInfo } from './settings';
 import { freeUnits } from './availability';
@@ -20,16 +21,11 @@ import {
   getProducts,
   createProduct,
   updateProduct,
-  createServiceOrder,
-  getActiveShift,
-  recordCashExpense,
-  getTourBookings,
-  getTowelLoans,
 } from './frontdesk';
 
 /** Fetches a comprehensive live snapshot of hostel operations to feed into the agent's context */
 export async function getLiveOperationalSnapshot() {
-  const [o, h, cur, roomTypes, inHouseList, recentBookings, unpaidList, invList, drawerRows, toursList, towelsList] = await Promise.all([
+  const [o, h, cur, roomTypes, inHouseList, recentBookings, unpaidList, invList, drawer, upcomingTours] = await Promise.all([
     overview().catch(() => null),
     hostelInfo().catch(() => ({}) as any),
     getSetting<string>('currency').catch(() => 'EGP'),
@@ -74,29 +70,10 @@ export async function getLiveOperationalSnapshot() {
       SELECT id, name, category, stock_quantity, track_stock, low_stock_threshold, price_cents, cost_cents, currency
       FROM products WHERE is_active ORDER BY category, name
     `).catch(() => []),
-    q<any>(`
-      SELECT cs.*, u.name as opener_name,
-        (SELECT COALESCE(SUM(amount_cents),0) FROM cash_expenses WHERE shift_id=cs.id) as expenses_cents
-      FROM cash_shifts cs
-      LEFT JOIN users u ON u.id = cs.opened_by
-      WHERE cs.status = 'open'
-      LIMIT 1
-    `).catch(() => []),
-    q<any>(`
-      SELECT tb.booking_number, tb.guest_name, tb.room_number, tb.destination, tb.tour_date, tb.pickup_time,
-             tb.guests_count, tb.driver_name, tb.price_cents, tb.currency, tb.payment_status, tb.status
-      FROM tour_bookings tb
-      WHERE tb.tour_date >= CURRENT_DATE
-      ORDER BY tb.tour_date, tb.pickup_time
-      LIMIT 8
-    `).catch(() => []),
-    q<any>(`
-      SELECT guest_name, room_number, quantity, towel_type, deposit_cents, deposit_currency, deposit_status
-      FROM towel_loans WHERE NOT returned ORDER BY loaned_at DESC LIMIT 8
-    `).catch(() => []),
+    openShiftRow().then(async (sh) => (sh ? { sh, t: await shiftTotals(sh.id) } : null)).catch(() => null),
+    toursList().catch(() => []),
   ]);
 
-  const activeDrawer = drawerRows?.[0];
 
   return {
     today: o?.today || new Date().toISOString().slice(0, 10),
@@ -138,14 +115,12 @@ export async function getLiveOperationalSnapshot() {
         link: `/dashboard/reservations/${r.id}`
       }))
     },
-    cashDrawerStatus: activeDrawer ? {
+    cashDrawerStatus: drawer ? {
       status: 'Open shift',
-      shiftName: activeDrawer.shift_name,
-      openedBy: activeDrawer.opener_name,
-      drawerEgpStart: activeDrawer.drawer_egp_start / 100,
-      drawerUsdStart: Number(activeDrawer.drawer_usd_start),
-      drawerEurStart: Number(activeDrawer.drawer_eur_start),
-      expensesTodayEgp: Number(activeDrawer.expenses_cents) / 100,
+      shiftNo: drawer.sh.shift_no,
+      cashier: drawer.sh.staff_name,
+      expectedInDrawer: { EGP: drawer.t.currencies.EGP.expected / 100, USD: drawer.t.currencies.USD.expected / 100, EUR: drawer.t.currencies.EUR.expected / 100 },
+      expensesEgp: drawer.t.expenses / 100,
     } : { status: 'No open shift (الدرج مغلق أو لم يتم فتح وردية بعد)' },
     inventoryStock: (invList || []).map((p: any) => ({
       name: p.name,
@@ -154,25 +129,7 @@ export async function getLiveOperationalSnapshot() {
       price: `${p.price_cents / 100} ${p.currency}`,
       lowStockAlert: p.track_stock && p.stock_quantity <= p.low_stock_threshold,
     })),
-    upcomingTours: (toursList || []).map((t: any) => ({
-      bookingNumber: t.booking_number,
-      guest: t.guest_name,
-      room: t.room_number,
-      destination: t.destination,
-      date: t.tour_date,
-      time: t.pickup_time,
-      driver: t.driver_name,
-      price: `${t.price_cents / 100} ${t.currency}`,
-      payment: t.payment_status,
-      status: t.status,
-    })),
-    unreturnedTowels: (towelsList || []).map((l: any) => ({
-      guest: l.guest_name,
-      room: l.room_number,
-      quantity: l.quantity,
-      type: l.towel_type,
-      deposit: l.deposit_status,
-    })),
+    upcomingTours: (upcomingTours || []).map((t: any) => ({ guest: t.guest_name, room: t.room_number, tour: t.item_name, pax: t.quantity, date: t.order_date, payment: t.payment_status })),
     roomsCatalog: roomTypes.map((rt: any) => ({
       code: rt.code,
       name: rt.name?.ar ? `${rt.name.ar} (${rt.name.en || rt.code})` : (rt.name?.en || rt.code),
@@ -204,7 +161,7 @@ export async function getLiveOperationalSnapshot() {
 /** The executive assistant only reads. Every change goes through the dashboard or the POS, where it is audited. */
 const READ_ONLY_BASE = new Set([
   'get_today_overview', 'get_in_house_guests', 'get_unpaid_balances', 'search_reservations', 'get_reservation_details',
-  'check_room_availability', 'search_guests', 'get_financial_report', 'get_inventory_status',
+  'check_room_availability', 'search_guests', 'get_financial_report', 'get_inventory_status', 'get_drawer_status', 'get_tours_schedule',
 ]);
 const isReadOnly = (name: string) => READ_ONLY_BASE.has(name) || name in EXEC_TOOLS;
 
@@ -467,10 +424,10 @@ export async function executeAgentTool(name: string, args: any, user: SessionUse
           await confirmReservation(r.id, actor, userId);
           return { success: true, message: `Reservation ${r.reference} confirmed successfully.`, link: `/dashboard/reservations/${r.id}` };
         case 'check_in':
-          await checkIn(r.id, actor);
+          await checkInGuest(r.id, actor, userId);
           return { success: true, message: `Reservation ${r.reference} marked as checked in.`, link: `/dashboard/reservations/${r.id}` };
         case 'check_out':
-          await checkOut(r.id, actor);
+          await checkOutGuest(r.id, actor);
           return { success: true, message: `Reservation ${r.reference} marked as checked out.`, link: `/dashboard/reservations/${r.id}` };
         case 'cancel':
           await cancelReservation(r.id, reason || 'Cancelled by staff request', actor);
@@ -497,14 +454,20 @@ export async function executeAgentTool(name: string, args: any, user: SessionUse
       const amountCents = Math.round(Number(amountEgp) * 100);
       if (isNaN(amountCents) || amountCents <= 0) return { error: 'Invalid payment amount.' };
 
-      const p = await recordPayment(r.id, amountCents, validMethod, null, note || 'Recorded by Dashboard AI Agent', userId, actor);
-      if (autoVerify) {
-        await verifyPayment(p.id, true, userId, actor);
+      // Cash / card at the desk go through the folio into the open POS drawer, exactly like the folio page.
+      if (validMethod === 'cash' || validMethod === 'card_terminal') {
+        const sh = await openShiftRow();
+        if (validMethod === 'cash' && !sh) return { error: 'No POS shift is open. Cash must go into a drawer: open the POS shift first, then take the payment on the folio.', link: `/dashboard/folio/${r.id}` };
+        await takeFolioPayment({ reservationId: r.id, amountCents, method: validMethod === 'cash' ? 'cash' : 'card', shiftId: sh?.id ?? null, staffId: sh?.staff_id ?? null, userId, note: note || 'Recorded by Dashboard AI Agent', actor });
+        return { success: true, message: `Payment of ${amountEgp} EGP (${validMethod}) taken on the folio of ${r.reference}${sh ? ` and counted in shift #${sh.shift_no}` : ''}.`, link: `/dashboard/folio/${r.id}` };
       }
-
+      // Transfers wait for a manager to see the money, like any other transfer.
+      const p = await recordPayment(r.id, amountCents, validMethod, null, note || 'Recorded by Dashboard AI Agent', userId, actor);
+      const canVerify = can(user.role, 'payment.verify');
+      if (autoVerify && canVerify) await verifyPayment(p.id, true, userId, actor);
       return {
         success: true,
-        message: `Payment of ${amountEgp} EGP (${validMethod}) recorded and verified for reservation ${r.reference}.`,
+        message: `Transfer of ${amountEgp} EGP (${validMethod}) recorded for ${r.reference}${autoVerify && canVerify ? ' and verified' : ' — waiting for verification in Payments'}.`,
         paymentId: p.id,
         link: `/dashboard/reservations/${r.id}`,
       };
@@ -614,125 +577,31 @@ export async function executeAgentTool(name: string, args: any, user: SessionUse
       };
     }
 
-    case 'record_pos_sale': {
-      let productId = args.productId;
-      const serviceType = args.serviceType || 'other';
-      const qty = args.quantity || 1;
-      let amountCents = args.amount ? Math.round(Number(args.amount) * 100) : 0;
-      let currency = args.currency || 'EGP';
-
-      // Auto-match product and price if omitted or if name matches
-      const allProds = await getProducts();
-      let matchedProd = allProds.find(p => p.id === productId);
-      if (!matchedProd) {
-        matchedProd = allProds.find(p => {
-          const n = p.name.toLowerCase();
-          if (serviceType === 'water' && n.includes('water')) return true;
-          if (serviceType === 'drinks' && (n.includes('cola') || n.includes('juice') || n.includes('drink'))) return true;
-          if (serviceType === 'breakfast' && (n.includes('breakfast') || p.category === 'meal_breakfast')) return true;
-          if (serviceType === 'laundry' && (n.includes('laundry') || p.category === 'laundry')) return true;
-          if (serviceType === 'towel' && (n.includes('towel') || p.category === 'linen_towel')) return true;
-          if (serviceType === 'taxi' && (n.includes('taxi') || p.category === 'transport')) return true;
-          if (serviceType === 'tour' && (n.includes('tour') || p.category === 'activity_tour')) return true;
-          return p.category === serviceType;
-        });
-      }
-
-      if (matchedProd) {
-        productId = matchedProd.id;
-        if (!amountCents) {
-          amountCents = matchedProd.price_cents * qty;
-          currency = matchedProd.currency || currency;
-        }
-      }
-
-      const order = await createServiceOrder({
-        guestName: args.guestName || 'نزيل',
-        roomNumber: args.roomNumber,
-        serviceType,
-        productId,
-        quantity: qty,
-        amountCents,
-        currency,
-        paymentMethod: args.paymentMethod || 'cash',
-        paymentStatus: args.paymentStatus || 'paid',
-        staffId: user.id,
-        staffName: user.name,
-        comment: args.comment,
-      });
-      return {
-        success: true,
-        orderNumber: order.order_number,
-        service: order.service_type,
-        guest: order.guest_name,
-        room: order.room_number,
-        quantity: order.quantity,
-        amount: `${order.amount_cents / 100} ${order.currency}`,
-        paymentMethod: order.payment_method,
-        status: order.payment_status,
-        message: `تم تسجيل طلب الخدمة/البيع بنجاح برقم ${order.order_number}.`,
-      };
-    }
+    case 'record_pos_sale':
+    case 'record_petty_expense':
+      // Sales and expenses only happen on the POS: it needs the cashier's PIN (and a manager PIN for expenses)
+      // and puts the money in the right drawer, folio and stock. The assistant points there instead.
+      return { error: 'Sales and expenses are recorded on the POS so the drawer, stock and folio stay in step.', link: '/pos' };
 
     case 'get_drawer_status': {
-      const active = await getActiveShift();
-      if (!active) return { status: 'No open shift', message: 'الدرج مغلق حالياً، لا توجد وردية مفتوحة.' };
+      const sh = await openShiftRow();
+      if (!sh) return { status: 'No open shift', message: 'الدرج مغلق حالياً، لا توجد وردية مفتوحة.' };
+      // The cashier closes blind, so what the drawer should hold is for managers only.
+      if (!can(user.role, 'reports.view')) return { status: 'Open', shiftNo: sh.shift_no, cashier: sh.staff_name, message: 'The expected cash is shown to managers only (the close is a blind count).' };
+      const t = await shiftTotals(sh.id);
+      const c = t.currencies;
       return {
-        status: 'Open',
-        shiftName: active.shift_name,
-        openedBy: active.opener_name,
-        startCashEgp: active.drawer_egp_start / 100,
-        startUsd: Number(active.drawer_usd_start),
-        startEur: Number(active.drawer_eur_start),
-        notes: active.notes,
-      };
-    }
-
-    case 'record_petty_expense': {
-      const active = await getActiveShift();
-      const exp = await recordCashExpense({
-        shiftId: active?.id,
-        category: args.category || 'supplies',
-        amountCents: Math.round(Number(args.amount) * 100),
-        currency: args.currency || 'EGP',
-        description: args.description,
-        userId: user.id,
-      });
-      return {
-        success: true,
-        category: exp.category,
-        amount: `${exp.amount_cents / 100} ${exp.currency}`,
-        description: exp.description,
+        status: 'Open', shiftNo: sh.shift_no, cashier: sh.staff_name, openedAt: sh.opened_at ?? sh.created_at,
+        expectedInDrawer: { EGP: c.EGP.expected / 100, USD: c.USD.expected / 100, EUR: c.EUR.expected / 100 },
+        cashSalesEgp: t.cashSales / 100, cardSalesEgp: t.cardSales / 100, roomChargesEgp: t.roomCharges / 100, folioCashEgp: t.roomCashPayments / 100,
+        expensesEgp: t.expenses / 100, takenEgp: t.taken / 100, salesCount: t.salesCount,
+        link: '/dashboard/shift-reports',
       };
     }
 
     case 'get_tours_schedule': {
-      const tours = await getTourBookings({ from: args.from, to: args.to, status: args.status });
-      return tours.map((t) => ({
-        bookingNumber: t.booking_number,
-        guest: t.guest_name,
-        room: t.room_number,
-        destination: t.destination,
-        date: t.tour_date,
-        time: t.pickup_time,
-        pax: t.guests_count,
-        driver: t.driver_name,
-        driverPhone: t.driver_phone,
-        price: `${t.price_cents / 100} ${t.currency}`,
-        status: t.status,
-      }));
-    }
-
-    case 'get_towel_status': {
-      const loans = await getTowelLoans(false);
-      return loans.map((l) => ({
-        guest: l.guest_name,
-        room: l.room_number,
-        quantity: l.quantity,
-        type: l.towel_type,
-        deposit: l.deposit_status === 'paid' ? `${l.deposit_cents / 100} ${l.deposit_currency}` : l.deposit_status,
-        loanedAt: l.loaned_at,
-      }));
+      const tours = await toursList();
+      return tours.map((t: any) => ({ guest: t.guest_name, room: t.room_number, tour: t.item_name, pax: t.quantity, date: t.order_date, status: t.payment_status }));
     }
 
     default:
@@ -927,28 +796,6 @@ const ALL_TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'record_pos_sale',
-      description: 'Record a quick service order or market sale (breakfast, laundry/wash, towel, pool pass, water, soda, snacks, tour, taxi) for an in-house guest or walk-in. If product has tracked inventory, it automatically deducts from stock.',
-      parameters: {
-        type: 'object',
-        properties: {
-          guestName: { type: 'string', description: 'Guest name' },
-          roomNumber: { type: 'string', description: 'Room name or number' },
-          serviceType: { type: 'string', enum: ['breakfast', 'laundry', 'towel', 'pool', 'water', 'drinks', 'taxi', 'tour', 'meal', 'extra_bed', 'other'] },
-          quantity: { type: 'integer', description: 'Quantity (default 1)' },
-          amount: { type: 'number', description: 'Total price amount' },
-          currency: { type: 'string', enum: ['EGP', 'USD', 'EUR'], description: 'Currency, default EGP' },
-          paymentMethod: { type: 'string', enum: ['cash', 'card_terminal', 'instapay', 'bank_transfer', 'room_charge', 'other'] },
-          paymentStatus: { type: 'string', enum: ['paid', 'charged_to_room', 'unpaid'], description: 'paid (paid now) or charged_to_room (on room bill)' },
-          comment: { type: 'string', description: 'Notes or extra details' },
-        },
-        required: ['serviceType'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'get_drawer_status',
       description: 'Check the current cash drawer status: active shift, drawer cash in EGP, USD, and EUR, POS terminal total, and petty expenses.',
       parameters: { type: 'object', properties: {} },
@@ -957,40 +804,8 @@ const ALL_TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'record_petty_expense',
-      description: 'Record a petty cash expense paid directly from the cash drawer (e.g. cat food, cleaning supplies, maintenance, food/bread, taxi, tips).',
-      parameters: {
-        type: 'object',
-        properties: {
-          amount: { type: 'number', description: 'Amount paid' },
-          currency: { type: 'string', enum: ['EGP', 'USD', 'EUR'], description: 'Currency, default EGP' },
-          description: { type: 'string', description: 'Description of the expense (e.g. أكل قطط، صابون، فلوكة...)' },
-          category: { type: 'string', enum: ['supplies', 'food_kitchen', 'maintenance', 'transport_taxi', 'pet_care', 'tips_wages', 'refund', 'other'] },
-        },
-        required: ['amount', 'description'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'get_tours_schedule',
-      description: 'Get upcoming tours and airport transfers schedule, destinations, dates, pickup times, drivers, and guest count.',
-      parameters: {
-        type: 'object',
-        properties: {
-          from: { type: 'string', description: 'Start date YYYY-MM-DD' },
-          to: { type: 'string', description: 'End date YYYY-MM-DD' },
-          status: { type: 'string', enum: ['scheduled', 'dispatched', 'completed', 'cancelled'] },
-        },
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_towel_status',
-      description: 'Check active towel loans: which guests took bath/pool towels, whether returned or unreturned, and deposit status.',
+      description: 'Tours sold on the POS for yesterday, today and tomorrow: guest, room, tour and number of people.',
       parameters: { type: 'object', properties: {} },
     },
   },

@@ -197,6 +197,7 @@ async function end(id: string, status: 'cancelled' | 'rejected' | 'no_show', rea
     const r = await lockReservation(c, id);
     r.units = (await c.query('SELECT count(*)::int n FROM reservation_units WHERE reservation_id=$1 AND active', [id])).rows[0].n;
     if (['cancelled', 'rejected', 'checked_out', 'expired'].includes(r.status)) throw new BookingError('BAD_STATE', `Already ${r.status}`);
+    if (r.status === 'checked_in') throw new BookingError('BAD_STATE', 'The guest is in house. Use Check out (the folio settles the nights and the room goes to housekeeping).');
     if (status === 'rejected' && !['hold', 'pending'].includes(r.status)) throw new BookingError('BAD_STATE', 'Only requests can be rejected; cancel instead');
     await c.query('UPDATE reservation_units SET active=false WHERE reservation_id=$1', [id]);
     await c.query('UPDATE reservations SET status=$2, cancelled_reason=$3, hold_expires_at=NULL, needs_review=false, updated_at=now() WHERE id=$1', [id, status, reason]);
@@ -252,10 +253,22 @@ export async function changeStay(id: string, newIn: string, newOut: string, acto
       await lockType(cq, r.room_type_id);
       const blocked = await c.query('SELECT 1 FROM reservation_units ru JOIN unit_blocks b ON b.unit_id=ru.unit_id AND b.during && $2::daterange WHERE ru.reservation_id=$1 AND ru.active LIMIT 1', [id, rangeStr(newIn, newOut)]);
       if (blocked.rows[0]) throw new BookingError('CONFLICT', 'A unit is blocked for maintenance in that period');
-      await c.query('UPDATE reservation_units SET during=$2::daterange WHERE reservation_id=$1 AND active', [id, rangeStr(newIn, newOut)]);
-      const unitCount = (await c.query('SELECT count(*)::int n FROM reservation_units WHERE reservation_id=$1 AND active', [id])).rows[0].n;
+      // A stay can be split over two beds after a room move. Only the first segment's start and the last
+      // segment's end follow the new dates; the move date in between stays where it is.
+      const segs = (await c.query(`SELECT id, lower(during)::text lo, upper(during)::text hi FROM reservation_units WHERE reservation_id=$1 AND active`, [id])).rows;
+      for (const s of segs) {
+        const lo = s.lo === r.check_in ? newIn : s.lo, hi = s.hi === r.check_out ? newOut : s.hi;
+        if (lo >= hi) throw new BookingError('CONFLICT', 'These dates cut across a room move. Move the guest back to one bed first, then change the dates.');
+        await c.query('UPDATE reservation_units SET during=$2::daterange WHERE id=$1', [s.id, rangeStr(lo, hi)]);
+      }
+      const unitCount = segs.filter((s: any) => s.hi === r.check_out).length || 1;
       const qt = await quote(cq, r.room_type_id, newIn, newOut, unitCount);
-      await c.query('UPDATE reservations SET check_in=$2, check_out=$3, total_cents=$4, price_breakdown=$5, updated_at=now() WHERE id=$1', [id, newIn, newOut, qt.totalCents, JSON.stringify(qt.lines)]);
+      // Nights already booked keep the price they were booked at; only new nights take today's rate.
+      const old = new Map<string, any>((r.price_breakdown ?? []).map((l: any) => [l.date, l]));
+      const lines = qt.lines.map((l) => old.get(l.date) ?? l);
+      const total = lines.reduce((a: number, l: any) => a + Number(l.unitPriceCents), 0) * unitCount;
+      await c.query('UPDATE reservations SET check_in=$2, check_out=$3, total_cents=$4, price_breakdown=$5, updated_at=now() WHERE id=$1', [id, newIn, newOut, total, JSON.stringify(lines)]);
+      qt.totalCents = total;
       await c.query('INSERT INTO reservation_events(reservation_id,actor,action,detail) VALUES($1,$2,$3,$4)', [id, actor, 'dates_changed', JSON.stringify({ from: [r.check_in, r.check_out], to: [newIn, newOut], oldTotal: r.total_cents, newTotal: qt.totalCents })]);
       await audit(actor, 'reservation.change_dates', 'reservation', id, { newIn, newOut }, cq);
       return { totalCents: qt.totalCents, nights: nightsBetween(newIn, newOut) };

@@ -118,3 +118,27 @@ export const BalancePill = ({ state, cents, cur = 'EGP' }: { state: 'due' | 'set
 export const HK_LABEL: Record<string, [string, 'green' | 'red' | 'blue' | 'slate']> = {
   clean: ['Clean', 'green'], dirty: ['Dirty', 'red'], inspected: ['Inspected', 'blue'], out_of_order: ['Out of order', 'slate'],
 };
+
+/** Tabs between closely related pages, so the side menu stays short. */
+export const SubTabs = ({ tabs, current }: { tabs: { href: string; label: string; icon?: string; count?: number }[]; current: string }) => (
+  <nav className="mb-5 flex flex-wrap gap-1 rounded-2xl border border-cocoa-200 bg-white p-1" aria-label="Sections">
+    {tabs.map((t) => (
+      <a key={t.href} href={t.href} aria-current={current === t.href ? 'page' : undefined}
+        className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold ${current === t.href ? 'bg-cocoa-800 text-white' : 'text-cocoa-800 hover:bg-cocoa-50'}`}>
+        {t.icon && <Icon name={t.icon} size={15} />}{t.label}
+        {t.count ? <span className={`rounded-full px-1.5 text-xs ${current === t.href ? 'bg-white/20' : 'bg-gold-500 text-cocoa-900'}`}>{t.count}</span> : null}
+      </a>
+    ))}
+  </nav>
+);
+
+export const TEAM_TABS = [
+  { href: '/dashboard/staff', label: 'Staff & roster', icon: 'calendar-days' },
+  { href: '/dashboard/staff/timesheet', label: 'Attendance & hours', icon: 'clock' },
+  { href: '/dashboard/tasks', label: 'Shift tasks', icon: 'clipboard-list' },
+];
+export const REPORT_TABS = [
+  { href: '/dashboard/reports', label: 'Occupancy & money', icon: 'bar-chart' },
+  { href: '/dashboard/reports/services', label: 'Sales by service', icon: 'shopping-cart' },
+  { href: '/dashboard/audit', label: 'Activity log', icon: 'file-text' },
+];

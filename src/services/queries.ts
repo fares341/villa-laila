@@ -78,7 +78,7 @@ export async function reportData(from: string, to: string) {
   const ext = await q<any>(`SELECT status, count(*)::int n, COALESCE(SUM(extra_cents) FILTER (WHERE status='applied'),0)::bigint cents FROM extension_requests WHERE created_at >= $1::date AND created_at < $2::date GROUP BY status`, [from, to]);
   const money = await one(`SELECT
       COALESCE(SUM(r.total_cents) FILTER (WHERE r.status IN ('confirmed','checked_in','checked_out')),0)::bigint booked,
-      (SELECT COALESCE(SUM(amount_cents),0)::bigint FROM payments WHERE status='verified' AND created_at >= $1::date AND created_at < $2::date) received,
+      (SELECT COALESCE(SUM(amount_cents),0)::bigint FROM payments WHERE status='verified' AND (verified_at AT TIME ZONE 'Africa/Cairo')::date >= $1::date AND (verified_at AT TIME ZONE 'Africa/Cairo')::date < $2::date) received,
       (SELECT COALESCE(SUM(amount_cents),0)::bigint FROM payments WHERE status='recorded') unverified
     FROM reservations r WHERE r.check_in >= $1::date AND r.check_in < $2::date`, [from, to]);
   const outstanding = await one(`SELECT COALESCE(SUM(GREATEST(folio_charges(r.id) - p.paid,0)),0)::bigint n FROM reservations r LEFT JOIN LATERAL (SELECT COALESCE(SUM(amount_cents) FILTER (WHERE status='verified'),0) paid FROM payments WHERE reservation_id=r.id) p ON true WHERE r.status IN ('confirmed','checked_in','checked_out')`, []);
@@ -108,7 +108,12 @@ export async function navCounts() {
     (SELECT count(*) FROM conversations WHERE status='needs_staff')::int inbox, (SELECT count(*) FROM payments WHERE status='recorded')::int payments,
     (SELECT count(*) FROM extension_requests WHERE status IN ('pending','conflict'))::int extensions,
     (SELECT count(*) FROM online_payments WHERE provider='instapay' AND status='submitted')::int instapay,
-    (SELECT count(*) FROM reservations WHERE status IN ('pending','confirmed') AND check_in = (now() AT TIME ZONE 'Africa/Cairo')::date)::int arrivals,
+    (SELECT count(*) FROM reservations WHERE status IN ('pending','confirmed','hold') AND check_in = (now() AT TIME ZONE 'Africa/Cairo')::date)::int arrivals,
     (SELECT count(*) FROM rooms WHERE active AND hk_status='dirty')::int dirty,
-    (SELECT count(*) FROM products WHERE is_active AND track_stock AND stock_quantity <= low_stock_threshold)::int lowstock`))[0];
+    (SELECT count(*) FROM products WHERE is_active AND track_stock AND stock_quantity <= low_stock_threshold)::int lowstock,
+    (SELECT count(*) FROM cash_shortages WHERE status='open')::int shortages,
+    (SELECT count(*) FROM taxi_bookings WHERE status='booked' AND confirmed_at IS NULL AND scheduled_at > now() AND scheduled_at < now() + interval '36 hours')::int taxis,
+    (SELECT count(*) FROM tasks WHERE status='open')::int tasks,
+    (SELECT count(*) FROM reservations WHERE needs_review AND status IN ('pending','hold'))::int flagged,
+    (SELECT count(*) FROM reservations WHERE status='checked_in' AND check_out <= (now() AT TIME ZONE 'Africa/Cairo')::date)::int departures`))[0];
 }

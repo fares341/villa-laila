@@ -22,6 +22,12 @@ export async function POST(req: NextRequest) {
       ['siteminder_push', 'reservation.sync', 'reservation', 'sm_webhook', JSON.stringify({ contentType, payloadText: payloadText.slice(0, 4000) })]
     );
 
+    // This receiver does not create reservations itself, so a person must see every notification:
+    // it lands in Today's "Alerts & follow-ups" with the start of the message.
+    const ref = /ResID_Value="([^"]+)"/.exec(payloadText)?.[1] ?? payloadJson?.reservation?.id ?? payloadJson?.id ?? null;
+    await q(`INSERT INTO tasks(title, detail, kind, dedupe_key) VALUES($1, $2, 'channel', $3) ON CONFLICT (dedupe_key) DO NOTHING`,
+      [`Channel booking to enter${ref ? ` (${ref})` : ''}`, `A booking notification arrived from Little Hotelier / SiteMinder. Check it in Little Hotelier and enter it under Reservations if it is not there. ${payloadText.slice(0, 600)}`, ref ? `sm:${ref}` : `sm:${Date.now()}`]).catch(() => {});
+
     // If OTA XML response is needed
     if (contentType.includes('xml')) {
       const otaRes = `<?xml version="1.0" encoding="UTF-8"?>

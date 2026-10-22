@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import { q } from '@/lib/db';
 
 export const HOSTELWORLD_PROPERTY_ID = 330811;
 
@@ -230,20 +229,8 @@ export async function syncHostelworldData(options?: {
 
     writeCachedRates(result);
 
-    // Optionally update rates in DB if connected
-    try {
-      for (const [slug, r] of Object.entries(syncedRooms)) {
-        if (r.price > 0) {
-          const cents = r.price * 100;
-          await q(
-            `UPDATE rates SET price_cents=$1, updated_at=now() WHERE room_type_id IN (SELECT id FROM room_types WHERE code=$2)`,
-            [cents, slug]
-          ).catch(() => {});
-        }
-      }
-    } catch (dbErr) {
-      // Non-fatal if DB is in read-only mode or migration differs
-    }
+    // Hostelworld prices are shown for comparison only. Prices you charge come from Little Hotelier daily rates
+    // or Rooms & rates, so nothing here writes to the rates table.
 
     return result;
   } catch (err: any) {
