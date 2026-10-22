@@ -16,6 +16,7 @@ const NAV: [string, NavItem[]][] = [
     { href: '/dashboard', label: 'Today', perm: 'dashboard.view', icon: 'layout-dashboard' },
     { href: '/dashboard/frontdesk', label: 'Movement cockpit', perm: 'frontdesk.use', icon: 'door-open', count: 'arrivals' },
     { href: '/dashboard/housekeeping', label: 'Rooms & housekeeping', perm: 'frontdesk.use', icon: 'brush', count: 'dirty' },
+    { href: '/dashboard/taxi', label: 'Airport taxi', perm: 'frontdesk.use', icon: 'map' },
     { href: '/dashboard/reservations', label: 'Reservations', perm: 'reservation.view', icon: 'bed', count: 'pending' },
     { href: '/dashboard/calendar', label: 'Calendar', perm: 'reservation.view', icon: 'calendar-days' },
     { href: '/dashboard/inbox', label: 'Inbox', perm: 'inbox.use', icon: 'inbox', count: 'inbox' },
@@ -35,6 +36,7 @@ const NAV: [string, NavItem[]][] = [
   ['Team', [
     { href: '/dashboard/staff', label: 'Staff & roster', perm: 'staff.view', icon: 'user-plus' },
     { href: '/dashboard/staff/timesheet', label: 'Attendance & hours', perm: 'staff.view', icon: 'clock' },
+    { href: '/dashboard/tasks', label: 'Shift tasks', perm: 'staff.view', icon: 'clipboard-list' },
   ]],
   ['Setup', [
     { href: '/dashboard/rooms', label: 'Rooms & rates', perm: 'inventory.manage', icon: 'settings' },

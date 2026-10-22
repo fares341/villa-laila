@@ -6,6 +6,8 @@ import { BookingError } from '../errors';
 import { audit } from '../audit';
 import { verifyPin, clockIn, clockOut } from './staff';
 import { getFolio } from './folio';
+import { rateFor, toEgp, type Currency } from './fx';
+import { onDrawerReceived, onTourSold } from './tasks';
 
 export type PosItemInput = { type: 'product' | 'tour' | 'custom'; id?: string; name?: string; qty: number; unitCents?: number };
 export type SettleMode = 'charge_room' | 'pay_now' | 'settle_all' | 'walk_in' | 'comp';
@@ -22,22 +24,49 @@ function shiftLabel(now = new Date()) {
   return h >= 6 && h < 14 ? 'Morning' : h >= 14 && h < 22 ? 'Evening' : 'Night';
 }
 
-export async function openPosShift(staffId: string, floatCents: number, deviceUserId: string) {
-  if (!Number.isInteger(floatCents) || floatCents < 0) throw new BookingError('INVALID_INPUT', 'Opening float must be zero or more');
-  const shift = await tx(async (c) => {
-    await c.query(`SELECT pg_advisory_xact_lock(hashtext('pos-shift'))`);
-    const open = (await c.query(`SELECT id FROM cash_shifts WHERE status='open' LIMIT 1`)).rows[0];
+export type Counts = { EGP: number; USD: number; EUR: number };
+const cleanCounts = (c: Partial<Counts> | number | undefined): Counts => {
+  const o = typeof c === 'number' ? { EGP: c } : c ?? {};
+  const v = (x: any) => (Number.isFinite(Number(x)) ? Math.max(0, Math.round(Number(x))) : 0);
+  return { EGP: v(o.EGP), USD: v(o.USD), EUR: v(o.EUR) };
+};
+const countsText = (c: Counts) => `EGP ${c.EGP / 100} · USD ${c.USD / 100} · EUR ${c.EUR / 100}`;
+
+/**
+ * The incoming person receives the drawer: they count each currency (that is the "Money received and checked" task).
+ * If it differs from what the outgoing person counted at close, the manager gets a handover task.
+ */
+export async function openPosShift(staffId: string, counted: Partial<Counts> | number, deviceUserId: string) {
+  const c = cleanCounts(counted);
+  const shift = await tx(async (cl) => {
+    await cl.query(`SELECT pg_advisory_xact_lock(hashtext('pos-shift'))`);
+    const open = (await cl.query(`SELECT id FROM cash_shifts WHERE status='open' LIMIT 1`)).rows[0];
     if (open) throw new BookingError('BAD_STATE', 'A shift is already open. Close it before opening a new one.');
-    return (await c.query(
-      `INSERT INTO cash_shifts(shift_date, shift_name, opened_by, staff_id, drawer_egp_start, opened_at, status) VALUES($1,$2,$3,$4,$5,now(),'open') RETURNING *`,
-      [todayLocal(), shiftLabel(), deviceUserId, staffId, floatCents])).rows[0];
+    return (await cl.query(
+      `INSERT INTO cash_shifts(shift_date, shift_name, opened_by, staff_id, drawer_egp_start, drawer_usd_start, drawer_eur_start, open_count, opened_at, status)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,now(),'open') RETURNING *`,
+      [todayLocal(), shiftLabel(), deviceUserId, staffId, c.EGP, c.USD / 100, c.EUR / 100, JSON.stringify(c)])).rows[0];
   });
   const att = await clockIn(staffId, { cashShiftId: shift.id, source: 'pos' });
-  await audit('pos', 'shift.open', 'cash_shift', shift.id, { staffId, floatCents });
-  return { shift, attendance: att.attendance, alreadyClockedIn: att.alreadyIn };
+  // Compare with the previous handover count.
+  const prev = (await q<any>(`SELECT cs.shift_no, cs.z_report, s.full_name FROM cash_shifts cs LEFT JOIN staff s ON s.id=cs.staff_id
+                               WHERE cs.status='closed' AND cs.z_report IS NOT NULL AND cs.id <> $1 ORDER BY cs.closed_at DESC LIMIT 1`, [shift.id]))[0];
+  let mismatch: string | null = null;
+  if (prev?.z_report?.currencies) {
+    const pc = cleanCounts({ EGP: prev.z_report.currencies.EGP?.counted, USD: prev.z_report.currencies.USD?.counted, EUR: prev.z_report.currencies.EUR?.counted });
+    const diffs = (['EGP', 'USD', 'EUR'] as const).filter((k) => pc[k] !== c[k]).map((k) => `${k} ${(c[k] - pc[k]) / 100 > 0 ? '+' : ''}${(c[k] - pc[k]) / 100}`);
+    if (diffs.length) {
+      mismatch = diffs.join(', ');
+      await q(`INSERT INTO tasks(title,detail,kind,dedupe_key) VALUES($1,$2,'payment',$3) ON CONFLICT (dedupe_key) DO NOTHING`,
+        [`Drawer handover mismatch: shift #${shift.shift_no} received ${mismatch}`, `Shift #${prev.shift_no} (${prev.full_name ?? ''}) left ${countsText(pc)}. Received ${countsText(c)}.`, 'handover:' + shift.id]);
+    }
+  }
+  await onDrawerReceived(staffId, c, mismatch).catch((e) => console.error('[tasks] drawer', e));
+  await audit('pos', 'shift.open', 'cash_shift', shift.id, { staffId, counted: c, mismatch });
+  return { shift, attendance: att.attendance, alreadyClockedIn: att.alreadyIn, mismatch };
 }
 
-/** Cash the drawer should hold right now (never shown to the cashier before the blind count). */
+/** Cash the drawer should hold right now, per currency (never shown to the cashier before the blind count). */
 export async function shiftTotals(shiftId: string) {
   const s = (await q<any>(`SELECT * FROM cash_shifts WHERE id=$1`, [shiftId]))[0];
   if (!s) throw new BookingError('NOT_FOUND');
@@ -47,22 +76,35 @@ export async function shiftTotals(shiftId: string) {
       COALESCE(sum(amount_cents) FILTER (WHERE payment_method='card_terminal' AND payment_status='paid'),0)::bigint card_sales,
       COALESCE(sum(amount_cents) FILTER (WHERE payment_status='charged_to_room'),0)::bigint room_charges,
       COALESCE(sum(amount_cents) FILTER (WHERE payment_status='comp'),0)::bigint comp_sales,
-      COALESCE(sum(amount_cents) FILTER (WHERE payment_method='cash' AND payment_status='paid' AND service_type IN ('market','drinks','water')),0)::bigint market_cash,
       COALESCE(sum((COALESCE(unit_price_cents, 0) - unit_cost_cents) * quantity) FILTER (WHERE tour_id IS NOT NULL AND payment_status <> 'void'),0)::bigint tour_profit,
       count(DISTINCT sale_id)::int sales_count
     FROM service_orders WHERE shift_id=$1 AND payment_status <> 'void'`, [shiftId]))[0];
+  const salesCur = await q<any>(`SELECT paid_currency cur, COALESCE(sum(CASE WHEN paid_currency='EGP' THEN amount_cents ELSE paid_amount_minor END),0)::bigint n
+                                 FROM service_orders WHERE shift_id=$1 AND payment_method='cash' AND payment_status='paid' GROUP BY paid_currency`, [shiftId]);
   const pays = (await q<any>(`
     SELECT COALESCE(sum(amount_cents) FILTER (WHERE method='cash'),0)::bigint cash, COALESCE(sum(amount_cents) FILTER (WHERE method='card_terminal'),0)::bigint card
     FROM payments WHERE shift_id=$1 AND status='verified'`, [shiftId]))[0];
-  const exp = (await q<any>(`SELECT COALESCE(sum(amount_cents),0)::bigint e FROM cash_expenses WHERE shift_id=$1 AND approved AND currency='EGP'`, [shiftId]))[0];
+  const paysCur = await q<any>(`SELECT cash_currency cur, COALESCE(sum(COALESCE(cash_amount_minor, amount_cents)),0)::bigint n
+                                FROM payments WHERE shift_id=$1 AND status='verified' AND method='cash' GROUP BY cash_currency`, [shiftId]);
+  const expCur = await q<any>(`SELECT currency cur, COALESCE(sum(amount_cents),0)::bigint n FROM cash_expenses WHERE shift_id=$1 AND approved GROUP BY currency`, [shiftId]);
+  const taken = (await q<any>(`SELECT COALESCE(sum(egp_cents),0)::bigint egp, COALESCE(sum(usd_cents),0)::bigint usd, COALESCE(sum(eur_cents),0)::bigint eur FROM cash_taken WHERE shift_id=$1`, [shiftId]))[0];
   const comps = (await q<any>(`SELECT COALESCE(sum(amount_cents),0)::bigint c FROM owner_comps WHERE shift_id=$1`, [shiftId]))[0];
   const ev = (await q<any>(`SELECT COALESCE(sum(total_cents),0)::bigint c FROM event_bookings WHERE shift_id=$1 AND status='paid' AND pay_method='cash'`, [shiftId]))[0];
-  const opening = Number(s.drawer_egp_start);
-  const expected = opening + Number(sales.cash_sales) + Number(pays.cash) + Number(ev.c) - Number(exp.e);
+  const pick = (rows: any[], cur: string) => Number(rows.find((r) => r.cur === cur)?.n ?? 0);
+  const openings: Counts = { EGP: Number(s.drawer_egp_start), USD: Math.round(Number(s.drawer_usd_start) * 100), EUR: Math.round(Number(s.drawer_eur_start) * 100) };
+  const takenBy: Counts = { EGP: Number(taken.egp), USD: Number(taken.usd), EUR: Number(taken.eur) };
+  const currencies: Record<string, { opening: number; sales: number; payments: number; events: number; expenses: number; taken: number; expected: number }> = {};
+  for (const cur of ['EGP', 'USD', 'EUR'] as const) {
+    const row = { opening: openings[cur], sales: pick(salesCur, cur), payments: pick(paysCur, cur), events: cur === 'EGP' ? Number(ev.c) : 0, expenses: pick(expCur, cur), taken: takenBy[cur], expected: 0 };
+    row.expected = row.opening + row.sales + row.payments + row.events - row.expenses - row.taken;
+    currencies[cur] = row;
+  }
+  const egp = currencies.EGP;
   return {
-    shift: s, opening, cashSales: Number(sales.cash_sales), cardSales: Number(sales.card_sales), roomCharges: Number(sales.room_charges),
-    roomCashPayments: Number(pays.cash), eventCash: Number(ev.c), roomCardPayments: Number(pays.card), expenses: Number(exp.e), comps: Number(comps.c),
-    tourProfit: Number(sales.tour_profit), salesCount: sales.sales_count, expectedCash: expected,
+    shift: s, opening: egp.opening, cashSales: egp.sales, cardSales: Number(sales.card_sales), roomCharges: Number(sales.room_charges),
+    roomCashPayments: egp.payments, eventCash: egp.events, roomCardPayments: Number(pays.card), expenses: egp.expenses, taken: egp.taken, comps: Number(comps.c),
+    tourProfit: Number(sales.tour_profit), salesCount: sales.sales_count, expectedCash: egp.expected, currencies,
+    allCashEgp: Number(sales.cash_sales) + Number(pays.cash),
   };
 }
 
@@ -86,41 +128,67 @@ export async function todaysRevenue() {
   return (await todaysRevenueBreakdown()).total;
 }
 
-export async function closePosShiftBlind(shiftId: string, countedCents: number, staffId: string, note: string | null) {
-  if (!Number.isInteger(countedCents) || countedCents < 0) throw new BookingError('INVALID_INPUT', 'Enter the cash you counted');
+export async function closePosShiftBlind(shiftId: string, counted: Partial<Counts> | number, staffId: string, note: string | null) {
+  const c = cleanCounts(counted);
   const t = await shiftTotals(shiftId);
   if (t.shift.status !== 'open') throw new BookingError('BAD_STATE', 'This shift is already closed');
   const closedAt = new Date();
   const hours = (closedAt.getTime() - new Date(t.shift.opened_at ?? t.shift.created_at).getTime()) / 3600000;
-  const variance = countedCents - t.expectedCash;
+  const currencies: Record<string, any> = {};
+  for (const cur of ['EGP', 'USD', 'EUR'] as const) currencies[cur] = { ...t.currencies[cur], counted: c[cur], variance: c[cur] - t.currencies[cur].expected };
+  const variance = currencies.EGP.variance;
   const z = {
     shift_no: t.shift.shift_no, opened_at: t.shift.opened_at, closed_at: closedAt.toISOString(),
-    opening_float: t.opening, cash_sales: t.cashSales, room_cash_payments: t.roomCashPayments, event_cash: t.eventCash, approved_expenses: t.expenses,
-    expected_cash: t.expectedCash, counted_cash: countedCents, variance, card_sales: t.cardSales, room_card_payments: t.roomCardPayments,
+    opening_float: t.opening, cash_sales: t.cashSales, room_cash_payments: t.roomCashPayments, event_cash: t.eventCash, approved_expenses: t.expenses, taken: t.taken,
+    expected_cash: t.expectedCash, counted_cash: c.EGP, variance, card_sales: t.cardSales, room_card_payments: t.roomCardPayments,
     room_charges: t.roomCharges, owner_comps: t.comps, tour_profit: t.tourProfit, sales_count: t.salesCount, hours_worked: Math.round(hours * 100) / 100,
+    currencies,
   };
   const r = await q<any>(
     `UPDATE cash_shifts SET status='closed', closed_at=$2, counted_cash_cents=$3, expected_cash_cents=$4, variance_cents=$5, z_report=$6, blind_close=true,
-       drawer_egp_actual=$3, closed_by_staff=$7, notes=COALESCE(notes || E'\\n','') || COALESCE($8,'') WHERE id=$1 AND status='open' RETURNING *`,
-    [shiftId, closedAt, countedCents, t.expectedCash, variance, JSON.stringify(z), staffId, note]);
+       drawer_egp_actual=$3, drawer_usd_actual=$9, drawer_eur_actual=$10, closed_by_staff=$7, notes=COALESCE(notes || E'\\n','') || COALESCE($8,'') WHERE id=$1 AND status='open' RETURNING *`,
+    [shiftId, closedAt, c.EGP, t.expectedCash, variance, JSON.stringify(z), staffId, note, c.USD / 100, c.EUR / 100]);
   if (!r.length) throw new BookingError('BAD_STATE');
   await clockOut(staffId, closedAt);
   await q(`UPDATE staff_attendance SET clock_out_at=$2 WHERE cash_shift_id=$1 AND clock_out_at IS NULL`, [shiftId, closedAt]);
-  if (variance !== 0) {
-    await q(`INSERT INTO tasks(title,detail,kind,dedupe_key) VALUES($1,$2,'payment',$3) ON CONFLICT (dedupe_key) DO NOTHING`,
-      [`Shift #${t.shift.shift_no} closed ${variance > 0 ? 'over' : 'short'} by ${Math.abs(variance) / 100} EGP`, `Expected ${t.expectedCash / 100} EGP, counted ${countedCents / 100} EGP.`, 'zvar:' + shiftId]);
+  const off = (['EGP', 'USD', 'EUR'] as const).filter((k) => currencies[k].variance !== 0);
+  for (const k of off) {
+    const v = currencies[k].variance;
+    // A shortage is the responsibility of the person handing over: they pay it now or it is deducted from salary.
+    if (v < 0) await q(`INSERT INTO cash_shortages(shift_id,staff_id,currency,amount_minor) VALUES($1,$2,$3,$4)`, [shiftId, t.shift.staff_id, k, -v]);
   }
-  await audit('pos', 'shift.close_blind', 'cash_shift', shiftId, { counted: countedCents, expected: t.expectedCash, variance });
+  if (off.length) {
+    const txt = off.map((k) => `${k} ${currencies[k].variance > 0 ? 'over' : 'short'} ${Math.abs(currencies[k].variance) / 100}`).join(', ');
+    await q(`INSERT INTO tasks(title,detail,kind,dedupe_key) VALUES($1,$2,'payment',$3) ON CONFLICT (dedupe_key) DO NOTHING`,
+      [`Shift #${t.shift.shift_no} closed: ${txt}`, `Expected ${(['EGP', 'USD', 'EUR'] as const).map((k) => `${k} ${currencies[k].expected / 100}`).join(' · ')}. Counted ${countsText(c)}. Decide in Shifts & Z-reports: paid in cash or deduct from salary.`, 'zvar:' + shiftId]);
+  }
+  await audit('pos', 'shift.close_blind', 'cash_shift', shiftId, { counted: c, expected: t.expectedCash, variance });
   return z;
 }
 
-export async function recordExpense(shiftId: string, staffId: string, input: { amountCents: number; category: string; description: string; approverId: string; approverPin: string }) {
+/** Cash removed from the drawer by the owner. Only staff allowed to take cash, with their own PIN. */
+export async function recordTaken(shiftId: string, input: { takerId: string; takerPin: string; amounts: Partial<Counts>; note?: string }) {
+  const s = await verifyPin(input.takerId, input.takerPin);
+  if (!s) throw new BookingError('FORBIDDEN', 'Wrong PIN');
+  const ok = (await q<any>(`SELECT can_take_cash FROM staff WHERE id=$1`, [s.id]))[0]?.can_take_cash;
+  if (!ok) throw new BookingError('FORBIDDEN', `${s.full_name} is not allowed to take cash from the drawer`);
+  const a = cleanCounts(input.amounts);
+  if (!a.EGP && !a.USD && !a.EUR) throw new BookingError('INVALID_INPUT', 'Enter the amount taken');
+  const t = await shiftTotals(shiftId);
+  if (t.shift.status !== 'open') throw new BookingError('BAD_STATE', 'The shift is closed');
+  await q(`INSERT INTO cash_taken(shift_id,staff_id,egp_cents,usd_cents,eur_cents,note) VALUES($1,$2,$3,$4,$5,$6)`, [shiftId, s.id, a.EGP, a.USD, a.EUR, input.note?.trim() || null]);
+  await audit('pos:' + s.full_name, 'shift.taken', 'cash_shift', shiftId, a);
+  return { by: s.full_name, ...a };
+}
+
+export async function recordExpense(shiftId: string, staffId: string, input: { amountCents: number; category: string; description: string; approverId: string; approverPin: string; currency?: string }) {
   const approver = await verifyPin(input.approverId, input.approverPin);
   if (!approver?.is_manager) throw new BookingError('FORBIDDEN', 'A manager PIN is required to approve an expense');
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new BookingError('INVALID_INPUT', 'amount');
   const cats = ['supplies', 'food_kitchen', 'maintenance', 'transport_taxi', 'pet_care', 'tips_wages', 'refund', 'other'];
-  await q(`INSERT INTO cash_expenses(shift_id,date,category,amount_cents,currency,description,staff_id,approved) VALUES($1,current_date,$2,$3,'EGP',$4,$5,true)`,
-    [shiftId, cats.includes(input.category) ? input.category : 'other', input.amountCents, input.description.slice(0, 200) || 'Expense', staffId]);
+  const cur = ['EGP', 'USD', 'EUR'].includes(input.currency ?? '') ? input.currency : 'EGP';
+  await q(`INSERT INTO cash_expenses(shift_id,date,category,amount_cents,currency,description,staff_id,approved) VALUES($1,current_date,$2,$3,$6,$4,$5,true)`,
+    [shiftId, cats.includes(input.category) ? input.category : 'other', input.amountCents, input.description.slice(0, 200) || 'Expense', staffId, cur]);
   await audit('pos', 'shift.expense', 'cash_shift', shiftId, { amount: input.amountCents, approvedBy: approver.full_name });
 }
 
@@ -129,7 +197,9 @@ export async function recordExpense(shiftId: string, staffId: string, input: { a
 export async function posCatalog() {
   const products = await q<any>(`SELECT id, name, pos_category, price_cents, cost_cents, stock_quantity, track_stock, low_stock_threshold, barcode, unit_label
                                  FROM products WHERE is_active ORDER BY pos_category, sort_order, name`);
-  const tours = await q<any>(`SELECT id, name, organizer, cost_cents, price_cents, duration FROM tours_catalog WHERE active ORDER BY sort_order, name`);
+  const tours = await q<any>(`SELECT t.id, t.name, t.organizer, t.cost_cents, t.price_cents, t.duration, t.guest_message,
+      COALESCE((SELECT json_agg(json_build_object('id', f.id, 'name', f.name, 'mime', f.mime) ORDER BY f.created_at) FROM tour_files f WHERE f.tour_id=t.id), '[]') files
+    FROM tours_catalog t WHERE t.active ORDER BY t.sort_order, t.name`);
   return { products, tours };
 }
 
@@ -185,6 +255,7 @@ export type SaleInput = {
   shiftId: string; staffId: string; staffName: string; deviceUserId: string;
   reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod;
   compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean;
+  cashCurrency?: Currency;   // cash only: EGP, USD or EUR physically received
 };
 
 export async function processSale(input: SaleInput) {
@@ -201,6 +272,9 @@ export async function processSale(input: SaleInput) {
     if (!approver?.is_manager) throw new BookingError('FORBIDDEN', 'Owner comp needs a manager / owner PIN');
   }
   const saleId = randomUUID();
+  const cashCur: Currency = method === 'cash' && input.cashCurrency && ['USD', 'EUR'].includes(input.cashCurrency) ? input.cashCurrency : 'EGP';
+  const rate = cashCur === 'EGP' ? 1 : await rateFor(cashCur);
+  const foreign = (egpCents: number) => (cashCur === 'EGP' ? null : Math.round(egpCents / rate));
   const out = await tx(async (c) => {
     const cq = c as unknown as Q;
     let res: any = null;
@@ -219,15 +293,18 @@ export async function processSale(input: SaleInput) {
     const pmethod = input.mode === 'comp' && !res ? 'comp' : toRoom ? 'room_charge' : method === 'card' ? 'card_terminal' : 'cash';
     const pstatus = input.mode === 'comp' && !res ? 'comp' : toRoom ? 'charged_to_room' : 'paid';
 
+    const tourLines: { id: string; name: string; qty: number }[] = [];
     for (const l of lines) {
       const amount = l.unit * l.qty;
       const orderNo = `SO-${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 1000)}`;
       const so = (await c.query(
         `INSERT INTO service_orders(order_number,order_date,reservation_id,guest_name,room_number,service_type,product_id,quantity,amount_cents,currency,payment_method,payment_status,staff_name,comment,
-           sale_id,shift_id,pos_staff_id,unit_cost_cents,unit_price_cents,item_name,tour_id,comp_note,comp_approved_by)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'EGP',$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING id`,
+           sale_id,shift_id,pos_staff_id,unit_cost_cents,unit_price_cents,item_name,tour_id,comp_note,comp_approved_by,paid_currency,paid_amount_minor,fx_rate)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'EGP',$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25) RETURNING id`,
         [orderNo, todayLocal(), res?.id ?? null, res?.full_name ?? 'Walk-in', room, l.serviceType, l.productId, l.qty, amount, pmethod, pstatus, input.staffName, null,
-          saleId, input.shiftId, input.staffId, l.cost, l.unit, l.name, l.tourId, input.mode === 'comp' ? input.compNote : null, approver?.id ?? null])).rows[0];
+          saleId, input.shiftId, input.staffId, l.cost, l.unit, l.name, l.tourId, input.mode === 'comp' ? input.compNote : null, approver?.id ?? null,
+          pmethod === 'cash' ? cashCur : 'EGP', pmethod === 'cash' ? foreign(amount) : null, pmethod === 'cash' && cashCur !== 'EGP' ? rate : null])).rows[0];
+      if (l.kind === 'tour') tourLines.push({ id: so.id, name: l.name, qty: l.qty });
       if (l.trackStock && l.productId) {
         const p = (await c.query(`UPDATE products SET stock_quantity = stock_quantity - $2 WHERE id=$1 RETURNING stock_quantity`, [l.productId, l.qty])).rows[0];
         await c.query(`INSERT INTO inventory_movements(product_id,movement_type,quantity,previous_stock,new_stock,reference,note) VALUES($1,'sale',$2,$3,$4,$5,$6)`,
@@ -251,9 +328,10 @@ export async function processSale(input: SaleInput) {
       const balance = charges + roomPart - paid;
       if (input.mode === 'settle_all' && balance > 0) {
         paidCents = balance;
-        await c.query(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at,shift_id,staff_id)
-                       VALUES($1,$2,$3,$4,'verified',$5,$6,$6,now(),$7,$8)`,
-          [res.id, balance, method === 'card' ? 'card_terminal' : 'cash', `POS shift #${shift.shift_no}`, `Settled at POS by ${input.staffName}`, input.deviceUserId, input.shiftId, input.staffId]);
+        await c.query(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at,shift_id,staff_id,cash_currency,cash_amount_minor,fx_rate)
+                       VALUES($1,$2,$3,$4,'verified',$5,$6,$6,now(),$7,$8,$9,$10,$11)`,
+          [res.id, balance, method === 'card' ? 'card_terminal' : 'cash', `POS shift #${shift.shift_no}`, `Settled at POS by ${input.staffName}`, input.deviceUserId, input.shiftId, input.staffId,
+            method === 'cash' ? cashCur : 'EGP', method === 'cash' ? foreign(balance) : null, method === 'cash' && cashCur !== 'EGP' ? rate : null]);
       }
       if (input.mode === 'comp') {
         compCents = input.compBalance ? Math.max(0, balance) : Math.min(cartTotal, Math.max(0, balance));
@@ -273,21 +351,31 @@ export async function processSale(input: SaleInput) {
         [res?.id ?? null, saleId, compCents, input.compNote, approver!.id, input.staffId, input.shiftId]);
     }
     await audit('pos:' + input.staffName, 'pos.sale', 'sale', saleId, { mode: input.mode, method, cartTotal, paidCents, compCents, reservation: res?.reference ?? null }, cq);
-    return { saleId, cartTotal, paidCents, compCents, mode: input.mode, method, guest: res?.full_name ?? null, reference: res?.reference ?? null, lines: lines.map((l) => ({ name: l.name, qty: l.qty, unit: l.unit })) };
+    return { saleId, cartTotal, paidCents, compCents, mode: input.mode, method, guest: res?.full_name ?? null, reference: res?.reference ?? null, lines: lines.map((l) => ({ name: l.name, qty: l.qty, unit: l.unit })),
+      cashCurrency: cashCur, cashForeign: cashCur === 'EGP' ? null : foreign(paidCents), rate: cashCur === 'EGP' ? null : rate, tourLines, guestName: res?.full_name ?? 'Walk-in', room };
   });
+  // Whoever takes the money for a tour books the car in the same shift.
+  for (const t of out.tourLines) await onTourSold({ serviceOrderId: t.id, staffId: input.staffId, tour: t.name, qty: t.qty, guest: out.guestName, room: out.room }).catch((e) => console.error('[tasks] tour', e));
   return out;
 }
 
-/** Partial / full payment on a guest account (front desk or POS). */
-export async function takeFolioPayment(input: { reservationId: string; amountCents: number; method: PayMethod; shiftId: string | null; staffId: string | null; userId: string; note?: string; actor: string }) {
+/** Partial / full payment on a guest account (front desk or POS). Cash may be EGP, USD or EUR; card is always EGP. */
+export async function takeFolioPayment(input: { reservationId: string; amountCents: number; method: PayMethod; shiftId: string | null; staffId: string | null; userId: string; note?: string; actor: string; currency?: Currency }) {
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new BookingError('INVALID_INPUT', 'Enter an amount');
   if (input.method === 'cash' && !input.shiftId) throw new BookingError('BAD_STATE', 'Open a POS shift to take cash, so it is counted in the drawer');
   const sh = input.shiftId ? (await q<any>(`SELECT shift_no FROM cash_shifts WHERE id=$1 AND status='open'`, [input.shiftId]))[0] : null;
   if (input.shiftId && !sh) throw new BookingError('BAD_STATE', 'The shift is closed');
-  await q(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at,shift_id,staff_id)
-           VALUES($1,$2,$3,$4,'verified',$5,$6,$6,now(),$7,$8)`,
-    [input.reservationId, input.amountCents, input.method === 'card' ? 'card_terminal' : 'cash', sh ? `Shift #${sh.shift_no}` : 'Front desk', input.note ?? null, input.userId, input.shiftId, input.staffId]);
-  await audit(input.actor, 'folio.payment', 'reservation', input.reservationId, { amount: input.amountCents, method: input.method });
+  const cur: Currency = input.method === 'cash' && input.currency && ['USD', 'EUR'].includes(input.currency) ? input.currency : 'EGP';
+  const rate = cur === 'EGP' ? 1 : await rateFor(cur);
+  // amountCents is in the currency received; the folio is credited with its EGP value at today's rate.
+  const egp = cur === 'EGP' ? input.amountCents : toEgp(input.amountCents, rate);
+  await q(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at,shift_id,staff_id,cash_currency,cash_amount_minor,fx_rate)
+           VALUES($1,$2,$3,$4,'verified',$5,$6,$6,now(),$7,$8,$9,$10,$11)`,
+    [input.reservationId, egp, input.method === 'card' ? 'card_terminal' : 'cash', sh ? `Shift #${sh.shift_no}` : 'Front desk',
+      cur === 'EGP' ? input.note ?? null : [`${cur} ${input.amountCents / 100} @ ${rate}`, input.note].filter(Boolean).join(' · '),
+      input.userId, input.shiftId, input.staffId, cur, cur === 'EGP' ? null : input.amountCents, cur === 'EGP' ? null : rate]);
+  await audit(input.actor, 'folio.payment', 'reservation', input.reservationId, { amount: input.amountCents, currency: cur, egp, method: input.method });
+  return { egp, currency: cur, rate };
 }
 
 export async function recentSales(shiftId: string, limit = 12) {

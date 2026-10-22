@@ -231,3 +231,70 @@
   .pos-actions, .pos-two { grid-template-columns: 1fr; }
   .pos-pin-grid { grid-template-columns: repeat(3, 72px); }
 }
+
+/* ───────── Shift tasks ───────── */
+.pos-row.center { justify-content: center; }
+.pos-btn.small { min-height: 40px; padding: 0 12px; font-size: 14px; }
+.pos-btn.has-tasks { border-color: var(--gold, #D29A45); }
+.pos-dot { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--red); color: #fff; font-size: 12px; font-weight: 800; }
+.pos-muted { color: #7a6a5a; font-size: 14px; }
+.pos-muted.small, .pos-task .small { font-size: 12.5px; }
+.pos-note { display: flex; align-items: center; gap: 8px; margin: 12px 0; padding: 12px 14px; border-radius: 12px; background: #FBF1E2; color: #6B4A30; font-size: 14px; }
+.pos-tasks-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pos-progress { flex: 1 1 160px; height: 10px; border-radius: 999px; background: #F4ECE0; overflow: hidden; }
+.pos-progress span { display: block; height: 100%; background: linear-gradient(90deg, #D29A45, #6B4A30); border-radius: inherit; transition: width .3s; }
+.pos-tasks-h { margin: 20px 0 10px; font-size: 15px; font-weight: 800; color: var(--cocoa); text-transform: uppercase; letter-spacing: .05em; }
+.pos-tasks { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.pos-task { border: 1.5px solid var(--line); border-radius: 16px; padding: 14px; background: #fff; display: grid; gap: 10px; align-content: start; }
+.pos-task.done { background: #F1F8F3; border-color: #BFE0C9; }
+.pos-task.done .pos-task-hd { color: #1F7A45; }
+.pos-task-hd { display: flex; align-items: center; gap: 8px; color: var(--cocoa); }
+.pos-task-hd b { flex: 1; font-size: 16px; }
+.pos-task-items { display: flex; flex-wrap: wrap; gap: 8px; }
+.pos-check { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--ivory, #FBF7F1); color: var(--cocoa); font-weight: 700; font-size: 14px; }
+.pos-check.on { background: #1F7A45; border-color: #1F7A45; color: #fff; }
+.pos-check:disabled { opacity: .8; }
+.pos-task-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pos-task-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--ivory, #FBF7F1); font-size: 14px; }
+.pos-task-note, .pos-textarea { width: 100%; border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 15px; background: var(--ivory, #FBF7F1); color: var(--ink); outline: none; }
+.pos-task-note { height: 46px; }
+.pos-task-note:focus, .pos-textarea:focus { border-color: var(--cocoa); background: #fff; }
+.pos-task .pos-row { margin-top: 0; align-items: center; }
+.pos-team { display: grid; gap: 6px; }
+.pos-team-row { display: grid; grid-template-columns: 20px 1fr auto auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); color: var(--cocoa); }
+.pos-team-row.done { background: #F1F8F3; color: #1F7A45; }
+.pos-team-row .t { font-weight: 700; color: var(--ink); }
+.pos-team-row .who { font-size: 14px; color: #7a6a5a; }
+.pos-team-row select { height: 38px; border-radius: 10px; border: 1.5px solid var(--line); padding: 0 8px; background: #fff; }
+.pos-badge.gray { background: #ECE2D4; color: var(--cocoa); }
+.pos-handover { margin-top: 12px; display: grid; gap: 10px; }
+.pos-handover pre { margin: 0; white-space: pre-wrap; font: 14px/1.6 ui-sans-serif, system-ui, sans-serif; background: var(--ivory, #FBF7F1); border: 1px solid var(--line); border-radius: 12px; padding: 14px; max-height: 300px; overflow: auto; }
+
+/* ───────── Currencies, taken, taxis ───────── */
+.pos-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.pos-counts .pos-fine { grid-column: 1 / -1; }
+.pos-amount.small input { font-size: 24px; }
+.pos-cur { display: flex; gap: 6px; margin-top: 8px; }
+.pos-cur button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 44px; border-radius: 10px; border: 1.5px solid var(--line); background: #fff; font-weight: 800; color: var(--cocoa); font-size: 14px; }
+.pos-cur button small { font-size: 11px; font-weight: 600; color: var(--ink2); }
+.pos-cur button.on { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+.pos-cur button.on small { color: var(--ink); }
+.pos-cur button:disabled { opacity: .4; }
+.pos-top-figs small.num { display: block; font-size: 12px; color: var(--gold-l); font-weight: 700; }
+.pos-big-total small + b + small { display: block; margin-top: 4px; }
+.pos-table.z thead th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink2); padding-bottom: 6px; }
+.pos-table.z td.ok { color: var(--green); }
+.pos-table.z td.bad { color: var(--red); }
+.pos-task-list li.col { flex-direction: column; align-items: stretch; }
+.pos-row.tight { margin-top: 0; gap: 6px; }
+a.pos-check { text-decoration: none; }
+@media (max-width: 700px) { .pos-counts { grid-template-columns: 1fr; } }
+.pos-tile-wrap { position: relative; display: grid; }
+.pos-tile-info { position: absolute; top: 10px; right: 10px; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--ivory); color: var(--cocoa); font-size: 12px; font-weight: 800; }
+.pos-handover-pre { margin: 10px 0 0; white-space: pre-wrap; font: 15px/1.6 ui-sans-serif, system-ui, sans-serif; background: var(--ivory); border: 1px solid var(--line); border-radius: 12px; padding: 14px; max-height: 340px; overflow: auto; }
+.pos-files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.pos-files a { text-decoration: none; }
+.pos-field { grid-template-columns: minmax(0, 1fr); }
+.pos-counts > * { min-width: 0; }
+.pos-amount { min-width: 0; }
+.pos-amount input { width: 100%; }

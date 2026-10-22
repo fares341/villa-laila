@@ -102,7 +102,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                     <td className="tabular-nums">{s.monthly_target_hours} h</td>
                     <td className="tabular-nums">{fmt(s.hourly_rate_cents)}</td>
                     <td className="tabular-nums">{fmt(s.daily_rate_cents)}</td>
-                    <td className="space-x-1">{s.is_manager && <Pill tone="cocoa">Manager</Pill>}{s.can_use_pos && (s.has_pin ? <Pill tone="green">POS PIN set</Pill> : <Pill tone="amber">No PIN</Pill>)}{!s.active && <Pill>Inactive</Pill>}</td>
+                    <td className="space-x-1">{s.is_manager && <Pill tone="cocoa">Manager</Pill>}{s.can_take_cash && <Pill tone="amber">Takes cash</Pill>}{s.can_use_pos && (s.has_pin ? <Pill tone="green">POS PIN set</Pill> : <Pill tone="amber">No PIN</Pill>)}{!s.active && <Pill>Inactive</Pill>}</td>
                     <td>{manage && <Link href={`/dashboard/staff?week=${monday}&edit=${s.id}#profile`} className="text-sm font-semibold text-cocoa-600 underline">Edit</Link>}</td>
                   </tr>
                 ))}
@@ -134,6 +134,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
               <div className="flex flex-wrap gap-4 text-sm">
                 <label className="flex items-center gap-2"><input type="checkbox" name="canUsePos" defaultChecked={edit?.can_use_pos ?? true} /> Uses the POS</label>
                 <label className="flex items-center gap-2"><input type="checkbox" name="isManager" defaultChecked={edit?.is_manager ?? false} /> Manager (approvals)</label>
+                <label className="flex items-center gap-2"><input type="checkbox" name="canTakeCash" defaultChecked={edit?.can_take_cash ?? false} /> May take cash from the drawer (owner)</label>
                 <label className="flex items-center gap-2"><input type="checkbox" name="active" defaultChecked={edit?.active ?? true} /> Active</label>
               </div>
               <div className="flex gap-2"><button className={Btn}>{edit ? 'Save changes' : 'Add staff'}</button>{edit && <Link href={`/dashboard/staff?week=${monday}`} className={BtnGhost}>Cancel</Link>}</div>

@@ -4,7 +4,7 @@ import { can } from '@/lib/permissions';
 import { q } from '@/lib/db';
 import { PageHeader, Card, Flash, fmt, dt, Btn, BtnGhost, Input, Lbl, Pill, Stat } from '@/components/dash';
 import { Icon } from '@/components/icons';
-import { productSave, tourSave } from '../pms-actions';
+import { productSave, tourSave, tourFileDelete } from '../pms-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +35,7 @@ export default async function Catalog({ searchParams }: { searchParams: Promise<
   const rows = products.filter((p) => p.pos_category === tab);
   const sel = sp.edit === 'new' ? {} as any : sp.edit ? (tab === 'tours' ? tours : products).find((x) => x.id === sp.edit) : null;
   const st = stats[0];
+  const files = tab === 'tours' && sel?.id ? await q<any>(`SELECT id, name FROM tour_files WHERE tour_id=$1 ORDER BY created_at`, [sel.id]) : [];
 
   return (
     <>
@@ -115,7 +116,15 @@ export default async function Catalog({ searchParams }: { searchParams: Promise<
                   <div><Lbl htmlFor="t-c">Cost to hotel (EGP)</Lbl><input id="t-c" name="cost" type="number" min={0} step="0.01" defaultValue={sel.id ? Number(sel.cost_cents) / 100 : ''} className={Input} /></div>
                   <div><Lbl htmlFor="t-p">Sell price (EGP)</Lbl><input id="t-p" name="price" type="number" min={0} step="0.01" required defaultValue={sel.id ? Number(sel.price_cents) / 100 : ''} className={Input} /></div>
                 </div>
-                <div><Lbl htmlFor="t-x">Notes</Lbl><textarea id="t-x" name="description" rows={2} defaultValue={sel.description ?? ''} className={Input} /></div>
+                <div><Lbl htmlFor="t-x">Internal notes</Lbl><textarea id="t-x" name="description" rows={2} defaultValue={sel.description ?? ''} className={Input} /></div>
+                <div><Lbl htmlFor="t-g">Message for the guest (programme, included / not included, what to bring)</Lbl>
+                  <textarea id="t-g" name="guestMessage" rows={7} defaultValue={sel.guest_message ?? ''} className={Input} placeholder={'e.g. Black & White Desert, 2 days / 1 night\nPick-up early morning (5:30 to 7:00, we confirm the day before)\nBring: swimsuit (cold spring), sunglasses, sunblock, towel, light extra clothes'} /></div>
+                <div><Lbl htmlFor="t-f">Catalog files (PDF or images)</Lbl><input id="t-f" name="files" type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="block w-full text-sm" /></div>
+                {sel.id && files.length > 0 && (
+                  <ul className="space-y-1 text-sm">{files.map((f) => (
+                    <li key={f.id} className="flex items-center justify-between gap-2"><a href={`/api/media/tour-file/${f.id}`} target="_blank" rel="noopener" className="truncate underline">{f.name}</a>
+                      <button formAction={tourFileDelete} name="fileId" value={f.id} formNoValidate className="text-xs font-semibold text-red-700">Remove</button></li>))}</ul>
+                )}
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={sel.active ?? true} /> Available on the POS</label>
                 <div className="flex gap-2"><button className={Btn}>Save tour</button><Link href="?tab=tours" className={BtnGhost}>Close</Link></div>
               </form>

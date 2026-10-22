@@ -60,7 +60,8 @@ export default async function Timesheet({ searchParams }: { searchParams: Promis
                     <td className="text-right tabular-nums">{r.shifts_worked}</td>
                     <td className="text-right tabular-nums">{r.late_count}</td>
                     <td className="text-right tabular-nums">{r.late_minutes}</td>
-                    <td className="text-right tabular-nums">{fmt(Number(r.deductions_cents))}{Number(r.waived_cents) > 0 && <div className="text-xs text-slate-500">{fmt(Number(r.waived_cents))} waived</div>}</td>
+                    <td className="text-right tabular-nums">{fmt(Number(r.deductions_cents))}{Number(r.waived_cents) > 0 && <div className="text-xs text-slate-500">{fmt(Number(r.waived_cents))} waived</div>}
+                      {r.salary_shortages && <div className="text-xs font-semibold text-red-700">Cash shortage: {r.salary_shortages}</div>}</td>
                     <td><Link href={`?month=${month}&staff=${r.id}#log`} className="text-xs font-semibold text-cocoa-600 underline">Log</Link></td>
                   </tr>
                 );

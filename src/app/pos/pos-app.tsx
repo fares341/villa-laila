@@ -4,17 +4,22 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '@/components/icons';
 import {
   posState, posStaffList, posUnlock, posLock, posClock, posOpenShift, posSale, posGuestFolio, posTakePayment, posExpense, posCloseShift, posManagers,
+  posTasks, posTaskSave, posTaskReassign, posTasksShare, posWashReady, posRunNotes, posHandover, posTaken, posTaxiConfirmed,
 } from './actions';
 
 /* ───────── helpers ───────── */
 
+type Cur = 'EGP' | 'USD' | 'EUR';
+const CURS: Cur[] = ['EGP', 'USD', 'EUR'];
+const cur = (minor: number | null | undefined, c: string) => (c === 'EGP' ? egp(minor) : `${c} ${((minor ?? 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+const inCur = (egpCents: number, c: Cur, rates: any) => (c === 'EGP' ? egpCents : rates?.[c] ? Math.round(egpCents / rates[c]) : 0);
 const egp = (cents: number | null | undefined) => `EGP ${((cents ?? 0) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 const toCents = (v: string) => Math.round(Number(String(v).replace(/[^\d.]/g, '')) * 100) || 0;
 const time = (iso: string | Date) => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }).format(new Date(iso));
 
 type Staff = { id: string; full_name: string; role: string; is_manager: boolean };
 type Product = { id: string; name: string; pos_category: 'market' | 'meals' | 'services'; price_cents: number; stock_quantity: number; track_stock: boolean; low_stock_threshold: number; barcode: string | null; unit_label: string | null };
-type Tour = { id: string; name: string; organizer: string; cost_cents: number; price_cents: number; duration: string | null };
+type Tour = { id: string; name: string; organizer: string; cost_cents: number; price_cents: number; duration: string | null; guest_message?: string | null; files?: { id: string; name: string; mime: string }[] };
 type Guest = { id: string; reference: string; full_name: string; rooms: string | null; check_out: string; charges: number; paid: number; balance: number; state: 'due' | 'settled' | 'credit' };
 type CartLine = { key: string; type: 'product' | 'tour' | 'custom'; id?: string; name: string; unit: number; qty: number; max?: number | null };
 type Tab = 'market' | 'meals' | 'services' | 'tours';
@@ -73,18 +78,47 @@ function PinPad({ value, onChange, onSubmit, busy }: { value: string; onChange: 
   );
 }
 
-function AmountPad({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function AmountPad({ label, value, onChange, unit = 'EGP' }: { label: string; value: string; onChange: (v: string) => void; unit?: string }) {
+  const steps = unit === 'EGP' ? ['100', '200', '500', '1000'] : ['5', '10', '20', '50'];
   return (
     <div className="pos-field">
       <label>{label}</label>
       <div className="pos-amount">
-        <span>EGP</span>
+        <span>{unit}</span>
         <input inputMode="decimal" value={value} onChange={(e) => onChange(e.target.value.replace(/[^\d.]/g, ''))} placeholder="0" autoFocus />
       </div>
       <div className="pos-quick">
-        {['100', '200', '500', '1000'].map((v) => <button type="button" key={v} onClick={() => onChange(String((Number(value) || 0) + Number(v)))}>+{v}</button>)}
+        {steps.map((v) => <button type="button" key={v} onClick={() => onChange(String((Number(value) || 0) + Number(v)))}>+{v}</button>)}
         <button type="button" onClick={() => onChange('')}>Clear</button>
       </div>
+    </div>
+  );
+}
+
+function CountGrid({ value, onChange, hint }: { value: Record<Cur, string>; onChange: (v: Record<Cur, string>) => void; hint?: string }) {
+  return (
+    <div className="pos-counts">
+      {CURS.map((c) => (
+        <div key={c} className="pos-field">
+          <label htmlFor={`cnt-${c}`}>{c === 'EGP' ? 'Egyptian pounds' : c === 'USD' ? 'US dollars' : 'Euros'}</label>
+          <div className="pos-amount small"><span>{c}</span>
+            <input id={`cnt-${c}`} inputMode="decimal" value={value[c]} placeholder="0" autoFocus={c === 'EGP'} onChange={(e) => onChange({ ...value, [c]: e.target.value.replace(/[^\d.]/g, '') })} /></div>
+        </div>
+      ))}
+      {hint && <p className="pos-fine">{hint}</p>}
+    </div>
+  );
+}
+const countsOf = (v: Record<Cur, string>) => ({ EGP: toCents(v.EGP), USD: toCents(v.USD), EUR: toCents(v.EUR) });
+
+function CurSwitch({ value, onChange, rates }: { value: Cur; onChange: (c: Cur) => void; rates: any }) {
+  return (
+    <div className="pos-cur" role="radiogroup" aria-label="Cash currency">
+      {CURS.map((c) => (
+        <button key={c} role="radio" aria-checked={value === c} className={value === c ? 'on' : ''} disabled={c !== 'EGP' && !rates?.[c]} onClick={() => onChange(c)}>
+          {c}{c !== 'EGP' && rates?.[c] ? <small>{Number(rates[c]).toFixed(2)}</small> : null}
+        </button>
+      ))}
     </div>
   );
 }
@@ -178,6 +212,7 @@ export function PosApp({ hotel, branch, device }: { hotel: string; branch: strin
   const [online, setOnline] = useState(true);
   const [toast, setToast] = useState<{ text: string; kind: 'ok' | 'bad' } | null>(null);
   const [lockNotice, setLockNotice] = useState<string | null>(null);
+  const [showTasks, setShowTasks] = useState(false);
 
   const refresh = useCallback(async () => {
     const r = await posState();
@@ -198,8 +233,12 @@ export function PosApp({ hotel, branch, device }: { hotel: string; branch: strin
   if (!st.me) return <div className="pos-root"><LockScreen hotel={hotel} branch={branch} notice={lockNotice} onUnlocked={() => { setLockNotice(null); refresh(); }} />{toast && <Toast t={toast} />}</div>;
 
   const lock = async () => { await posLock(); setLockNotice(null); refresh(); };
+  const tasksBtn = (
+    <button className="pos-btn" onClick={() => setShowTasks(true)}><Icon name="clipboard-list" /> My tasks{st.tasks?.open ? ` (${st.tasks.open})` : ''}</button>
+  );
+  const tasksModal = showTasks ? <TasksModal onClose={() => { setShowTasks(false); refresh(); }} notify={(text, kind = 'ok') => setToast({ text, kind })} /> : null;
 
-  if (!st.shift) return <div className="pos-root"><OpenShift me={st.me} onOpened={(m) => { setToast({ text: m, kind: 'ok' }); refresh(); }} onLock={lock} />{toast && <Toast t={toast} />}</div>;
+  if (!st.shift) return <div className="pos-root"><OpenShift me={st.me} tasksBtn={tasksBtn} onOpened={(m) => { setToast({ text: m, kind: 'ok' }); refresh(); }} onLock={lock} />{tasksModal}{toast && <Toast t={toast} />}</div>;
 
   if (st.shift.staffId !== st.me.id && !st.me.is_manager) {
     return (
@@ -207,9 +246,11 @@ export function PosApp({ hotel, branch, device }: { hotel: string; branch: strin
         <div className="pos-card-msg">
           <Icon name="alert-triangle" size={28} />
           <h2>Shift #{st.shift.no} is open by {st.shift.staffName}</h2>
-          <p>Only one cash drawer can be open. Ask {st.shift.staffName} to close their shift, then open yours.</p>
-          <button className="pos-btn" onClick={lock}><Icon name="lock" /> Back to lock screen</button>
+          <p>Only one cash drawer can be open. Ask {st.shift.staffName} to close their shift, then open yours. You can still see and tick your shift tasks.</p>
+          <div className="pos-row center">{tasksBtn}<button className="pos-btn" onClick={lock}><Icon name="lock" /> Back to lock screen</button></div>
         </div>
+        {tasksModal}
+        {toast && <Toast t={toast} />}
       </div>
     );
   }
@@ -227,27 +268,30 @@ function Toast({ t }: { t: { text: string; kind: 'ok' | 'bad' } }) {
   return <div className={`pos-toast ${t.kind}`} role="status"><Icon name={t.kind === 'ok' ? 'check-circle' : 'alert-triangle'} size={20} />{t.text}</div>;
 }
 
-function OpenShift({ me, onOpened, onLock }: { me: Staff; onOpened: (msg: string) => void; onLock: () => void }) {
-  const [amount, setAmount] = useState('');
+function OpenShift({ me, onOpened, onLock, tasksBtn }: { me: Staff; onOpened: (msg: string) => void; onLock: () => void; tasksBtn?: React.ReactNode }) {
+  const [counts, setCounts] = useState<Record<Cur, string>>({ EGP: '', USD: '', EUR: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const go = async () => {
     setBusy(true); setErr(null);
-    const r = await posOpenShift(toCents(amount));
+    const r = await posOpenShift(countsOf(counts));
     setBusy(false);
     if (!r.ok) { setErr(r.error); return; }
-    onOpened(r.data.tier > 0 ? `Shift #${r.data.no} opened · you were ${r.data.late} min late` : `Shift #${r.data.no} opened`);
+    const parts = [`Shift #${r.data.no} opened`];
+    if (r.data.mismatch) parts.push(`difference with the last handover: ${r.data.mismatch} (manager informed)`);
+    if (r.data.tier > 0) parts.push(`you were ${r.data.late} min late`);
+    onOpened(parts.join(' · '));
   };
   return (
     <div className="pos-center">
       <div className="pos-card-msg wide">
         <span className="pos-chip"><Icon name="user" size={14} /> {me.full_name}</span>
-        <h2>Open your shift</h2>
-        <p>Count the cash float in the drawer before you start.</p>
-        <AmountPad label="Opening float" value={amount} onChange={setAmount} />
+        <h2>Receive the drawer</h2>
+        <p>Count the cash you receive, each currency on its own, and check the card slips. Any difference is the previous shift’s responsibility.</p>
+        <CountGrid value={counts} onChange={setCounts} />
         {err && <p className="pos-msg bad">{err}</p>}
         <div className="pos-row">
-          <button className="pos-btn ghost" onClick={onLock}><Icon name="lock" /> Lock</button>
+          {tasksBtn}<button className="pos-btn ghost" onClick={onLock}><Icon name="lock" /> Lock</button>
           <button className="pos-btn primary big" onClick={go} disabled={busy}><Icon name="log-in" /> Open Shift</button>
         </div>
       </div>
@@ -269,7 +313,10 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
   const [guestQuery, setGuestQuery] = useState('');
   const [guestOpen, setGuestOpen] = useState(false);
   const [method, setMethod] = useState<'cash' | 'card'>('cash');
-  const [modal, setModal] = useState<null | 'custom' | 'comp' | 'pay' | 'close' | 'folio' | 'payment' | 'expense' | 'menu'>(null);
+  const [cashCur, setCashCur] = useState<Cur>('EGP');
+  const [catalog, setCatalog] = useState<Tour | null>(null);
+  const curNow: Cur = method === 'cash' ? cashCur : 'EGP';
+  const [modal, setModal] = useState<null | 'custom' | 'comp' | 'pay' | 'close' | 'folio' | 'payment' | 'expense' | 'menu' | 'tasks' | 'taken'>(null);
   const [busy, setBusy] = useState(false);
   const guest = guests.find((g) => g.id === guestId) ?? null;
   const total = cart.reduce((s, l) => s + l.unit * l.qty, 0);
@@ -328,7 +375,7 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
   const run = async (mode: 'charge_room' | 'pay_now' | 'settle_all' | 'walk_in', extra: Record<string, unknown> = {}) => {
     setBusy(true);
     const r = await posSale({
-      reservationId: mode === 'walk_in' ? null : guestId, mode, method,
+      reservationId: mode === 'walk_in' ? null : guestId, mode, method, cashCurrency: curNow,
       items: cart.map((l) => ({ type: l.type, id: l.id, name: l.name, qty: l.qty, unitCents: l.unit })), ...extra,
     });
     setBusy(false);
@@ -336,9 +383,10 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
     const d = r.data;
     notify(
       mode === 'charge_room' ? `${egp(d.cartTotal)} charged to ${d.guest}` :
-      mode === 'settle_all' ? `${egp(d.paidCents)} collected · ${d.guest} fully settled` :
-      `${egp(d.paidCents)} paid by ${method}`,
+      mode === 'settle_all' ? `${d.cashForeign != null ? cur(d.cashForeign, d.cashCurrency) + ' (' + egp(d.paidCents) + ')' : egp(d.paidCents)} collected · ${d.guest} fully settled` :
+      `${d.cashForeign != null ? cur(d.cashForeign, d.cashCurrency) + ' (' + egp(d.paidCents) + ')' : egp(d.paidCents)} paid by ${method}`,
     );
+    if (d.tourLines?.length) notify(`Book the car & driver for ${d.tourLines.map((t: any) => t.name).join(', ')} now. It is in your tasks.`);
     setCart([]); setModal(null);
     if (mode === 'walk_in') setGuestId(null);
     await refresh();
@@ -359,9 +407,13 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
         </div>
         <div className="pos-top-figs">
           <div><small>Today’s Revenue</small><b className="num">{egp(st.revenue)}</b></div>
-          <div title={st.drawer == null ? 'Hidden until the blind count at close' : undefined}><small>Current Drawer Cash</small><b className="num">{st.drawer == null ? 'Blind' : egp(st.drawer)}</b></div>
+          <div title={st.drawer == null ? 'Hidden until the blind count at close' : undefined}><small>Current Drawer Cash</small><b className="num">{st.drawer == null ? 'Blind' : egp(st.drawer)}</b>{st.currencies && (st.currencies.USD || st.currencies.EUR) ? <small className="num">{cur(st.currencies.USD, 'USD')} · {cur(st.currencies.EUR, 'EUR')}</small> : null}</div>
         </div>
         <div className="pos-top-acts">
+          <button className={`pos-btn ghost ${st.tasks?.open ? 'has-tasks' : ''}`} onClick={() => setModal('tasks')}>
+            <Icon name="clipboard-list" /> Tasks{st.tasks ? (st.tasks.distributed ? ` ${st.tasks.mine - st.tasks.open}/${st.tasks.mine}` : '') : ''}
+            {st.tasks?.open ? <span className="pos-dot">{st.tasks.open}</span> : null}
+          </button>
           <button className="pos-icon-btn" onClick={() => refresh()} aria-label="Refresh"><Icon name="refresh" size={20} /></button>
           <button className="pos-icon-btn" onClick={() => setModal('menu')} aria-label="More"><Icon name="menu" size={20} /></button>
           <button className="pos-btn ghost" onClick={lock}><Icon name="lock" /> Lock Screen</button>
@@ -438,11 +490,12 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
             <button role="radio" aria-checked={method === 'cash'} className={method === 'cash' ? 'on' : ''} onClick={() => setMethod('cash')}><Icon name="banknote" /> Cash</button>
             <button role="radio" aria-checked={method === 'card'} className={method === 'card' ? 'on' : ''} onClick={() => setMethod('card')}><Icon name="credit-card" /> Card</button>
           </div>
+          {method === 'cash' && <CurSwitch value={cashCur} onChange={setCashCur} rates={st.rates} />}
 
           <div className="pos-actions">
             <button className="pos-btn primary" disabled={busy || !guest || !cart.length} onClick={() => run('charge_room')}><Icon name="bed" /> Charge to Room</button>
             <button className="pos-btn accent" disabled={busy || !cart.length} onClick={() => setModal('pay')}><Icon name={method === 'cash' ? 'banknote' : 'credit-card'} /> Pay Now ({method === 'cash' ? 'Cash' : 'Card'})</button>
-            <button className="pos-btn" disabled={busy || !guest || (guest.balance <= 0 && !cart.length)} onClick={() => run('settle_all')}><Icon name="wallet" /> Settle Outstanding{guest && guest.balance + total > 0 ? ` · ${egp(guest.balance + total)}` : ''}</button>
+            <button className="pos-btn" disabled={busy || !guest || (guest.balance <= 0 && !cart.length)} onClick={() => run('settle_all')}><Icon name="wallet" /> Settle Outstanding{guest && guest.balance + total > 0 ? ` · ${curNow === 'EGP' ? egp(guest.balance + total) : cur(inCur(guest.balance + total, curNow, st.rates), curNow)}` : ''}</button>
             <button className="pos-btn" disabled={busy || !cart.length} onClick={() => run('walk_in')}><Icon name="user" /> Walk-in Direct Cashier</button>
             <button className="pos-btn" onClick={() => setModal('custom')}><Icon name="plus" /> Add Custom Charge</button>
             <button className="pos-btn" disabled={busy || (!cart.length && !(guest && guest.balance > 0))} onClick={() => setModal('comp')}><Icon name="gift" /> Owner Comp / Other</button>
@@ -467,12 +520,15 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
           <div className="pos-grid">
             {tab === 'tours' && !search
               ? (shown as Tour[]).map((t) => (
-                <button key={t.id} className="pos-tile tour" onClick={() => add({ type: 'tour', id: t.id, name: `${t.name}`, unit: t.price_cents })}>
-                  <b>{t.name}</b>
-                  <small>{t.organizer}{t.duration ? ` · ${t.duration}` : ''}</small>
-                  <span className="pos-price num">{egp(t.price_cents)}</span>
-                  <span className="pos-tour-fig"><span>Cost {egp(t.cost_cents)}</span><span className="profit">Hotel net {egp(t.price_cents - t.cost_cents)}</span></span>
-                </button>
+                <div key={t.id} className="pos-tile-wrap">
+                  <button className="pos-tile tour" onClick={() => add({ type: 'tour', id: t.id, name: `${t.name}`, unit: t.price_cents })}>
+                    <b>{t.name}</b>
+                    <small>{t.organizer}{t.duration ? ` · ${t.duration}` : ''}</small>
+                    <span className="pos-price num">{egp(t.price_cents)}</span>
+                    <span className="pos-tour-fig"><span>Cost {egp(t.cost_cents)}</span><span className="profit">Hotel net {egp(t.price_cents - t.cost_cents)}</span></span>
+                  </button>
+                  {(t.guest_message || t.files?.length) ? <button className="pos-tile-info" onClick={() => setCatalog(t)}><Icon name="file-text" size={15} /> Catalog</button> : null}
+                </div>
               ))
               : (shown as Product[]).map((p) => {
                 const low = p.track_stock && p.stock_quantity <= p.low_stock_threshold;
@@ -500,7 +556,7 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
       </div>
 
       {modal === 'custom' && <CustomCharge onClose={() => setModal(null)} onAdd={(name, cents, qty) => { add({ type: 'custom', name, unit: cents, qty }); setModal(null); }} />}
-      {modal === 'pay' && <PayModal total={total} method={method} guest={guest} busy={busy} onClose={() => setModal(null)} onConfirm={() => run('pay_now')} />}
+      {modal === 'pay' && <PayModal total={total} method={method} cashCur={curNow} rates={st.rates} guest={guest} busy={busy} onClose={() => setModal(null)} onConfirm={() => run('pay_now')} />}
       {modal === 'comp' && <CompModal cartTotal={total} guest={guest} onClose={() => setModal(null)} onDone={async (extra) => { const ok = await (async () => {
         setBusy(true);
         const r = await posSale({ reservationId: guestId, mode: 'comp', method, items: cart.map((l) => ({ type: l.type, id: l.id, name: l.name, qty: l.qty, unitCents: l.unit })), ...extra });
@@ -509,18 +565,22 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
         notify(`${egp(r.data.compCents)} recorded as owner comp`); setCart([]); setModal(null); await refresh(); return true;
       })(); return ok; }} />}
       {modal === 'folio' && guest && <FolioModal guest={guest} onClose={() => setModal(null)} />}
-      {modal === 'payment' && guest && <PaymentModal guest={guest} method={method} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
+      {modal === 'payment' && guest && <PaymentModal guest={guest} method={method} rates={st.rates} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'expense' && <ExpenseModal onClose={() => setModal(null)} onDone={async () => { notify('Expense recorded'); setModal(null); await refresh(); }} />}
       {modal === 'menu' && (
         <Modal title="More" onClose={() => setModal(null)}>
           <div className="pos-menu">
             <button className="pos-btn" onClick={() => setModal('expense')}><Icon name="receipt" /> Record petty expense</button>
+            {st.takers?.length > 0 && <button className="pos-btn" onClick={() => setModal('taken')}><Icon name="wallet" /> Cash taken (owner)</button>}
             <a className="pos-btn" href="/dashboard/frontdesk" target="_blank" rel="noopener"><Icon name="door-open" /> Front desk cockpit</a>
             <a className="pos-btn" href="/dashboard" target="_blank" rel="noopener"><Icon name="layout-dashboard" /> Dashboard</a>
             <p className="pos-fine">Device signed in as {device}. Channel manager {st.channel ? 'connected' : 'not connected'}.</p>
           </div>
         </Modal>
       )}
+      {catalog && <TourCatalog t={catalog} onClose={() => setCatalog(null)} notify={notify} />}
+      {modal === 'taken' && <TakenModal takers={st.takers} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
+      {modal === 'tasks' && <TasksModal onClose={() => { setModal(null); refresh(); }} notify={notify} />}
       {modal === 'close' && <CloseShift shiftNo={st.shift.no} onClose={() => setModal(null)} onFinished={(m) => onClosed(m)} />}
     </div>
   );
@@ -545,16 +605,18 @@ function CustomCharge({ onClose, onAdd }: { onClose: () => void; onAdd: (name: s
   );
 }
 
-function PayModal({ total, method, guest, busy, onClose, onConfirm }: { total: number; method: 'cash' | 'card'; guest: Guest | null; busy: boolean; onClose: () => void; onConfirm: () => void }) {
+function PayModal({ total, method, cashCur, rates, guest, busy, onClose, onConfirm }: { total: number; method: 'cash' | 'card'; cashCur: Cur; rates: any; guest: Guest | null; busy: boolean; onClose: () => void; onConfirm: () => void }) {
   const [given, setGiven] = useState('');
-  const change = toCents(given) - total;
+  const due = inCur(total, cashCur, rates);
+  const change = toCents(given) - due;
   return (
-    <Modal title={`Pay now · ${method === 'cash' ? 'Cash' : 'Card'}`} onClose={onClose}>
-      <div className="pos-big-total"><small>{guest ? `${guest.full_name} · this cart only` : 'This cart'}</small><b className="num">{egp(total)}</b></div>
+    <Modal title={`Pay now · ${method === 'cash' ? `Cash ${cashCur}` : 'Card'}`} onClose={onClose}>
+      <div className="pos-big-total"><small>{guest ? `${guest.full_name} · this cart only` : 'This cart'}</small><b className="num">{cur(due, cashCur)}</b>
+        {cashCur !== 'EGP' && <small>{egp(total)} at {Number(rates?.[cashCur]).toFixed(2)} EGP per {cashCur}</small>}</div>
       {method === 'cash' ? (
         <>
-          <AmountPad label="Cash received (optional)" value={given} onChange={setGiven} />
-          {toCents(given) > 0 && <p className={`pos-change ${change < 0 ? 'bad' : ''}`}>{change < 0 ? `Short by ${egp(-change)}` : `Change to give: ${egp(change)}`}</p>}
+          <AmountPad label={`Cash received in ${cashCur} (optional)`} value={given} onChange={setGiven} unit={cashCur} />
+          {toCents(given) > 0 && <p className={`pos-change ${change < 0 ? 'bad' : ''}`}>{change < 0 ? `Short by ${cur(-change, cashCur)}` : `Change to give: ${cur(change, cashCur)}${cashCur !== 'EGP' ? ` (${egp(Math.round(change * rates[cashCur]))})` : ''}`}</p>}
         </>
       ) : <p className="pos-fine">Run {egp(total)} on the card terminal, then confirm.</p>}
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button><button className="pos-btn primary big" disabled={busy || (method === 'cash' && toCents(given) > 0 && change < 0)} onClick={onConfirm}><Icon name="check" /> Confirm payment</button></div>
@@ -626,25 +688,31 @@ function FolioModal({ guest, onClose }: { guest: Guest; onClose: () => void }) {
   );
 }
 
-function PaymentModal({ guest, method, onClose, onDone }: { guest: Guest; method: 'cash' | 'card'; onClose: () => void; onDone: (msg: string) => void }) {
+function PaymentModal({ guest, method, rates, onClose, onDone }: { guest: Guest; method: 'cash' | 'card'; rates: any; onClose: () => void; onDone: (msg: string) => void }) {
+  const [c, setC] = useState<Cur>('EGP');
   const [amount, setAmount] = useState(guest.balance > 0 ? String(guest.balance / 100) : '');
   const [m, setM] = useState<'cash' | 'card'>(method);
+  const curPay: Cur = m === 'cash' ? c : 'EGP';
+  const pick = (x: Cur) => { setC(x); if (guest.balance > 0) setAmount(String(inCur(guest.balance, x, rates) / 100)); };
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   return (
     <Modal title={`Receive payment · ${guest.full_name}`} onClose={onClose}>
       <p className="pos-fine">Balance due {egp(guest.balance)}. Part payments are fine; the rest stays on the guest’s account.</p>
-      <AmountPad label="Amount received" value={amount} onChange={setAmount} />
-      <div className="pos-method"><button className={m === 'cash' ? 'on' : ''} onClick={() => setM('cash')}><Icon name="banknote" /> Cash</button><button className={m === 'card' ? 'on' : ''} onClick={() => setM('card')}><Icon name="credit-card" /> Card</button></div>
+      <div className="pos-method"><button className={m === 'cash' ? 'on' : ''} onClick={() => setM('cash')}><Icon name="banknote" /> Cash</button><button className={m === 'card' ? 'on' : ''} onClick={() => { setM('card'); pick('EGP'); }}><Icon name="credit-card" /> Card (EGP)</button></div>
+      {m === 'cash' && <CurSwitch value={c} onChange={pick} rates={rates} />}
+      <AmountPad label={`Amount received in ${curPay}`} value={amount} onChange={setAmount} unit={curPay} />
+      {curPay !== 'EGP' && toCents(amount) > 0 && <p className="pos-fine">Credited to the guest as {egp(Math.round(toCents(amount) * rates[curPay]))} at {Number(rates[curPay]).toFixed(2)}.</p>}
       {err && <p className="pos-msg bad">{err}</p>}
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
         <button className="pos-btn primary" disabled={busy || toCents(amount) <= 0} onClick={async () => {
           setBusy(true); setErr(null);
-          const r = await posTakePayment(guest.id, toCents(amount), m);
+          const r = await posTakePayment(guest.id, toCents(amount), m, curPay);
           setBusy(false);
           if (!r.ok) { setErr(r.error); return; }
-          const left = guest.balance - toCents(amount);
-          onDone(left > 0 ? `${egp(toCents(amount))} received · ${egp(left)} still due` : `${egp(toCents(amount))} received · fully settled`);
+          const left = guest.balance - r.data.egp;
+          const got = curPay === 'EGP' ? egp(r.data.egp) : `${cur(toCents(amount), curPay)} (${egp(r.data.egp)})`;
+          onDone(left > 0 ? `${got} received · ${egp(left)} still due` : `${got} received · fully settled`);
         }}><Icon name="check" /> Record payment</button>
       </div>
     </Modal>
@@ -652,6 +720,7 @@ function PaymentModal({ guest, method, onClose, onDone }: { guest: Guest; method
 }
 
 function ExpenseModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [c, setC] = useState<Cur>('EGP');
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
   const [cat, setCat] = useState('supplies');
@@ -660,7 +729,8 @@ function ExpenseModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
   const [busy, setBusy] = useState(false);
   return (
     <Modal title="Petty expense from the drawer" onClose={onClose}>
-      <AmountPad label="Amount taken from the drawer" value={amount} onChange={setAmount} />
+      <CurSwitch value={c} onChange={setC} rates={{ USD: 1, EUR: 1 }} />
+      <AmountPad label={`Amount taken from the drawer (${c})`} value={amount} onChange={setAmount} unit={c} />
       <div className="pos-two">
         <div className="pos-field"><label htmlFor="ex-cat">Category</label>
           <select id="ex-cat" value={cat} onChange={(e) => setCat(e.target.value)}>
@@ -674,7 +744,7 @@ function ExpenseModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
         <button className="pos-btn primary" disabled={busy || toCents(amount) <= 0 || desc.trim().length < 2 || mgr.pin.length < 4} onClick={async () => {
           setBusy(true); setErr(null);
-          const r = await posExpense({ amountCents: toCents(amount), category: cat, description: desc.trim(), approverId: mgr.id, approverPin: mgr.pin });
+          const r = await posExpense({ amountCents: toCents(amount), category: cat, description: desc.trim(), approverId: mgr.id, approverPin: mgr.pin, currency: c });
           setBusy(false);
           if (!r.ok) { setErr(r.error); return; }
           onDone();
@@ -685,28 +755,28 @@ function ExpenseModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
 }
 
 function CloseShift({ shiftNo, onClose, onFinished }: { shiftNo: number; onClose: () => void; onFinished: (msg: string) => void }) {
-  const [counted, setCounted] = useState('');
+  const [counts, setCounts] = useState<Record<Cur, string>>({ EGP: '', USD: '', EUR: '' });
   const [note, setNote] = useState('');
   const [z, setZ] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   if (z) {
-    const v = Number(z.variance);
     const h = Math.floor(z.hours_worked), m = Math.round((z.hours_worked - h) * 60);
     return (
       <Modal title={`Z-Report · Shift #${z.shift_no}`} wide>
         <table className="pos-table z">
+          <thead><tr><th /><th className="r">EGP</th><th className="r">USD</th><th className="r">EUR</th></tr></thead>
           <tbody>
-            <tr><td>Opening float</td><td className="r num">{egp(z.opening_float)}</td></tr>
-            <tr><td>+ Cash sales</td><td className="r num">{egp(z.cash_sales)}</td></tr>
-            <tr><td>+ Room cash payments</td><td className="r num">{egp(z.room_cash_payments)}</td></tr>
-            {Number(z.event_cash) > 0 && <tr><td>+ Event tickets paid in cash</td><td className="r num">{egp(z.event_cash)}</td></tr>}
-            <tr><td>− Approved expenses</td><td className="r num">{egp(z.approved_expenses)}</td></tr>
-            <tr className="strong"><td>Expected cash</td><td className="r num">{egp(z.expected_cash)}</td></tr>
-            <tr className="strong"><td>Counted cash</td><td className="r num">{egp(z.counted_cash)}</td></tr>
-            <tr className={`strong ${v === 0 ? 'ok' : 'bad'}`}><td>Variance</td><td className="r num">{v === 0 ? 'EGP 0 · Balanced' : v > 0 ? `Over ${egp(v)}` : `Short ${egp(-v)}`}</td></tr>
-            <tr><td colSpan={2} className="sep" /></tr>
-            <tr><td>Card sales / card room payments</td><td className="r num">{egp(z.card_sales)} / {egp(z.room_card_payments)}</td></tr>
+            {([['opening', 'Opening (received)'], ['sales', '+ Cash sales'], ['payments', '+ Guest cash payments'], ['events', '+ Event tickets (cash)'], ['expenses', '− Expenses'], ['taken', '− Taken (owner)'], ['expected', 'Expected'], ['counted', 'Counted']] as const).map(([k, l]) => (
+              <tr key={k} className={k === 'expected' || k === 'counted' ? 'strong' : ''}><td>{l}</td>{CURS.map((c) => <td key={c} className="r num">{cur(z.currencies?.[c]?.[k] ?? 0, c)}</td>)}</tr>
+            ))}
+            <tr className="strong"><td>Difference</td>{CURS.map((c) => { const v = Number(z.currencies?.[c]?.variance ?? 0); return <td key={c} className={`r num ${v === 0 ? 'ok' : 'bad'}`}>{v === 0 ? 'Balanced' : v > 0 ? `Over ${cur(v, c)}` : `Short ${cur(-v, c)}`}</td>; })}</tr>
+          </tbody>
+        </table>
+        {CURS.some((c) => Number(z.currencies?.[c]?.variance) < 0) && <p className="pos-msg bad">A shortage is recorded on your name. Pay it now in cash or it will be deducted from your salary; the manager decides.</p>}
+        <table className="pos-table z">
+          <tbody>
+            <tr><td>Card sales / card guest payments</td><td className="r num">{egp(z.card_sales)} / {egp(z.room_card_payments)}</td></tr>
             <tr><td>Charged to rooms</td><td className="r num">{egp(z.room_charges)}</td></tr>
             <tr><td>Owner comps</td><td className="r num">{egp(z.owner_comps)}</td></tr>
             <tr><td>Tour net profit</td><td className="r num">{egp(z.tour_profit)}</td></tr>
@@ -719,19 +789,248 @@ function CloseShift({ shiftNo, onClose, onFinished }: { shiftNo: number; onClose
   }
   return (
     <Modal title={`Close shift #${shiftNo}`} onClose={onClose}>
-      <p className="pos-fine">Count all the cash in the drawer now and enter the total. The expected amount is shown only after you confirm.</p>
-      <AmountPad label="Cash counted in the drawer" value={counted} onChange={setCounted} />
+      <p className="pos-fine">Count the cash in the drawer, each currency on its own, and hand it over. The expected amounts are shown only after you confirm.</p>
+      <CountGrid value={counts} onChange={setCounts} />
       <div className="pos-field"><label htmlFor="close-note">Note (optional)</label><input id="close-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} /></div>
       {err && <p className="pos-msg bad">{err}</p>}
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
-        <button className="pos-btn danger big" disabled={busy || counted === ''} onClick={async () => {
+        <button className="pos-btn danger big" disabled={busy || counts.EGP === ''} onClick={async () => {
           setBusy(true); setErr(null);
-          const r = await posCloseShift(toCents(counted), note);
+          const r = await posCloseShift(countsOf(counts), note);
           setBusy(false);
           if (!r.ok) { setErr(r.error); return; }
           setZ(r.data);
         }}><Icon name="lock" /> Confirm count & close</button>
       </div>
+    </Modal>
+  );
+}
+
+/* ───────── Shift tasks ───────── */
+
+type TaskRow = { id: string; title: string; kind: string; items: { label: string; done: boolean }[]; minutes: number; assigned_to: string | null; assignee: string | null; status: 'pending' | 'done'; note: string | null; done_by_name: string | null; started_at: string | null };
+
+function TasksModal({ onClose, notify }: { onClose: () => void; notify: (t: string, k?: 'ok' | 'bad') => void }) {
+  const [d, setD] = useState<any>(null);
+  const [notes, setNotes] = useState('');
+  const [handover, setHandover] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    const r = await posTasks();
+    if (!r.ok) { notify(r.error, 'bad'); return; }
+    setD(r.data); setNotes(r.data.run?.notes ?? '');
+  }, [notify]);
+  useEffect(() => { load(); }, [load]);
+
+  if (!d) return <Modal title="Shift tasks" onClose={onClose} wide><p className="pos-muted"><Icon name="refresh" size={16} className="spin" /> Loading…</p></Modal>;
+  if (!d.run) return <Modal title="Shift tasks" onClose={onClose}><p className="pos-muted">No shift is running at this hour.</p></Modal>;
+
+  const mine: TaskRow[] = d.tasks.filter((t: TaskRow) => t.assigned_to === d.me.id);
+  const others: TaskRow[] = d.tasks.filter((t: TaskRow) => t.assigned_to !== d.me.id);
+  const done = d.tasks.filter((t: TaskRow) => t.status === 'done').length;
+  const save = async (t: TaskRow, input: any, msg?: string) => {
+    const r = await posTaskSave(t.id, input);
+    if (!r.ok) { notify(r.error, 'bad'); return; }
+    if (msg) notify(msg);
+    load();
+  };
+  const share = async () => { const r = await posTasksShare(); if (!r.ok) notify(r.error, 'bad'); else { notify('Tasks shared between everyone clocked in'); load(); } };
+  const shareAt = new Date(d.run.shareAt);
+  const dayLabel = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(d.run.date + 'T12:00:00Z'));
+
+  return (
+    <Modal title={`${d.run.label} shift tasks · ${dayLabel}`} onClose={onClose} wide>
+      <div className="pos-tasks-head">
+        <div className="pos-progress" aria-label={`${done} of ${d.tasks.length} done`}><span style={{ width: `${d.tasks.length ? (done / d.tasks.length) * 100 : 0}%` }} /></div>
+        <b className="num">{done}/{d.tasks.length} done</b>
+        <span className="pos-muted">On shift: {d.staff.map((s: any) => s.name).join(', ') || 'nobody yet'}</span>
+        {d.me.is_manager && <button className="pos-btn small" onClick={share}><Icon name="refresh" size={16} /> {d.run.distributed ? 'Share again' : 'Share now'}</button>}
+      </div>
+
+      {!d.run.distributed && (
+        <p className="pos-note"><Icon name="clock" size={16} /> Last-hour tasks are shared at random at <b>{time(shareAt.toISOString())}</b> between the people on this shift. The drawer check goes to whoever receives the drawer.</p>
+      )}
+      {!d.onDuty && <p className="pos-note"><Icon name="alert-triangle" size={16} /> You are not clocked in, so you have no tasks this shift.</p>}
+
+      {d.onDuty && mine.length > 0 && (
+        <>
+          <h3 className="pos-tasks-h">My tasks · {mine.filter((t) => t.status === 'pending').length} open</h3>
+          {mine.length === 0 && <p className="pos-muted">Nothing assigned to you.</p>}
+          <div className="pos-tasks">
+            {mine.map((t) => <TaskCard key={t.id} t={t} d={d} onSave={save} onWash={async (id, ready) => { const r = await posWashReady(id, ready); if (!r.ok) notify(r.error, 'bad'); load(); }}
+              onTaxi={async (id, ok) => { const r = await posTaxiConfirmed(id, ok); if (!r.ok) notify(r.error, 'bad'); load(); }} />)}
+          </div>
+        </>
+      )}
+
+      {others.some((t) => t.assigned_to) && (
+        <>
+          <h3 className="pos-tasks-h">Team</h3>
+          <div className="pos-team">
+            {others.map((t) => (
+              <div key={t.id} className={`pos-team-row ${t.status}`}>
+                <Icon name={t.status === 'done' ? 'check-circle' : 'clipboard-list'} size={18} />
+                <span className="t">{t.title}</span>
+                {d.me.is_manager ? (
+                  <select value={t.assigned_to ?? ''} onChange={async (e) => { const r = await posTaskReassign(t.id, e.target.value); if (!r.ok) notify(r.error, 'bad'); load(); }} aria-label={`Assign ${t.title}`}>
+                    <option value="">Unassigned</option>
+                    {d.staff.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                ) : <span className="who">{t.assignee ?? 'Unassigned'}</span>}
+                <span className={`pos-badge ${t.status === 'done' ? 'green' : 'gray'}`}>{t.status === 'done' ? 'Done' : 'Open'}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="pos-field" style={{ marginTop: 18 }}>
+        <label htmlFor="shift-notes">Shift notes (handover)</label>
+        <textarea id="shift-notes" className="pos-textarea" rows={2} value={notes} placeholder="e.g. Folklore free breakfast tomorrow" onChange={(e) => setNotes(e.target.value)}
+          onBlur={async () => { if ((d.run.notes ?? '') !== notes) { const r = await posRunNotes(d.run.id, notes); if (!r.ok) notify(r.error, 'bad'); else load(); } }} />
+      </div>
+      <div className="pos-row" style={{ marginTop: 12 }}>
+        <button className="pos-btn" onClick={async () => { const r = await posHandover(d.run.id); if (r.ok) setHandover(r.data); else notify(r.error, 'bad'); }}><Icon name="file-text" /> Handover report</button>
+      </div>
+      {handover != null && (
+        <div className="pos-handover">
+          <pre>{handover}</pre>
+          <button className="pos-btn primary" onClick={async () => { try { await navigator.clipboard.writeText(handover); notify('Copied. Paste it in the team WhatsApp group.'); } catch { notify('Select the text and copy it', 'bad'); } }}>
+            <Icon name="check" /> Copy for WhatsApp</button>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function TaskCard({ t, d, onSave, onWash, onTaxi }: { t: TaskRow; d: any; onSave: (t: TaskRow, input: any, msg?: string) => void; onWash: (id: string, ready: boolean) => void; onTaxi: (id: string, informed: boolean) => void }) {
+  const [note, setNote] = useState(t.note ?? '');
+  const allTicked = t.items.every((i) => i.done);
+  const isDone = t.status === 'done';
+  const toggle = (idx: number) => onSave(t, { items: t.items.map((it, i) => (i === idx ? { ...it, done: !it.done } : it)), note });
+  return (
+    <div className={`pos-task ${isDone ? 'done' : ''}`}>
+      <div className="pos-task-hd">
+        <Icon name={isDone ? 'check-circle' : 'clipboard-list'} size={20} />
+        <b>{t.title}</b>
+        <span className="pos-muted small">~{t.minutes} min</span>
+      </div>
+
+      {t.items.length > 0 && (
+        <div className="pos-task-items">
+          {t.items.map((it, i) => (
+            <button key={it.label} type="button" disabled={isDone} className={`pos-check ${it.done ? 'on' : ''}`} onClick={() => toggle(i)} aria-pressed={it.done}>
+              <Icon name={it.done ? 'check' : 'plus'} size={16} /> {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {t.kind === 'unpaid' && (
+        <ul className="pos-task-list">
+          {d.unpaid.length === 0 && <li className="pos-muted">Every in-house guest is fully paid.</li>}
+          {d.unpaid.map((u: any) => <li key={u.id}><span>{u.guest}{u.rooms ? ` · ${u.rooms}` : ''}</span><b className="num">{egp(u.cents)}</b></li>)}
+        </ul>
+      )}
+      {t.kind === 'washes' && (
+        <ul className="pos-task-list">
+          {d.washes.length === 0 && <li className="pos-muted">No washes in progress.</li>}
+          {d.washes.map((w: any) => (
+            <li key={w.id}>
+              <span>{w.room_number || w.guest_name || 'Walk-in'} · {['paid', 'comp'].includes(w.payment_status) ? 'paid' : 'not paid'}</span>
+              <button type="button" className={`pos-check ${w.ready_at ? 'on' : ''}`} onClick={() => onWash(w.id, !w.ready_at)}>{w.ready_at ? 'Ready' : 'Mark ready'}</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {t.kind === 'tours' && (
+        <ul className="pos-task-list">
+          {d.tours.length === 0 && <li className="pos-muted">No tours today or tomorrow.</li>}
+          {d.tours.map((x: any) => <li key={x.id}><span>{x.guest_name || 'Walk-in'}{x.room_number ? ` · ${x.room_number}` : ''}</span><span>{x.item_name} × {x.quantity}</span></li>)}
+        </ul>
+      )}
+      {t.kind === 'money' && <p className="pos-muted small">{/visa|card/i.test(t.title) ? 'Check the card machine slips against the POS card sales.' : 'Done when you receive the drawer: count each currency on the POS.'}</p>}
+      {(t.kind === 'taxi' || t.kind === 'taxi_confirm') && (
+        <ul className="pos-task-list">
+          {(t.kind === 'taxi' ? d.taxis : d.taxis.filter((x: any) => x.id === (t as any).ref_id)).map((x: any) => (
+            <li key={x.id} className="col">
+              <span>{x.line}</span>
+              <span className="pos-row tight">
+                {x.wa && <a className="pos-check" href={x.wa} target="_blank" rel="noopener noreferrer"><Icon name="message-square" size={16} /> WhatsApp</a>}
+                <button type="button" className="pos-check" onClick={async () => { try { await navigator.clipboard.writeText(x.message); } catch { /* ignore */ } }}><Icon name="file-text" size={16} /> Copy message</button>
+                <button type="button" className={`pos-check ${x.confirmed_at ? 'on' : ''}`} onClick={() => onTaxi(x.id, !x.confirmed_at)}>{x.confirmed_at ? 'Informed' : 'Mark informed'}</button>
+              </span>
+            </li>
+          ))}
+          {t.kind === 'taxi' && d.taxis.length === 0 && <li className="pos-muted">No taxis today or tomorrow.</li>}
+        </ul>
+      )}
+
+      {!isDone ? (
+        <>
+          <input className="pos-task-note" placeholder="Note (what is missing, who was informed…)" value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => { if ((t.note ?? '') !== note) onSave(t, { note }); }} />
+          <div className="pos-row">
+            <button className="pos-btn primary" disabled={!allTicked} onClick={() => onSave(t, { done: true, note }, `${t.title}: done`)}><Icon name="check" /> Done</button>
+            {!allTicked && <button className="pos-btn" disabled={!note.trim()} onClick={() => onSave(t, { withNote: true, note }, `${t.title}: done with a note`)}>Done with note</button>}
+          </div>
+        </>
+      ) : (
+        <div className="pos-row">
+          {t.note && <span className="pos-muted small">{t.note}</span>}
+          <button className="pos-link" onClick={() => onSave(t, { done: false, note })}>Undo</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TakenModal({ takers, onClose, onDone }: { takers: { id: string; full_name: string }[]; onClose: () => void; onDone: (m: string) => void }) {
+  const [who, setWho] = useState(takers[0]?.id ?? '');
+  const [pin, setPin] = useState('');
+  const [counts, setCounts] = useState<Record<Cur, string>>({ EGP: '', USD: '', EUR: '' });
+  const [note, setNote] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const a = countsOf(counts);
+  return (
+    <Modal title="Cash taken from the drawer" onClose={onClose}>
+      <p className="pos-fine">Only the owner records this, with their own PIN. Counting continues from what is left.</p>
+      <div className="pos-two">
+        <div className="pos-field"><label htmlFor="tk-who">Taken by</label><select id="tk-who" value={who} onChange={(e) => setWho(e.target.value)}>{takers.map((t) => <option key={t.id} value={t.id}>{t.full_name}</option>)}</select></div>
+        <div className="pos-field"><label htmlFor="tk-pin">Their PIN</label><input id="tk-pin" type="password" inputMode="numeric" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} /></div>
+      </div>
+      <CountGrid value={counts} onChange={setCounts} />
+      <div className="pos-field"><label htmlFor="tk-note">Note (optional)</label><input id="tk-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} /></div>
+      {err && <p className="pos-msg bad">{err}</p>}
+      <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
+        <button className="pos-btn primary" disabled={busy || pin.length < 4 || !(a.EGP || a.USD || a.EUR)} onClick={async () => {
+          setBusy(true); setErr(null);
+          const r = await posTaken({ takerId: who, takerPin: pin, amounts: a, note });
+          setBusy(false);
+          if (!r.ok) { setErr(r.error); return; }
+          onDone(`Taken by ${r.data.by}: ${CURS.filter((c) => (a as any)[c]).map((c) => cur((a as any)[c], c)).join(' · ')}`);
+        }}><Icon name="check" /> Record taken</button>
+      </div>
+    </Modal>
+  );
+}
+
+function TourCatalog({ t, onClose, notify }: { t: Tour; onClose: () => void; notify: (m: string, k?: 'ok' | 'bad') => void }) {
+  return (
+    <Modal title={`${t.name} · catalog`} onClose={onClose} wide>
+      <p className="pos-fine">Send this to the guest on WhatsApp, or go through it with them at the desk so they know the whole programme.</p>
+      {t.guest_message && (
+        <>
+          <pre className="pos-handover-pre">{t.guest_message}</pre>
+          <div className="pos-row"><button className="pos-btn primary" onClick={async () => { try { await navigator.clipboard.writeText(t.guest_message!); notify('Message copied'); } catch { notify('Select the text and copy it', 'bad'); } }}><Icon name="check" /> Copy message</button></div>
+        </>
+      )}
+      {t.files?.length ? (
+        <div className="pos-files">
+          {t.files.map((f) => (
+            <a key={f.id} className="pos-btn" href={`/api/media/tour-file/${f.id}`} target="_blank" rel="noopener noreferrer"><Icon name="file-text" /> {f.name}</a>
+          ))}
+        </div>
+      ) : null}
     </Modal>
   );
 }
