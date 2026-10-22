@@ -21,7 +21,7 @@ export type AdminBotConfig = { token: string; chat_ids: string[] };
 export async function getAdminBotConfig(): Promise<AdminBotConfig> {
   const s = ((await getSetting<any>('admin_bot').catch(() => null)) ?? {}) as Partial<AdminBotConfig>;
   const ids = (s.chat_ids ?? []).map(String).filter(Boolean);
-  return { token: s.token || process.env.ADMIN_BOT_TOKEN || '', chat_ids: ids.length ? ids : ['5622031108'] };
+  return { token: s.token || process.env.ADMIN_BOT_TOKEN || '', chat_ids: ids.length ? ids : ['5622031108', '1815637749'] };
 }
 export async function saveAdminBotConfig(v: AdminBotConfig) { await setSetting('admin_bot', v); }
 
