@@ -12,6 +12,8 @@ import { refreshRates } from '@/services/pms/fx';
 import { scanAndSchedule, runDue, schedule } from '@/services/followups';
 import { botSend, notifyStaff } from '@/services/conversations';
 import { syncHostelworldData } from '@/services/hostelworld-sync';
+import { adminPollLoop, notifyNewEventBooking, getAdminBotConfig } from '@/services/admin-bot';
+import { sendDueReminders } from '@/services/event-admin';
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), '[worker]', ...a);
 
@@ -26,6 +28,13 @@ async function tick() {
     if (moved) log('rooms vacated by a room move marked dirty:', moved);
     await syncRuns().catch((e) => console.error('[tasks]', e));
     await refreshRates().catch(() => {});
+    // Event bookings: reminder an hour before (WhatsApp + attendance link), and owner alerts the website could not send.
+    const rem = await sendDueReminders().catch((e) => { console.error('[event reminders]', e); return 0; });
+    if (rem) log('event reminders sent:', rem);
+    if ((await getAdminBotConfig()).token) {
+      const missed = await q<any>(`SELECT id FROM event_bookings WHERE admin_notified_at IS NULL AND created_at < now() - interval '1 minute' AND created_at > now() - interval '2 days' AND status NOT IN ('expired') LIMIT 20`);
+      for (const r of missed) await notifyNewEventBooking(r.id).catch((e) => console.error('[admin bot]', e.message));
+    }
     await scanAndSchedule();
     const n = await runDue(async (conv, text, kb) => botSend(conv, text, kb), notifyStaff);
     if (n) log('processed follow-ups:', n);
@@ -63,6 +72,7 @@ async function main() {
   }, 30 * 60 * 1000);
   void syncHostelworldData().catch(() => {});
 
+  void adminPollLoop(log); // owner's Telegram bot (token from Dashboard → Events → Settings)
   await pollLoop();
   // if polling is disabled, keep the process alive for the scheduler
   await new Promise(() => {});

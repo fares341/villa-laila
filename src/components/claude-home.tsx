@@ -991,7 +991,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
       </section>
 
       {/* ================= EVENTS ================= */}
-      <EventsSection lang={lang} events={events} />
+      <EventsSection lang={lang} events={events} limit={6} />
 
       {/* ================= ROOMS & DORMS ================= */}
       <section className="sec band-white" id="stay">

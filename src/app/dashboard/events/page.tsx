@@ -3,49 +3,84 @@ import { requireUser } from '@/lib/auth';
 import { can } from '@/lib/permissions';
 import { q } from '@/lib/db';
 import { todayLocal, addDays } from '@/lib/dates';
-import { PageHeader, Card, Flash, fmt, dt, Btn, BtnGhost, BtnDanger, Input, Empty } from '@/components/dash';
+import { PageHeader, Card, Flash, fmt, dt, Btn, BtnGhost, BtnDanger, Input, Lbl, Empty, SubTabs, Pill } from '@/components/dash';
 import { listInstapaySubmissions } from '@/services/online-payments';
-import { paymobEnabled } from '@/services/paymob';
-import { instapayEnabled } from '@/services/instapay';
-import { tr, eventProfit, listPublicEvents } from '@/services/events';
+import { getWallets, walletOn, walletLabel } from '@/services/wallets';
+import { getAdminBotConfig } from '@/services/admin-bot';
+import { getWhatsAppConfig, normalizePhone } from '@/services/whatsapp';
+import { tr, eventProfit, listPublicEvents, hiddenReason, EVENT_COLS } from '@/services/events';
 import { Icon } from '@/components/icons';
-import { Pill } from '@/components/dash';
-import { decideInstapayAction, markEventPaidAction, checkInEventAction, cancelEventBookingAction, findTicketAction } from './actions';
+import {
+  decideInstapayAction, markEventPaidAction, checkInEventAction, cancelEventBookingAction, confirmEventBookingAction, findTicketAction,
+  saveWalletsAction, saveAdminBotAction, testAdminBotAction, saveWhatsAppAction,
+} from './actions';
 
 export const dynamic = 'force-dynamic';
 
 const ST: Record<string, [string, string]> = {
   paid: ['Paid', 'bg-emerald-100 text-emerald-900'],
   pay_on_site: ['Pay at door', 'bg-sky-100 text-sky-900'],
-  pending_verification: ['InstaPay to check', 'bg-amber-100 text-amber-900'],
+  pending_verification: ['Receipt to check', 'bg-amber-100 text-amber-900'],
   awaiting_payment: ['Awaiting payment', 'bg-slate-100 text-slate-800'],
   expired: ['Expired', 'bg-slate-200 text-slate-600'],
   cancelled: ['Cancelled', 'bg-red-100 text-red-900'],
 };
+const METHOD: Record<string, string> = { paymob: 'Card (Paymob)', instapay: 'InstaPay', vodafone_cash: 'Vodafone Cash', cash: 'Cash at the villa' };
+const mask = (t: string) => (t ? `${t.slice(0, 6)}…${t.slice(-4)}` : '');
 
 export default async function EventsDashboard({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireUser('tours.manage');
   const sp = await searchParams;
+  const tab = sp.tab === 'events' ? 'events' : sp.tab === 'settings' ? 'settings' : 'bookings';
   const today = todayLocal();
   const from = sp.from || today;
   const to = sp.to || addDays(today, 13);
   const canVerify = can(user.role, 'frontdesk.use');
   const canEdit = can(user.role, 'events.manage');
+  const isOwner = can(user.role, 'settings.manage');
+  const [receipts, wallets, bot] = await Promise.all([listInstapaySubmissions(), getWallets(true), getAdminBotConfig()]);
 
-  const [instapay, bookings, events] = await Promise.all([
-    listInstapaySubmissions(),
-    q<any>(`
-      SELECT b.*, e.title, e.slug, e.start_time, e.options
-      FROM event_bookings b JOIN events e ON e.id=b.event_id
-      WHERE b.event_date BETWEEN $1 AND $2 AND ($3::text IS NULL OR b.status=$3)
-        AND NOT (b.status='awaiting_payment' AND b.hold_expires_at < now())
-      ORDER BY b.event_date, e.start_time, b.created_at`, [from, to, sp.status || null]),
-    q<any>(`SELECT id, slug, title, kind, active, recurrence, weekdays, once_date, start_time, end_time, price_cents, guest_price_cents, cost_per_attendee_cents, capacity FROM events ORDER BY active DESC, sort_order, slug`),
-  ]);
-  const [profit, pubEvents] = await Promise.all([eventProfit(from, to), listPublicEvents()]);
-  const liveById = new Map(pubEvents.map((e) => [e.id, e]));
-  const profitById = new Map(profit.map((p: any) => [p.id, p]));
+  const tabs = [
+    { href: '/dashboard/events', label: 'Bookings & receipts', icon: 'ticket', count: receipts.length },
+    { href: '/dashboard/events?tab=events', label: 'Events on the website', icon: 'calendar-days' },
+    ...(canEdit ? [{ href: '/dashboard/events?tab=settings', label: 'Payment accounts & bots', icon: 'settings' }] : []),
+  ];
+  const current = tab === 'bookings' ? '/dashboard/events' : `/dashboard/events?tab=${tab}`;
+  const anyWallet = walletOn(wallets, 'instapay') || walletOn(wallets, 'vodafone_cash');
 
+  return (
+    <>
+      <PageHeader title="Events" sub="Bookings from the website, receipts to check, the events shown on the website, and how guests pay.">
+        <form action={findTicketAction} className="flex gap-2">
+          <input name="code" placeholder="Ticket code EV-…" className={Input + ' w-44'} aria-label="Ticket code" />
+          <button className={BtnGhost}>Find ticket</button>
+        </form>
+        {canEdit && <Link href="/dashboard/events/edit/new" className={Btn}><Icon name="plus" size={16} /> New event</Link>}
+      </PageHeader>
+      <SubTabs tabs={tabs} current={current} />
+      <Flash sp={sp} />
+
+      {tab === 'bookings' && <Bookings {...{ sp, from, to, today, receipts, canVerify }} />}
+      {tab === 'events' && <EventsList {...{ from, to, canEdit }} />}
+      {tab === 'settings' && canEdit && <Settings {...{ wallets, bot, isOwner }} />}
+      {tab === 'bookings' && canEdit && (!anyWallet || !bot.token) && (
+        <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          {!anyWallet && <>No InstaPay or Vodafone Cash account is set, so guests cannot pay by transfer. </>}
+          {!bot.token && <>The Telegram admin bot is not connected yet, so new bookings are not sent to you. </>}
+          <Link className="font-semibold underline" href="/dashboard/events?tab=settings">Open settings</Link>
+        </p>
+      )}
+    </>
+  );
+}
+
+async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
+  const bookings = await q<any>(`
+    SELECT b.*, e.title, e.slug, e.start_time, e.options
+    FROM event_bookings b JOIN events e ON e.id=b.event_id
+    WHERE b.event_date BETWEEN $1 AND $2 AND ($3::text IS NULL OR b.status=$3)
+      AND NOT (b.status='awaiting_payment' AND b.hold_expires_at < now())
+    ORDER BY b.event_date, e.start_time, b.created_at`, [from, to, sp.status || null]);
   const byDay = new Map<string, any[]>();
   for (const b of bookings) byDay.set(b.event_date, [...(byDay.get(b.event_date) ?? []), b]);
   const live = bookings.filter((b) => ['paid', 'pay_on_site', 'pending_verification'].includes(b.status));
@@ -55,63 +90,40 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
 
   return (
     <>
-      <PageHeader title="Events & online payments" sub="Event tickets, InstaPay transfers to check, and door check-in.">
-        <form action={findTicketAction} className="flex gap-2">
-          <input name="code" placeholder="Ticket code EV-…" className={Input + ' w-44'} aria-label="Ticket code" />
-          <button className={Btn}>Find ticket</button>
-        </form>
-        {canEdit && <Link href="/dashboard/events/edit/new" className={Btn}><Icon name="plus" size={16} /> New event</Link>}
-        {canEdit && <Link href="/dashboard/events/edit/new?kind=day_use" className={BtnGhost}><Icon name="plus" size={16} /> New day-use</Link>}
-      </PageHeader>
-      <Flash sp={sp} />
-
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[
-          ['Guests today', String(todayCount)],
-          ['Booked (period)', String(people)],
-          ['Paid online (period)', fmt(paidEgp)],
-          ['InstaPay to check', String(instapay.length)],
-        ].map(([k, v]) => (
+        {[['Guests today', String(todayCount)], ['Booked (period)', String(people)], ['Paid (period)', fmt(paidEgp)], ['Receipts to check', String(receipts.length)]].map(([k, v]) => (
           <div key={k} className="rounded-2xl border border-cocoa-200 bg-white p-4"><p className="text-xs text-slate-600">{k}</p><p className="mt-1 text-2xl font-semibold text-cocoa-800">{v}</p></div>
         ))}
       </div>
 
-      {(!paymobEnabled() || !instapayEnabled()) && (
-        <p className="mb-6 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          {!paymobEnabled() && <>Paymob is off: set <code>PAYMOB_SECRET_KEY</code>, <code>PAYMOB_PUBLIC_KEY</code>, <code>PAYMOB_HMAC_SECRET</code> and <code>PAYMOB_INTEGRATION_IDS</code> in <code>.env</code>. </>}
-          {!instapayEnabled() && <>InstaPay is off: set <code>INSTAPAY_ADDRESS</code> (and optionally <code>INSTAPAY_PHONE</code>, <code>INSTAPAY_NAME</code>).</>}
-        </p>
-      )}
-
-      <Card title={`InstaPay transfers to check (${instapay.length})`} className="mb-6">
-        {instapay.length === 0 ? <p className="text-sm text-slate-600">Nothing waiting. InstaPay bookings with their screenshot wait here as Pending Approval. Approving makes the ticket valid; rejecting lets the guest send it again.</p> : (
+      <Card title={`Receipts to check (${receipts.length})`} className="mb-6">
+        {receipts.length === 0 ? <p className="text-sm text-slate-600">Nothing waiting. When a guest pays by InstaPay or Vodafone Cash, the receipt waits here (and on Telegram). Check the money in the app, then approve: the booking becomes confirmed and paid, and the guest gets the confirmation.</p> : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-slate-600"><tr><th className="py-2">For</th><th>Guest</th><th>Sender</th><th>Reference</th><th>Amount</th><th>Sent</th><th>Screenshot</th><th /></tr></thead>
+              <thead className="text-left text-slate-600"><tr><th className="py-2">Receipt</th><th>For</th><th>Guest</th><th>Paid by</th><th>Amount</th><th>Sent</th><th /></tr></thead>
               <tbody>
-                {instapay.map((p) => (
+                {receipts.map((p: any) => (
                   <tr key={p.id} className="border-t border-slate-100 align-top">
-                    <td className="py-2">{p.kind === 'event'
+                    <td className="py-2">{p.has_proof ? (
+                      <a href={`/api/media/instapay/${p.id}`} target="_blank" rel="noopener" className="block w-20" title="Open full size">
+                        {String(p.proof_mime).startsWith('image/') ? <img src={`/api/media/instapay/${p.id}`} alt="Receipt" className="h-20 w-20 rounded-lg border border-slate-200 object-cover" />
+                          : <span className="inline-flex items-center gap-1 text-sm underline"><Icon name="file-text" size={16} /> PDF</span>}
+                      </a>) : <Pill tone="red">Missing</Pill>}</td>
+                    <td>{p.kind === 'event'
                       ? <Link className="underline" href={`/en/tickets/${p.ticket_code}`}>{tr(p.event_title, 'en')} · {p.event_date} · {p.ticket_code}</Link>
                       : <span>Room booking {p.res_ref}</span>}</td>
                     <td>{p.event_guest || p.res_guest}</td>
-                    <td>{p.payer_name}</td>
-                    <td className="font-mono">{p.payer_reference}</td>
+                    <td><b>{walletLabel(p.provider)}</b><div className="text-xs text-slate-600">{p.payer_name}{p.payer_reference ? ` · ref ${p.payer_reference}` : ''}</div></td>
                     <td className="whitespace-nowrap font-semibold">{fmt(Number(p.amount_cents), p.currency)}</td>
                     <td className="whitespace-nowrap">{dt(p.created_at)}</td>
-                    <td>{p.has_proof ? (
-                      <a href={`/api/media/instapay/${p.id}`} target="_blank" rel="noopener" className="block w-20" title="Open full size">
-                        {String(p.proof_mime).startsWith('image/') ? <img src={`/api/media/instapay/${p.id}`} alt="InstaPay screenshot" className="h-20 w-20 rounded-lg border border-slate-200 object-cover" />
-                          : <span className="inline-flex items-center gap-1 text-sm underline"><Icon name="file-text" size={16} /> PDF</span>}
-                      </a>) : <Pill tone="red">Missing</Pill>}</td>
                     <td className="whitespace-nowrap">
                       {canVerify ? (
                         <form action={decideInstapayAction} className="flex gap-1">
                           <input type="hidden" name="id" value={p.id} />
-                          <button name="decision" value="verify" className={Btn}><Icon name="check" size={16} /> Approve</button>
+                          <button name="decision" value="verify" className={Btn}><Icon name="check" size={16} /> Approve & confirm</button>
                           <button name="decision" value="reject" className={BtnDanger}><Icon name="x" size={16} /> Reject</button>
                         </form>
-                      ) : <span className="text-xs text-slate-500">Manager verifies</span>}
+                      ) : <span className="text-xs text-slate-500">Manager checks</span>}
                     </td>
                   </tr>
                 ))}
@@ -121,7 +133,7 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
         )}
       </Card>
 
-      <Card title="Event bookings" className="mb-6">
+      <Card title="Event bookings">
         <form className="mb-4 flex flex-wrap items-end gap-2 text-sm">
           <label>From <input type="date" name="from" defaultValue={from} className={Input + ' w-40'} /></label>
           <label>To <input type="date" name="to" defaultValue={to} className={Input + ' w-40'} /></label>
@@ -141,27 +153,38 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
                 <table className="w-full text-sm">
                   <thead className="text-left text-slate-600"><tr><th className="py-1.5">Ticket</th><th>Event</th><th>Guest</th><th>Qty</th><th>Total</th><th>Status</th><th /></tr></thead>
                   <tbody>
-                    {rows.map((b) => {
+                    {rows.map((b: any) => {
                       const [label, cls] = ST[b.status] ?? [b.status, 'bg-slate-100'];
                       const opt = b.option_key ? (b.options as any[]).find((o) => o.key === b.option_key)?.en : null;
+                      const phone = normalizePhone(b.phone);
+                      const open = !['cancelled', 'expired'].includes(b.status);
                       return (
                         <tr key={b.id} className="border-t border-slate-100 align-top">
                           <td className="py-2 font-mono"><Link className="underline" href={`/${b.language || 'en'}/tickets/${b.ticket_code}`}>{b.ticket_code}</Link></td>
                           <td>{tr(b.title, 'en')} <span className="text-slate-500">{b.start_time}</span>{opt && <div className="text-xs text-slate-600">{opt}</div>}</td>
                           <td>{b.full_name}<div className="text-xs text-slate-600">{b.phone || b.email}</div>{b.is_hotel_guest && <div className="text-xs text-emerald-800">Hotel guest {b.stay_reference}</div>}</td>
                           <td className="num">{b.quantity}</td>
-                          <td className="whitespace-nowrap">{fmt(Number(b.total_cents), b.currency)}<div className="text-xs text-slate-500">{b.pay_method}</div></td>
-                          <td><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>{b.checked_in_at && <div className="mt-1 text-xs text-emerald-800">Checked in {dt(b.checked_in_at)}</div>}</td>
+                          <td className="whitespace-nowrap">{fmt(Number(b.total_cents), b.currency)}<div className="text-xs text-slate-500">{METHOD[b.pay_method] ?? b.pay_method}</div></td>
+                          <td>
+                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>
+                            {open && b.confirmed_at && <div className="mt-1 text-xs text-emerald-800">Confirmed</div>}
+                            {b.attendance_confirmed_at && <div className="text-xs text-emerald-800">Said they are coming</div>}
+                            {b.checked_in_at && <div className="text-xs text-emerald-800">Checked in {dt(b.checked_in_at)}</div>}
+                          </td>
                           <td className="whitespace-nowrap">
                             <div className="flex flex-wrap gap-1">
+                              {open && !b.confirmed_at && b.status !== 'pending_verification' && (
+                                <form action={confirmEventBookingAction}><input type="hidden" name="id" value={b.id} /><button className={BtnGhost}>Confirm</button></form>
+                              )}
                               {b.status === 'paid' && !b.checked_in_at && (
                                 <form action={checkInEventAction}><input type="hidden" name="id" value={b.id} /><button className={Btn}>Check in</button></form>
                               )}
                               {['pay_on_site', 'awaiting_payment'].includes(b.status) && (
                                 <form action={markEventPaidAction}><input type="hidden" name="id" value={b.id} /><button className={b.status === 'pay_on_site' ? Btn : BtnGhost} title="Goes into the open POS drawer">Take cash</button></form>
                               )}
-                              {b.status !== 'cancelled' && !b.checked_in_at && (
-                                <form action={cancelEventBookingAction}><input type="hidden" name="id" value={b.id} /><button className={BtnGhost}>Cancel</button></form>
+                              {phone && <a className={BtnGhost} href={`https://wa.me/${phone}`} target="_blank" rel="noopener" title="Open WhatsApp chat"><Icon name="message-square" size={16} /></a>}
+                              {open && !b.checked_in_at && (
+                                <form action={cancelEventBookingAction}><input type="hidden" name="id" value={b.id} /><button className={BtnGhost} title="The guest is told on WhatsApp">Cancel</button></form>
                               )}
                             </div>
                           </td>
@@ -175,34 +198,115 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
           ))
         )}
       </Card>
-
-      <Card title="Events & day-use">
-        <p className="mb-3 text-sm text-slate-600">Profit = (ticket price − cost per attendee) × tickets sold, for the period above. Events sell out automatically at capacity.</p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-slate-600"><tr><th className="py-2">Event</th><th>Schedule</th><th className="text-right">Price</th><th className="text-right">Cost</th><th>Next date</th><th className="text-right">Sold</th><th className="text-right">Revenue</th><th className="text-right">Profit</th><th /></tr></thead>
-            <tbody>
-              {events.map((e) => {
-                const pe = liveById.get(e.id); const pr: any = profitById.get(e.id) ?? { tickets: 0, revenue: 0 };
-                const profitCents = Number(pr.revenue) - Number(e.cost_per_attendee_cents) * pr.tickets;
-                return (
-                  <tr key={e.id} className={`border-t border-slate-100 ${e.active ? '' : 'opacity-50'}`}>
-                    <td className="py-2"><b>{tr(e.title, 'en')}</b><div className="text-xs text-slate-500">{e.kind === 'day_use' ? 'Day-use' : 'Event'}{!e.active && ' · not published'}</div></td>
-                    <td className="text-xs">{e.recurrence === 'once' ? e.once_date : e.recurrence === 'daily' ? 'Daily' : 'Weekly ' + (e.weekdays as number[]).map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}<br />{e.start_time}–{e.end_time}</td>
-                    <td className="text-right tabular-nums">{fmt(Number(e.price_cents))}</td>
-                    <td className="text-right tabular-nums">{fmt(Number(e.cost_per_attendee_cents))}</td>
-                    <td className="text-xs">{!e.active ? '—' : pe?.soldOut ? <Pill tone="red">Sold out</Pill> : pe?.nextDate ? <>{pe.nextDate}{e.capacity != null && <div className="text-slate-500">{pe.seatsLeftNext} of {e.capacity} left</div>}</> : <span className="text-slate-400">No upcoming date</span>}</td>
-                    <td className="text-right tabular-nums">{pr.tickets}{pr.pending ? <div className="text-xs text-amber-700">+{pr.pending} pending</div> : null}</td>
-                    <td className="text-right tabular-nums">{fmt(Number(pr.revenue))}</td>
-                    <td className="text-right font-semibold tabular-nums text-emerald-700">{fmt(profitCents)}</td>
-                    <td className="text-right">{canEdit && <Link href={`/dashboard/events/edit/${e.id}`} className="text-sm font-semibold text-cocoa-600 underline">Edit</Link>}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </>
+  );
+}
+
+async function EventsList({ from, to, canEdit }: { from: string; to: string; canEdit: boolean }) {
+  const [events, profit, pubEvents, mediaCounts] = await Promise.all([
+    q<any>(`SELECT ${EVENT_COLS} FROM events ORDER BY active DESC, sort_order, slug`),
+    eventProfit(from, to), listPublicEvents(),
+    q<any>(`SELECT event_id, count(*) FILTER (WHERE kind='meal')::int meals, count(*) FILTER (WHERE kind='video')::int videos FROM event_media GROUP BY event_id`).catch(() => []),
+  ]);
+  const liveById = new Map(pubEvents.map((e) => [e.id, e]));
+  const profitById = new Map(profit.map((p: any) => [p.id, p]));
+  const media = new Map(mediaCounts.map((m: any) => [m.event_id, m]));
+  return (
+    <Card title="Events & day-use">
+      <p className="mb-3 text-sm text-slate-600">Everything published here is on the website (home page and Events page) right away. Profit = (ticket price − cost per attendee) × tickets sold, {from} to {to}.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-left text-slate-600"><tr><th className="py-2">Event</th><th>On the website</th><th>Schedule</th><th className="text-right">Price</th><th>Next date</th><th className="text-right">Sold</th><th className="text-right">Profit</th><th /></tr></thead>
+          <tbody>
+            {events.map((e: any) => {
+              const pe = liveById.get(e.id); const pr: any = profitById.get(e.id) ?? { tickets: 0, revenue: 0 };
+              const profitCents = Number(pr.revenue) - Number(e.cost_per_attendee_cents) * pr.tickets;
+              const why = hiddenReason(e); const m: any = media.get(e.id) ?? { meals: 0, videos: 0 };
+              return (
+                <tr key={e.id} className="border-t border-slate-100 align-top">
+                  <td className="py-2"><b>{tr(e.title, 'en')}</b><div className="text-xs text-slate-500">{e.kind === 'day_use' ? 'Day-use' : 'Event'} · {m.meals} meal photo(s) · {m.videos} video(s)</div></td>
+                  <td className="text-xs">{why ? <span className="text-amber-800">Hidden: {why}</span> : <a className="font-semibold text-emerald-800 underline" href={`/en/events/${e.slug}`} target="_blank" rel="noopener">Live · open</a>}</td>
+                  <td className="text-xs">{e.recurrence === 'once' ? e.once_date : e.recurrence === 'daily' ? 'Daily' : 'Weekly ' + (e.weekdays as number[]).map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}<br />{e.start_time}–{e.end_time}</td>
+                  <td className="text-right tabular-nums">{fmt(Number(e.price_cents))}</td>
+                  <td className="text-xs">{why ? '—' : pe?.soldOut ? <Pill tone="red">Sold out</Pill> : pe?.nextDate ? <>{pe.nextDate}{e.capacity != null && <div className="text-slate-500">{pe.seatsLeftNext} of {e.capacity} left</div>}</> : '—'}</td>
+                  <td className="text-right tabular-nums">{pr.tickets}{pr.pending ? <div className="text-xs text-amber-700">+{pr.pending} pending</div> : null}</td>
+                  <td className="text-right font-semibold tabular-nums text-emerald-700">{fmt(profitCents)}</td>
+                  <td className="text-right">{canEdit && <Link href={`/dashboard/events/edit/${e.id}`} className={BtnGhost}>Edit</Link>}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+async function Settings({ wallets, bot, isOwner }: { wallets: Awaited<ReturnType<typeof getWallets>>; bot: Awaited<ReturnType<typeof getAdminBotConfig>>; isOwner: boolean }) {
+  const wa = await getWhatsAppConfig();
+  return (
+    <div className="grid gap-5 xl:grid-cols-2">
+      <Card title="Payment accounts (shown to guests)">
+        <form action={saveWalletsAction} className="space-y-5">
+          <fieldset className="space-y-3">
+            <legend className="mb-1 flex w-full items-center justify-between font-semibold text-cocoa-800">InstaPay
+              <label className="flex items-center gap-2 text-sm font-normal"><input type="checkbox" name="ipOn" defaultChecked={wallets.instapay.enabled} /> Offer on the website</label></legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div><Lbl htmlFor="ip-a">InstaPay address (IPA)</Lbl><input id="ip-a" name="ipAddress" dir="ltr" placeholder="villalayla@instapay" defaultValue={wallets.instapay.address} className={Input} /></div>
+              <div><Lbl htmlFor="ip-p">Or mobile number</Lbl><input id="ip-p" name="ipPhone" dir="ltr" placeholder="01xxxxxxxxx" defaultValue={wallets.instapay.phone} className={Input} /></div>
+              <div><Lbl htmlFor="ip-n">Account name</Lbl><input id="ip-n" name="ipName" defaultValue={wallets.instapay.name} className={Input} /></div>
+              <div><Lbl htmlFor="ip-l">Payment link (optional)</Lbl><input id="ip-l" name="ipLink" dir="ltr" placeholder="https://ipn.eg/S/…" defaultValue={wallets.instapay.link} className={Input} /></div>
+            </div>
+          </fieldset>
+          <fieldset className="space-y-3 border-t border-cocoa-100 pt-4">
+            <legend className="mb-1 flex w-full items-center justify-between font-semibold text-cocoa-800">Vodafone Cash
+              <label className="flex items-center gap-2 text-sm font-normal"><input type="checkbox" name="vfOn" defaultChecked={wallets.vodafone_cash.enabled} /> Offer on the website</label></legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div><Lbl htmlFor="vf-n">Vodafone Cash number</Lbl><input id="vf-n" name="vfNumber" dir="ltr" placeholder="010xxxxxxxx" defaultValue={wallets.vodafone_cash.number} className={Input} /></div>
+              <div><Lbl htmlFor="vf-a">Name on the wallet</Lbl><input id="vf-a" name="vfName" defaultValue={wallets.vodafone_cash.name} className={Input} /></div>
+            </div>
+          </fieldset>
+          <p className="text-xs text-slate-500">Guests who pick one of these see the account, send the money and upload the receipt with the booking. You approve it here or on Telegram; then the booking is confirmed.</p>
+          <button className={Btn}><Icon name="check" size={16} /> Save accounts</button>
+        </form>
+      </Card>
+
+      <Card title="Telegram admin bot">
+        {isOwner ? (
+          <>
+            <p className="mb-3 text-sm text-slate-600">New bookings and receipts are sent here with buttons to confirm, cancel or edit them. You can also create and edit events, add meal photos and videos from the bot. Make the bot in <b>@BotFather</b> (a different bot from the guest bot) and paste its token.</p>
+            <form action={saveAdminBotAction} className="space-y-3">
+              <div><Lbl htmlFor="ab-t">Bot token {bot.token && <span className="font-normal text-emerald-700">· saved ({mask(bot.token)})</span>}</Lbl>
+                <input id="ab-t" name="token" type="password" autoComplete="off" dir="ltr" placeholder={bot.token ? 'Leave empty to keep the saved token' : '123456789:AA…'} className={Input} /></div>
+              <div><Lbl htmlFor="ab-c">Chat IDs that may use the bot</Lbl><input id="ab-c" name="chatIds" dir="ltr" defaultValue={bot.chat_ids.join(', ')} className={Input} /></div>
+              <div className="flex flex-wrap gap-2"><button className={Btn}><Icon name="check" size={16} /> Save</button></div>
+            </form>
+            {bot.token && <form action={testAdminBotAction} className="mt-2"><button className={BtnGhost}>Send a test message</button></form>}
+            <p className="mt-3 text-xs text-slate-500">After saving, open the bot in Telegram and press Start. Commands: /bookings, /today, /events, /new.</p>
+          </>
+        ) : <p className="text-sm text-slate-600">Only the owner can change the bot.</p>}
+      </Card>
+
+      <Card title="WhatsApp messages to guests" className="xl:col-span-2">
+        {isOwner ? (
+          <>
+            <p className="mb-3 text-sm text-slate-600">
+              Guests get WhatsApp messages when a booking is confirmed or cancelled, and one hour before the event asking them to confirm they are coming.
+              {wa.token && wa.phone_number_id ? ' They are sent automatically.' : ' Until the WhatsApp Cloud API is connected below, the Telegram bot gives you a one-tap WhatsApp link with the message already written.'}
+            </p>
+            <form action={saveWhatsAppAction} className="grid gap-3 md:grid-cols-3">
+              <div><Lbl htmlFor="wa-t">Cloud API access token {wa.token && <span className="font-normal text-emerald-700">· saved</span>}</Lbl><input id="wa-t" name="token" type="password" autoComplete="off" dir="ltr" placeholder={wa.token ? 'Leave empty to keep it' : 'EAAG…'} className={Input} /></div>
+              <div><Lbl htmlFor="wa-p">Phone number ID</Lbl><input id="wa-p" name="phoneNumberId" dir="ltr" defaultValue={wa.phone_number_id} className={Input} /></div>
+              <div><Lbl htmlFor="wa-l">Template language</Lbl><input id="wa-l" name="templateLang" dir="ltr" defaultValue={wa.template_lang} className={Input} /></div>
+              <div><Lbl htmlFor="wa-r">Reminder template name</Lbl><input id="wa-r" name="tplReminder" dir="ltr" defaultValue={wa.template_reminder} className={Input} /></div>
+              <div><Lbl htmlFor="wa-c">Cancellation template name</Lbl><input id="wa-c" name="tplCancel" dir="ltr" defaultValue={wa.template_cancel} className={Input} /></div>
+              <div><Lbl htmlFor="wa-k">Confirmation template name</Lbl><input id="wa-k" name="tplConfirm" dir="ltr" defaultValue={wa.template_confirm} className={Input} /></div>
+              <p className="text-xs text-slate-500 md:col-span-3">WhatsApp only lets a business start a conversation with a template approved by Meta. Each template gets 4 values in this order: first name, event name, date and time, ticket link.</p>
+              <div className="md:col-span-3"><button className={Btn}><Icon name="check" size={16} /> Save WhatsApp settings</button></div>
+            </form>
+          </>
+        ) : <p className="text-sm text-slate-600">Only the owner can change WhatsApp settings.</p>}
+      </Card>
+    </div>
   );
 }

@@ -94,13 +94,7 @@ export function ClaudeHeader({ lang }: { lang: string }) {
             {isAr ? 'الرحلات' : 'Tours'}
           </a>
           <a
-            href={href('events')}
-            onClick={(e) => {
-              if (isHomePage) {
-                e.preventDefault();
-                handleNavClick('events');
-              }
-            }}
+            href={`/${lang}/events`}
           >
             {isAr ? 'الفعاليات' : 'Events'}
           </a>
@@ -353,13 +347,7 @@ export function ClaudeFooter({ lang }: { lang: string }) {
                 </li>
                 <li>
                   <a
-                    href={href('events')}
-                    onClick={(e) => {
-                      if (isHomePage) {
-                        e.preventDefault();
-                        handleNavClick('events');
-                      }
-                    }}
+                    href={`/${lang}/events`}
                   >
                     {isAr ? 'فعاليات الفيلا' : 'Events at the villa'}
                   </a>
@@ -840,13 +828,7 @@ export function ClaudeBottomBar({ lang }: { lang: string }) {
         {isAr ? 'الرحلات' : 'Tours'}
       </a>
       <a
-        href={href('events')}
-        onClick={(e) => {
-          if (isHomePage) {
-            e.preventDefault();
-            handleNavScroll('events');
-          }
-        }}
+        href={`/${lang}/events`}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z" />

@@ -5,7 +5,8 @@ import { useFormStatus } from 'react-dom';
 import { bookEventAction } from '../actions';
 
 type DateChip = { date: string; label: string; sub: string; left: number | null };
-type Method = 'paymob' | 'instapay' | 'cash';
+type Method = 'paymob' | 'instapay' | 'vodafone_cash' | 'cash';
+type WalletInfo = { instapay: { address: string; phone: string; name: string; link: string }; vodafone_cash: { number: string; name: string } };
 
 const fmt = (cents: number, cur: string, ar: boolean) => {
   const v = (cents / 100).toLocaleString(ar ? 'ar-EG-u-nu-latn' : 'en-US', { maximumFractionDigits: 2 });
@@ -23,9 +24,9 @@ function Submit({ label, busy }: { label: string; busy: string }) {
 
 export function EventBooker(props: {
   lang: string; slug: string; dates: DateChip[]; initialDate: string;
-  options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; currency: string; methods: Method[];
+  options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; currency: string; methods: Method[]; wallets?: WalletInfo;
 }) {
-  const { lang, slug, dates, options, priceCents, guestPriceCents, currency, methods } = props;
+  const { lang, slug, dates, options, priceCents, guestPriceCents, currency, methods, wallets } = props;
   const ar = lang === 'ar';
   const [date, setDate] = useState(props.initialDate);
   const [showAll, setShowAll] = useState(() => dates.findIndex((d) => d.date === props.initialDate) >= 6);
@@ -48,8 +49,13 @@ export function EventBooker(props: {
     },
     instapay: {
       t: 'InstaPay',
-      d: ar ? 'حوّل من تطبيق البنك على عنوان InstaPay الخاص بنا، واكتب رقم العملية. نؤكد الدفع ونفعّل التذكرة.' : 'Transfer from your bank app to our InstaPay address and enter the reference. We confirm it and activate your ticket.',
+      d: ar ? 'حوّل على حساب InstaPay بتاعنا وارفع صورة الإيصال. بنأكد الحجز أول ما نراجع التحويل.' : 'Send the amount to our InstaPay account and upload the receipt. We confirm your booking as soon as we check it.',
       icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg>,
+    },
+    vodafone_cash: {
+      t: ar ? 'فودافون كاش' : 'Vodafone Cash',
+      d: ar ? 'حوّل على رقم فودافون كاش بتاعنا وارفع صورة الإيصال. بنأكد الحجز أول ما نراجع التحويل.' : 'Send the amount to our Vodafone Cash number and upload the receipt. We confirm your booking as soon as we check it.',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><rect x="6" y="2.5" width="12" height="19" rx="2.5" /><path d="M10.5 18.5h3" /></svg>,
     },
     cash: {
       t: ar ? 'ادفع في المكان' : 'Pay at the villa',
@@ -131,7 +137,7 @@ export function EventBooker(props: {
         <legend><span className="evb-n">3</span>{ar ? 'بياناتك' : 'Your details'}</legend>
         <div className="evb-field"><label htmlFor="evb-name">{ar ? 'الاسم بالكامل' : 'Full name'}</label><input id="evb-name" name="fullName" required minLength={2} maxLength={80} autoComplete="name" /></div>
         <div className="evb-field"><label htmlFor="evb-email">{ar ? 'البريد الإلكتروني' : 'Email'}</label><input id="evb-email" name="email" type="email" required autoComplete="email" dir="ltr" /></div>
-        <div className="evb-field"><label htmlFor="evb-phone">{ar ? 'رقم الموبايل / واتساب' : 'Mobile / WhatsApp'}</label><input id="evb-phone" name="phone" type="tel" autoComplete="tel" dir="ltr" placeholder="+20 1xx xxx xxxx" /></div>
+        <div className="evb-field"><label htmlFor="evb-phone">{ar ? 'رقم الموبايل / واتساب' : 'Mobile / WhatsApp'}</label><input id="evb-phone" name="phone" type="tel" required autoComplete="tel" dir="ltr" placeholder="+20 1xx xxx xxxx" /></div>
       </fieldset>
 
       <fieldset className="evb-step">
@@ -145,6 +151,27 @@ export function EventBooker(props: {
             </label>
           ))}
         </div>
+        {(method === 'instapay' || method === 'vodafone_cash') && wallets && (
+          <div className="evb-wallet">
+            <p className="evb-wallet-h">{ar ? 'حوّل' : 'Send'} <b dir="ltr">{fmt(total, currency, ar)}</b> {method === 'instapay' ? (ar ? 'على InstaPay:' : 'by InstaPay to:') : (ar ? 'على فودافون كاش:' : 'by Vodafone Cash to:')}</p>
+            <dl>
+              {method === 'instapay' && wallets.instapay.address && <div><dt>{ar ? 'العنوان' : 'Address'}</dt><dd dir="ltr" className="sel">{wallets.instapay.address}</dd></div>}
+              {method === 'instapay' && wallets.instapay.phone && <div><dt>{ar ? 'الرقم' : 'Number'}</dt><dd dir="ltr" className="sel">{wallets.instapay.phone}</dd></div>}
+              {method === 'vodafone_cash' && <div><dt>{ar ? 'الرقم' : 'Number'}</dt><dd dir="ltr" className="sel">{wallets.vodafone_cash.number}</dd></div>}
+              <div><dt>{ar ? 'باسم' : 'Name'}</dt><dd>{method === 'instapay' ? wallets.instapay.name : wallets.vodafone_cash.name}</dd></div>
+            </dl>
+            {method === 'instapay' && wallets.instapay.link && <a className="btn btn-line btn-sm" href={wallets.instapay.link} target="_blank" rel="noopener noreferrer">{ar ? 'افتح رابط InstaPay' : 'Open InstaPay link'}</a>}
+            <div className="evb-field">
+              <label htmlFor="evb-proof">{ar ? 'صورة الإيصال' : 'Receipt screenshot'}</label>
+              <input id="evb-proof" name="proof" type="file" accept="image/*,application/pdf" required />
+            </div>
+            <div className="evb-field">
+              <label htmlFor="evb-ref">{ar ? 'رقم العملية (لو موجود)' : 'Transaction number (if shown)'}</label>
+              <input id="evb-ref" name="payerRef" dir="ltr" maxLength={60} />
+            </div>
+            <p className="evb-fine">{ar ? 'الحجز بيتأكد بعد ما نراجع التحويل، وبيوصلك تأكيد على واتساب.' : 'Your booking is confirmed once we check the transfer, and you get the confirmation on WhatsApp.'}</p>
+          </div>
+        )}
       </fieldset>
 
       <div className="evb-sum">
@@ -153,7 +180,7 @@ export function EventBooker(props: {
           <b className="num" dir="ltr">{fmt(total, currency, ar)}</b>
         </div>
         <Submit
-          label={method === 'paymob' ? (ar ? 'ادفع واحصل على التذكرة' : 'Pay & get ticket') : method === 'instapay' ? (ar ? 'متابعة للدفع بـ InstaPay' : 'Continue to InstaPay') : (ar ? 'احجز مكاني' : 'Reserve my place')}
+          label={method === 'paymob' ? (ar ? 'ادفع واحصل على التذكرة' : 'Pay & get ticket') : method === 'instapay' || method === 'vodafone_cash' ? (ar ? 'ابعت الحجز والإيصال' : 'Send booking & receipt') : (ar ? 'احجز مكاني' : 'Reserve my place')}
           busy={ar ? 'جارٍ الحجز…' : 'Booking…'}
         />
       </div>

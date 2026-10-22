@@ -5,11 +5,11 @@ import { upcomingDates, isBookableDate, type Schedule } from '@/lib/event-dates'
 import { BookingError } from './errors';
 import { audit } from './audit';
 import { paymobEnabled } from './paymob';
-import { instapayEnabled } from './instapay';
+import { getWallets, walletOn, type Wallets } from './wallets';
 
 export type Loc = { en?: string; ar?: string; [k: string]: string | undefined };
 export type EventOption = { key: string; en: string; ar: string };
-export type PayMethod = 'paymob' | 'instapay' | 'cash';
+export type PayMethod = 'paymob' | 'instapay' | 'vodafone_cash' | 'cash';
 
 export type EventRow = Schedule & {
   id: string; slug: string; title: Loc; summary: Loc; description: Loc; includes: Loc[]; image: string | null;
@@ -25,20 +25,34 @@ const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const makeTicketCode = () => 'EV-' + Array.from({ length: 6 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
 
 /** Payment methods this event accepts that are actually switched on right now. */
-export function liveMethods(ev: Pick<EventRow, 'pay_methods' | 'currency'>): PayMethod[] {
-  return ev.pay_methods.filter((m) => (m === 'paymob' ? paymobEnabled(ev.currency) : m === 'instapay' ? instapayEnabled(ev.currency) : true));
+export function liveMethods(ev: Pick<EventRow, 'pay_methods' | 'currency'>, w: Wallets): PayMethod[] {
+  return ev.pay_methods.filter((m) => (m === 'paymob' ? paymobEnabled(ev.currency) : m === 'instapay' || m === 'vodafone_cash' ? walletOn(w, m, ev.currency) : m === 'cash'));
 }
 
-function toPublic(e: EventRow, now = new Date()): PublicEvent {
+function toPublic(e: EventRow, w: Wallets, now = new Date()): PublicEvent {
   const dates = upcomingDates(e, 30, now);
-  return { ...e, dates, nextDate: dates[0] ?? null, methods: liveMethods(e) };
+  return { ...e, dates, nextDate: dates[0] ?? null, methods: liveMethods(e, w) };
+}
+
+/** Why an event is not on the website right now (null = it is listed). Shown in the dashboard. */
+export function hiddenReason(e: EventRow, now = new Date()): string | null {
+  if (!e.active) return 'Not published (tick "Published on the website")';
+  if (!upcomingDates(e, 1, now).length) return e.recurrence === 'once' ? 'Its date has passed' : 'No date coming up (check weekdays / "repeat until")';
+  return null;
+}
+
+export type MediaItem = { id: string; kind: 'meal' | 'video' | 'gallery'; src: string; mime: string | null; caption: string | null; external: boolean; orientation: 'landscape' | 'portrait' };
+/** Meal photos and videos of an event, in display order. Uploaded files are served by /api/media/event-media/[id]. */
+export async function eventMedia(eventId: string): Promise<MediaItem[]> {
+  const rows = await q<any>(`SELECT id, kind, mime, url, caption, orientation, (bytes IS NOT NULL) up, extract(epoch from created_at)::bigint v FROM event_media WHERE event_id=$1 ORDER BY kind, sort_order, created_at`, [eventId]).catch(() => []);
+  return rows.map((r: any) => ({ id: r.id, kind: r.kind, mime: r.mime, caption: r.caption, orientation: r.orientation === 'portrait' ? 'portrait' : 'landscape', external: !r.up, src: r.up ? `/api/media/event-media/${r.id}?v=${r.v}` : r.url }));
 }
 
 /** Active events that still have a date coming up, soonest first. Never throws (site keeps working if the table is missing). */
 export async function listPublicEvents(): Promise<PublicEvent[]> {
   try {
-    const rows = await q<EventRow>(`SELECT ${EVENT_COLS} FROM events WHERE active ORDER BY sort_order, slug`);
-    const list = rows.map((r) => toPublic(r)).filter((e) => e.nextDate).sort((a, b) => (a.nextDate! < b.nextDate! ? -1 : a.nextDate! > b.nextDate! ? 1 : a.sort_order - b.sort_order));
+    const [rows, w] = await Promise.all([q<EventRow>(`SELECT ${EVENT_COLS} FROM events WHERE active ORDER BY sort_order, slug`), getWallets()]);
+    const list = rows.map((r) => toPublic(r, w)).filter((e) => e.nextDate).sort((a, b) => (a.nextDate! < b.nextDate! ? -1 : a.nextDate! > b.nextDate! ? 1 : a.sort_order - b.sort_order));
     for (const e of list) {
       if (e.capacity == null) continue;
       const left = await seatsLeft({ ...e, dates: e.dates.slice(0, 14) });
@@ -56,7 +70,7 @@ export async function listPublicEvents(): Promise<PublicEvent[]> {
 
 export async function getPublicEvent(slug: string): Promise<PublicEvent | null> {
   const r = (await q<EventRow>(`SELECT ${EVENT_COLS} FROM events WHERE slug=$1 AND active`, [slug]))[0];
-  return r ? toPublic(r) : null;
+  return r ? toPublic(r, await getWallets()) : null;
 }
 
 /** Every column except the image bytes. */
@@ -88,7 +102,7 @@ export type EventBookingInput = {
   fullName: string; email: string; phone?: string | null; language: string; payMethod: PayMethod;
 };
 
-const HOLD_MIN: Record<PayMethod, number | null> = { paymob: 30, instapay: 12 * 60, cash: null };
+const HOLD_MIN: Record<PayMethod, number | null> = { paymob: 30, instapay: 12 * 60, vodafone_cash: 12 * 60, cash: null };
 
 export async function createEventBooking(input: EventBookingInput) {
   const qty = Math.trunc(input.quantity);
@@ -96,11 +110,12 @@ export async function createEventBooking(input: EventBookingInput) {
   if (!input.fullName?.trim() || input.fullName.trim().length < 2) throw new BookingError('INVALID_INPUT', 'name');
   if (!/^\S+@\S+\.\S+$/.test(input.email || '')) throw new BookingError('INVALID_INPUT', 'email');
 
+  const wallets = await getWallets();
   return tx(async (c) => {
     const ev = (await c.query(`SELECT ${EVENT_COLS} FROM events WHERE slug=$1 AND active`, [input.slug])).rows[0] as EventRow | undefined;
     if (!ev) throw new BookingError('NOT_FOUND', 'event');
     if (!isBookableDate(ev, input.date)) throw new BookingError('INVALID_DATES');
-    if (!liveMethods(ev).includes(input.payMethod)) throw new BookingError('INVALID_INPUT', 'pay_method');
+    if (!liveMethods(ev, wallets).includes(input.payMethod)) throw new BookingError('INVALID_INPUT', 'pay_method');
 
     let optionKey: string | null = null;
     if (ev.options.length) {
@@ -221,9 +236,9 @@ export async function saveEvent(v: EventInput, actor: string) {
   if (!(v.priceCents >= 0) || !(v.costCents >= 0)) throw new BookingError('INVALID_INPUT', 'Prices must be zero or more');
   const loc = (en?: string, ar?: string) => JSON.stringify({ en: (en || '').trim(), ar: (ar || '').trim() || (en || '').trim() });
   const includes = JSON.stringify((v.includesEn || '').split(/\n|,/).map((x) => x.trim()).filter(Boolean).map((x) => ({ en: x, ar: x })));
-  const methods = v.payMethods.filter((m) => ['paymob', 'instapay', 'cash'].includes(m));
+  const methods = v.payMethods.filter((m) => ['paymob', 'instapay', 'vodafone_cash', 'cash'].includes(m));
   const vals = [v.kind, loc(v.titleEn, v.titleAr), loc(v.summaryEn, v.summaryAr), loc(v.descriptionEn, v.descriptionAr), includes, v.priceCents, v.costCents, v.guestPriceCents,
-    v.capacity, v.recurrence, v.weekdays, v.recurrence === 'once' ? v.onceDate : null, v.endsOn || null, v.startTime, v.endTime, methods.length ? methods : ['paymob', 'instapay'], v.active];
+    v.capacity, v.recurrence, v.weekdays, v.recurrence === 'once' ? v.onceDate : null, v.endsOn || null, v.startTime, v.endTime, methods.length ? methods : ['paymob', 'instapay', 'vodafone_cash'], v.active];
   let id = v.id;
   if (id) {
     await q(`UPDATE events SET kind=$2, title=$3, summary=$4, description=$5, includes=$6, price_cents=$7, cost_per_attendee_cents=$8, guest_price_cents=$9, capacity=$10,

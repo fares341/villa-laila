@@ -7,7 +7,7 @@ import { validateStay, todayLocal, addDays } from '@/lib/dates';
 import { getSetting } from '@/services/settings';
 import { activeRules, requiredFacts } from '@/services/policy';
 import { paymobEnabled } from '@/services/paymob';
-import { instapayEnabled } from '@/services/instapay';
+import { getWallets, walletOn } from '@/services/wallets';
 import { BookingSteps } from '@/components/booking-steps';
 import { BookingDetails } from './booking-details';
 
@@ -40,7 +40,7 @@ export default async function Book({ params, searchParams }: { params: Promise<{
 
   const methods = [
     ...(paymobEnabled(cur) ? (['paymob'] as const) : []),
-    ...(instapayEnabled(cur) ? (['instapay'] as const) : []),
+    ...(walletOn(await getWallets(), 'instapay', cur) ? (['instapay'] as const) : []),
     'hostel' as const,
   ];
 

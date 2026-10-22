@@ -69,3 +69,17 @@ Real room/bed inventory and prices; check-in/out times; address and map; deposit
 4. Inbox: take over a chat, reply, resume bot.
 5. Payments: record then verify. Extensions: request and approve.
 6. Import a sample Excel.
+
+## Events: payments, Telegram admin bot, WhatsApp
+
+- **InstaPay / Vodafone Cash accounts**: Dashboard → Events → *Payment accounts & bots*. Guests pick one, see the account,
+  send the money and upload the receipt with the booking. The receipt is approved in the dashboard or on Telegram;
+  approving makes the booking **paid + confirmed** and sends the guest the confirmation.
+- **Telegram admin bot** (separate from the guest bot): create a bot in @BotFather, paste its token on the same page.
+  Allowed chat IDs default to `5622031108`. The worker polls it; commands: `/bookings`, `/today`, `/events`, `/new`, `/cancel`.
+  New bookings and receipts arrive with buttons (approve receipt, confirm, cancel with reason, edit date / people / name / phone),
+  and events can be created and edited (fields, cover, meal photos, videos, payment methods, publish / hide).
+- **WhatsApp to guests** (confirmation, cancellation, reminder one hour before with an "I'm coming" link): automatic once a
+  WhatsApp Cloud API token, phone number ID and approved template names are saved there. Until then the Telegram bot
+  sends a one-tap wa.me link with the message already written.
+- **Meal photos and videos**: on each event's edit page (videos up to 50 MB, wide or tall, or a YouTube / Instagram link).

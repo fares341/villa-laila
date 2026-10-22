@@ -33,16 +33,18 @@ const ic = {
 };
 
 /** "Events at Villa Layla" — sits right under the services section on the home page. */
-export function EventsSection({ lang, events }: { lang: string; events: EventCard[] }) {
+export function EventsSection({ lang, events, heading = 'h2', limit }: { lang: string; events: EventCard[]; heading?: 'h1' | 'h2'; limit?: number }) {
   if (!events.length) return null;
   const isAr = lang === 'ar';
+  const H = heading;
+  const shown = limit ? events.slice(0, limit) : events;
   return (
     <section className="sec band-white ev-sec" id="events" aria-labelledby="eventsH">
       <div className="wrap">
         <div className="sec-hd">
           <div>
             <span className="kicker">{isAr ? 'فعاليات فيلا ليلى' : 'Events at Villa Layla'}</span>
-            <h2 id="eventsH">{isAr ? 'ماذا يحدث في الفيلا هذا الأسبوع.' : 'What’s on by the pool this week.'}</h2>
+            <H id="eventsH">{isAr ? 'ماذا يحدث في الفيلا قريبًا.' : 'What’s on at the villa.'}</H>
             <p>
               {isAr
                 ? 'فطور في الحديقة، يوم في المسبح، يوغا وعشاء بيتي. احجز تذكرتك وادفع أونلاين، وتوصلك التذكرة فورًا.'
@@ -52,7 +54,7 @@ export function EventsSection({ lang, events }: { lang: string; events: EventCar
         </div>
 
         <div className="ev-grid">
-          {events.map((e) => (
+          {shown.map((e) => (
             <article key={e.slug} className="ev-card">
               <a href={`/${lang}/events/${e.slug}`} className="ev-media" aria-label={e.title}>
                 {e.image && <img src={e.image} alt="" loading="lazy" />}
@@ -85,6 +87,9 @@ export function EventsSection({ lang, events }: { lang: string; events: EventCar
             </article>
           ))}
         </div>
+        {heading === 'h2' && (
+          <p className="ev-all"><a className="btn btn-line" href={`/${lang}/events`}>{isAr ? `كل الفعاليات (${events.length})` : `All events (${events.length})`}</a></p>
+        )}
       </div>
     </section>
   );

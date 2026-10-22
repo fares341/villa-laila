@@ -7,7 +7,7 @@ import { ClaudeHeader, ClaudeFooter, ClaudeFabs } from '@/components/claude-shel
 import { BookingSteps } from '@/components/booking-steps';
 import { CopyButton } from '@/components/copy-button';
 import { paymobEnabled } from '@/services/paymob';
-import { instapayEnabled, instapayDetails } from '@/services/instapay';
+import { getWallets, walletOn } from '@/services/wallets';
 import { reservationPaymentInfo } from '@/services/online-payments';
 import { payReservationPaymobAction, submitReservationInstapayAction } from '../../book/actions';
 
@@ -30,8 +30,9 @@ export default async function Booked({ params, searchParams }: { params: Promise
   const pay = await reservationPaymentInfo(r.id, Number(r.total_cents)).catch(() => ({ due: Number(r.total_cents), paid: false, pendingInstapay: false }));
   const due = money(pay.due, r.currency, lang);
   const canPaymob = open && pay.due > 0 && paymobEnabled(r.currency);
-  const canInstapay = open && pay.due > 0 && !pay.pendingInstapay && instapayEnabled(r.currency);
-  const ip = instapayDetails();
+  const wallets = await getWallets();
+  const canInstapay = open && pay.due > 0 && !pay.pendingInstapay && walletOn(wallets, 'instapay', r.currency);
+  const ip = wallets.instapay;
   const extras = await q<any>(`SELECT name, price_cents, currency, unit_label FROM products WHERE is_active AND public_visible ORDER BY sort_order, name`).catch(() => []);
 
   const banner =

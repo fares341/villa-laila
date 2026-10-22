@@ -4,13 +4,14 @@ import { ClaudeHeader, ClaudeFooter } from '@/components/claude-shell';
 import { getTicket, ticketValid, tr } from '@/services/events';
 import { priceLabel } from '@/services/event-view';
 import { paymobEnabled } from '@/services/paymob';
-import { instapayEnabled, instapayDetails } from '@/services/instapay';
+import { getWallets } from '@/services/wallets';
+import { liveMethods } from '@/services/events';
 import { timeLabel, dateLabel } from '@/lib/event-dates';
 import { qrSvg } from '@/lib/qr';
 import { siteBase } from '@/lib/base-url';
 import { currentUser } from '@/lib/auth';
 import { can } from '@/lib/permissions';
-import { retryEventPaymobAction, submitEventInstapayAction } from '../../events/actions';
+import { retryEventPaymobAction, submitEventWalletAction, confirmAttendanceAction } from '../../events/actions';
 import { staffCheckInTicketAction } from '@/app/dashboard/events/actions';
 import { CopyButton } from '@/components/copy-button';
 
@@ -33,7 +34,10 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
   const total = priceLabel(b.total_cents, b.currency, lang);
   const option = b.option_key ? ev.options.find((o) => o.key === b.option_key) : null;
   const firstName = String(b.full_name).split(/\s+/)[0];
-  const ip = instapayDetails();
+  const wallets = await getWallets();
+  const ip = wallets.instapay;
+  const methods = liveMethods(ev, wallets);
+  const walletMethods = (['instapay', 'vodafone_cash'] as const).filter((m) => methods.includes(m));
   const staff = await currentUser().catch(() => null);
   const canCheckIn = !!staff && can(staff.role, 'tours.manage');
 
@@ -51,7 +55,8 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
     sp.payment === 'paid' ? { cls: 'ok', text: L('Payment received. Enjoy the event!', 'تم استلام الدفع. استمتع بالفعالية!') } :
     sp.payment === 'failed' ? { cls: 'bad', text: L('The payment didn’t go through. You can try again below.', 'لم تتم عملية الدفع. يمكنك المحاولة مرة أخرى بالأسفل.') } :
     sp.payment === 'pending' ? { cls: 'wait', text: L('Your payment is processing. This page updates once Paymob confirms it.', 'الدفع قيد المعالجة. ستتحدث الصفحة بعد تأكيد Paymob.') } :
-    sp.payment === 'submitted' ? { cls: 'wait', text: L('Thanks! We’ll check the InstaPay transfer and activate your ticket shortly.', 'شكرًا! سنراجع تحويل InstaPay ونفعّل تذكرتك قريبًا.') } :
+    sp.attend === 'ok' ? { cls: 'ok', text: L('Thanks for confirming. See you soon!', 'شكرًا على التأكيد. مستنيينك!') } :
+    sp.payment === 'submitted' ? { cls: 'wait', text: L('Thanks! We received your receipt. We’ll check the transfer and confirm your booking on WhatsApp shortly.', 'شكرًا! وصلنا الإيصال. هنراجع التحويل ونأكد حجزك على واتساب قريبًا.') } :
     sp.payment === 'unavailable' ? { cls: 'bad', text: L('Card payment isn’t available right now. Pay with InstaPay or message us on WhatsApp.', 'الدفع بالبطاقة غير متاح الآن. ادفع بـ InstaPay أو راسلنا على واتساب.') } :
     sp.error ? { cls: 'bad', text: sp.error === 'proof_required' ? L('Attach the screenshot of your InstaPay transfer.', 'ارفع صورة إيصال تحويل InstaPay.') : sp.error === 'instapay_input' ? L('Enter the sender name and the transfer reference.', 'اكتب اسم المحوِّل ورقم العملية.') : L('Something went wrong. Please try again.', 'حدث خطأ. حاول مرة أخرى.') } :
     null;
@@ -115,25 +120,26 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
                     <button className="btn btn-book" type="submit">{L('Pay now', 'ادفع الآن')}</button>
                   </form>
                 )}
-                {instapayEnabled(b.currency) && (
-                  <form action={submitEventInstapayAction} className="tk-pay-card">
-                    <input type="hidden" name="lang" value={lang} /><input type="hidden" name="code" value={b.ticket_code} />
-                    <h3>InstaPay</h3>
+                {walletMethods.map((m) => (
+                  <form key={m} action={submitEventWalletAction} className="tk-pay-card">
+                    <input type="hidden" name="lang" value={lang} /><input type="hidden" name="code" value={b.ticket_code} /><input type="hidden" name="method" value={m} />
+                    <h3>{m === 'instapay' ? 'InstaPay' : L('Vodafone Cash', 'فودافون كاش')}</h3>
                     <ol className="tk-steps">
-                      <li>{L('Open your bank app or InstaPay and send', 'افتح تطبيق البنك أو InstaPay وحوّل')} <b dir="ltr">{total}</b></li>
-                      {ip.address && <li>{L('To InstaPay address', 'على عنوان InstaPay')} <b dir="ltr" className="sel">{ip.address}</b></li>}
-                      {ip.phone && <li>{L('Or to mobile number', 'أو على رقم')} <b dir="ltr" className="sel">{ip.phone}</b></li>}
-                      <li>{L('Account name', 'اسم الحساب')}: <b>{ip.name}</b></li>
-                      <li>{L('Write this code in the transfer note:', 'اكتب الكود ده في ملاحظة التحويل:')} <b dir="ltr" className="sel">{b.ticket_code}</b></li>
+                      <li>{L('Send', 'حوّل')} <b dir="ltr">{total}</b></li>
+                      {m === 'instapay' && ip.address && <li>{L('To InstaPay address', 'على عنوان InstaPay')} <b dir="ltr" className="sel">{ip.address}</b></li>}
+                      {m === 'instapay' && ip.phone && <li>{L('Or to mobile number', 'أو على رقم')} <b dir="ltr" className="sel">{ip.phone}</b></li>}
+                      {m === 'vodafone_cash' && <li>{L('To Vodafone Cash number', 'على رقم فودافون كاش')} <b dir="ltr" className="sel">{wallets.vodafone_cash.number}</b></li>}
+                      <li>{L('Account name', 'اسم الحساب')}: <b>{m === 'instapay' ? ip.name : wallets.vodafone_cash.name}</b></li>
+                      <li>{L('Upload the receipt here', 'ارفع صورة الإيصال هنا')}</li>
                     </ol>
-                    {ip.link && <a className="btn btn-line btn-sm" href={ip.link} target="_blank" rel="noopener noreferrer">{L('Open InstaPay link', 'افتح رابط InstaPay')}</a>}
-                    <div className="evb-field"><label htmlFor="ip-name">{L('Sender name', 'اسم المحوِّل')}</label><input id="ip-name" name="payerName" required minLength={2} maxLength={80} defaultValue={b.full_name} /></div>
-                    <div className="evb-field"><label htmlFor="ip-ref">{L('Transfer reference number', 'رقم العملية (Reference)')}</label><input id="ip-ref" name="payerRef" required minLength={3} maxLength={60} dir="ltr" /></div>
-                    <div className="evb-field"><label htmlFor="ip-proof">{L('Transfer screenshot (required)', 'صورة إيصال التحويل (مطلوبة)')}</label><input id="ip-proof" name="proof" type="file" accept="image/*,application/pdf" required /></div>
-                    <button className="btn btn-primary" type="submit">{L('I’ve sent the transfer', 'حوّلت المبلغ')}</button>
+                    {m === 'instapay' && ip.link && <a className="btn btn-line btn-sm" href={ip.link} target="_blank" rel="noopener noreferrer">{L('Open InstaPay link', 'افتح رابط InstaPay')}</a>}
+                    <div className="evb-field"><label htmlFor={`${m}-name`}>{L('Sender name', 'اسم المحوِّل')}</label><input id={`${m}-name`} name="payerName" required minLength={2} maxLength={80} defaultValue={b.full_name} /></div>
+                    <div className="evb-field"><label htmlFor={`${m}-ref`}>{L('Transaction number (if shown)', 'رقم العملية (لو موجود)')}</label><input id={`${m}-ref`} name="payerRef" maxLength={60} dir="ltr" /></div>
+                    <div className="evb-field"><label htmlFor={`${m}-proof`}>{L('Receipt screenshot (required)', 'صورة الإيصال (مطلوبة)')}</label><input id={`${m}-proof`} name="proof" type="file" accept="image/*,application/pdf" required /></div>
+                    <button className="btn btn-primary" type="submit">{L('Send the receipt', 'ابعت الإيصال')}</button>
                   </form>
-                )}
-                {!paymobEnabled(b.currency) && !instapayEnabled(b.currency) && (
+                ))}
+                {!paymobEnabled(b.currency) && !walletMethods.length && (
                   <div className="tk-pay-card">
                     <p>{L('Online payment isn’t available right now. Message us and we’ll sort it out.', 'الدفع أونلاين غير متاح الآن. راسلنا وهنظبطها.')}</p>
                     <a className="btn btn-wa" href={`https://wa.me/201040551515?text=${encodeURIComponent('Ticket ' + b.ticket_code)}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>
@@ -144,8 +150,16 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
           )}
 
           {b.status === 'pending_verification' && (
-            <p className="tk-note">{L('We received your InstaPay details. Reception checks transfers during front-desk hours (8 AM–10 PM) and your ticket turns valid as soon as it’s confirmed.', 'وصلتنا بيانات تحويل InstaPay. الاستقبال بيراجع التحويلات من ٨ صباحًا لـ ١٠ مساءً، وتذكرتك تتفعّل أول ما يتأكد التحويل.')}</p>
+            <p className="tk-note">{L('We received your receipt. We check transfers during front-desk hours (8 AM–10 PM); your booking is confirmed as soon as it’s checked and you get a WhatsApp message.', 'وصلنا الإيصال. بنراجع التحويلات من ٨ صباحًا لـ ١٠ مساءً، وحجزك بيتأكد أول ما نراجعه وبيوصلك رسالة على واتساب.')}</p>
           )}
+          {['paid', 'pay_on_site', 'pending_verification'].includes(b.status) && !b.attendance_confirmed_at && (sp.attend === '1' || b.reminder_sent_at) && (
+            <form action={confirmAttendanceAction} className="tk-attend">
+              <input type="hidden" name="lang" value={lang} /><input type="hidden" name="code" value={b.ticket_code} />
+              <p>{L('Are you still coming? Let us know so we keep your place ready.', 'لسه جاي؟ أكد لنا عشان نجهز مكانك.')}</p>
+              <button className="btn btn-primary" type="submit">{L('Yes, I’m coming', 'أيوه، جاي')}</button>
+            </form>
+          )}
+          {b.attendance_confirmed_at && sp.attend !== 'ok' && <p className="tk-note">{L('You confirmed you’re coming. See you there!', 'أكدت حضورك. مستنيينك!')}</p>}
           {b.status === 'expired' && (
             <p className="tk-note">{L('This booking was not paid in time and the place was released.', 'لم يتم الدفع في الوقت وتم إلغاء حجز المكان.')} <a href={`/${lang}/events/${ev.slug}`}>{L('Book again', 'احجز من جديد')}</a></p>
           )}

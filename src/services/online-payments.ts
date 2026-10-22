@@ -5,7 +5,7 @@ import { folioBalance } from './pms/folio';
 import { BookingError } from './errors';
 import { audit } from './audit';
 import { createIntention, paymobEnabled, type PaymobTxn } from './paymob';
-import { instapayEnabled } from './instapay';
+import { getWallets, walletOn, isWallet, type WalletMethod } from './wallets';
 import { tr, EVENT_COLS, type EventRow } from './events';
 
 const newRef = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString('hex').toUpperCase()}`;
@@ -129,27 +129,34 @@ function checkProof(p: Proof | null | undefined) {
   if (!/^image\/(png|jpe?g|webp|heic|heif)$|^application\/pdf$/.test(p.mime)) throw new BookingError('INVALID_INPUT', 'proof_type');
 }
 
-export async function submitEventInstapay(ticketCode: string, payerName: string, payerRef: string, proof: Proof | null) {
+/** The guest sent the money by InstaPay or Vodafone Cash and uploaded the receipt: it waits for a person to check. */
+export async function submitEventWalletProof(ticketCode: string, method: WalletMethod, payerName: string, payerRef: string, proof: Proof | null): Promise<string> {
   checkProof(proof);
+  if (!isWallet(method)) throw new BookingError('INVALID_INPUT', 'pay_method');
   const b = (await q<any>('SELECT * FROM event_bookings WHERE ticket_code=$1', [ticketCode]))[0];
   if (!b) throw new BookingError('NOT_FOUND');
   if (!['awaiting_payment', 'pending_verification'].includes(b.status)) throw new BookingError('BAD_STATE');
-  if (!instapayEnabled(b.currency)) throw new BookingError('INVALID_INPUT', 'instapay_off');
-  await tx(async (c) => {
-    await c.query(`UPDATE online_payments SET status='rejected', updated_at=now() WHERE event_booking_id=$1 AND provider='instapay' AND status='submitted'`, [b.id]);
-    await c.query(`INSERT INTO online_payments(merchant_ref,kind,event_booking_id,provider,amount_cents,currency,status,payer_name,payer_reference,proof,proof_mime)
-                   VALUES($1,'event',$2,'instapay',$3,$4,'submitted',$5,$6,$7,$8)`, [newRef('IPE'), b.id, b.total_cents, b.currency, payerName, payerRef, proof!.bytes, proof!.mime]);
-    await c.query(`UPDATE event_bookings SET status='pending_verification', pay_method='instapay', hold_expires_at=NULL, updated_at=now() WHERE id=$1`, [b.id]);
+  if (!walletOn(await getWallets(), method, b.currency)) throw new BookingError('INVALID_INPUT', 'wallet_off');
+  const id = await tx(async (c) => {
+    await c.query(`UPDATE online_payments SET status='rejected', updated_at=now() WHERE event_booking_id=$1 AND provider IN ('instapay','vodafone_cash') AND status='submitted'`, [b.id]);
+    const op = (await c.query(`INSERT INTO online_payments(merchant_ref,kind,event_booking_id,provider,amount_cents,currency,status,payer_name,payer_reference,proof,proof_mime)
+                   VALUES($1,'event',$2,$3,$4,$5,'submitted',$6,$7,$8,$9) RETURNING id`, [newRef(method === 'instapay' ? 'IPE' : 'VFE'), b.id, method, b.total_cents, b.currency, payerName, payerRef || null, proof!.bytes, proof!.mime])).rows[0];
+    await c.query(`UPDATE event_bookings SET status='pending_verification', pay_method=$2, hold_expires_at=NULL, updated_at=now() WHERE id=$1`, [b.id, method]);
+    return op.id as string;
   });
-  await audit('website', 'instapay.submit', 'event_booking', b.id, { payerRef });
+  await audit('website', method + '.submit', 'event_booking', b.id, { payerRef });
+  return id;
 }
+
+export const submitEventInstapay = (ticketCode: string, payerName: string, payerRef: string, proof: Proof | null) =>
+  submitEventWalletProof(ticketCode, 'instapay', payerName, payerRef, proof);
 
 export async function submitReservationInstapay(reference: string, payerName: string, payerRef: string, proof: Proof | null) {
   checkProof(proof);
   const r = (await q<any>('SELECT * FROM reservations WHERE reference=$1', [reference]))[0];
   if (!r) throw new BookingError('NOT_FOUND');
   if (!['pending', 'confirmed', 'hold'].includes(r.status)) throw new BookingError('BAD_STATE');
-  if (!instapayEnabled(r.currency)) throw new BookingError('INVALID_INPUT', 'instapay_off');
+  if (!walletOn(await getWallets(), 'instapay', r.currency)) throw new BookingError('INVALID_INPUT', 'instapay_off');
   const due = await reservationDue(r.id, r.total_cents);
   if (due <= 0) throw new BookingError('BAD_STATE');
   const open = (await q<any>(`SELECT 1 FROM online_payments WHERE reservation_id=$1 AND provider='instapay' AND status='submitted'`, [r.id]))[0];
@@ -161,7 +168,7 @@ export async function submitReservationInstapay(reference: string, payerName: st
 
 export async function listInstapaySubmissions() {
   return q<any>(`
-    SELECT op.id, op.kind, op.amount_cents, op.currency, op.payer_name, op.payer_reference, op.created_at, (op.proof IS NOT NULL) has_proof, op.proof_mime,
+    SELECT op.id, op.kind, op.provider, op.amount_cents, op.currency, op.payer_name, op.payer_reference, op.created_at, (op.proof IS NOT NULL) has_proof, op.proof_mime,
            eb.ticket_code, eb.full_name AS event_guest, eb.event_date, ev.title AS event_title,
            r.reference AS res_ref, g.full_name AS res_guest
     FROM online_payments op
@@ -169,20 +176,20 @@ export async function listInstapaySubmissions() {
     LEFT JOIN events ev ON ev.id = eb.event_id
     LEFT JOIN reservations r ON r.id = op.reservation_id
     LEFT JOIN guests g ON g.id = r.guest_id
-    WHERE op.provider='instapay' AND op.status='submitted'
+    WHERE op.provider IN ('instapay','vodafone_cash') AND op.status='submitted'
     ORDER BY op.created_at`);
 }
 
 /** A manager checked the InstaPay app: money arrived (ok) or not. */
-export async function decideInstapay(onlinePaymentId: string, ok: boolean, staffUserId: string, actor: string) {
+export async function decideInstapay(onlinePaymentId: string, ok: boolean, staffUserId: string | null, actor: string) {
   await tx(async (c) => {
-    const op = (await c.query(`SELECT * FROM online_payments WHERE id=$1 AND provider='instapay' FOR UPDATE`, [onlinePaymentId])).rows[0];
+    const op = (await c.query(`SELECT * FROM online_payments WHERE id=$1 AND provider IN ('instapay','vodafone_cash') FOR UPDATE`, [onlinePaymentId])).rows[0];
     if (!op) throw new BookingError('NOT_FOUND');
     if (op.status !== 'submitted') throw new BookingError('BAD_STATE');
     await c.query(`UPDATE online_payments SET status=$2, verified_by=$3, verified_at=now(), updated_at=now() WHERE id=$1`, [op.id, ok ? 'verified' : 'rejected', staffUserId]);
     if (op.kind === 'event') {
       await c.query(ok
-        ? `UPDATE event_bookings SET status='paid', paid_at=now(), updated_at=now() WHERE id=$1`
+        ? `UPDATE event_bookings SET status='paid', paid_at=now(), confirmed_at=COALESCE(confirmed_at, now()), updated_at=now() WHERE id=$1`
         : `UPDATE event_bookings SET status='awaiting_payment', hold_expires_at=now() + interval '12 hours', updated_at=now() WHERE id=$1`, [op.event_booking_id]);
     } else if (ok) {
       await c.query(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at) VALUES($1,$2,'instapay',$3,'verified',$4,$5,$5,now())`,

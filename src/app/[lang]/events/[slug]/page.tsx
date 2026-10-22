@@ -2,7 +2,10 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { isSiteLang } from '@/i18n/site';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs } from '@/components/claude-shell';
-import { getPublicEvent, seatsLeft, tr } from '@/services/events';
+import { getPublicEvent, seatsLeft, tr, eventMedia } from '@/services/events';
+import { getWallets } from '@/services/wallets';
+import { toEmbed } from '@/content/videos';
+import { MealGallery } from './meal-gallery';
 import { priceLabel, whenLabel } from '@/services/event-view';
 import { scheduleLabel, timeLabel, dateLabel } from '@/lib/event-dates';
 import { EventBooker } from './event-booker';
@@ -35,7 +38,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   if (!ev) notFound();
   const isAr = lang === 'ar';
   const L = (o: { en: string; ar: string }) => (isAr ? o.ar : o.en);
-  const left = await seatsLeft(ev);
+  const [left, media, wallets] = await Promise.all([seatsLeft(ev), eventMedia(ev.id), getWallets()]);
+  const meals = media.filter((m) => m.kind === 'meal');
+  const videos = media.filter((m) => m.kind === 'video').map((m) => ({ ...m, embed: m.external ? toEmbed(m.src) : null }));
   const dates = ev.dates.slice(0, 14).map((d) => {
     const when = whenLabel(d, lang);
     const weekday = dateLabel(d, lang, { weekday: 'long' });
@@ -84,8 +89,26 @@ export default async function EventPage({ params, searchParams }: { params: Prom
               </>
             )}
             {tr(ev.note, lang) && <p className="evd-note">{tr(ev.note, lang)}</p>}
+
+            {videos.length > 0 && (
+              <>
+                <h2>{isAr ? 'شاهد الأجواء' : 'See what it’s like'}</h2>
+                <div className="evd-videos">
+                  {videos.map((v) => (
+                    <div key={v.id} className={`evd-video ${v.orientation}`}>
+                      {!v.external || v.embed?.kind === 'mp4'
+                        ? <video src={v.embed?.src ?? v.src} controls playsInline preload="metadata" />
+                        : v.embed ? <iframe src={v.embed.src} title={tr(ev.title, lang)} loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+                          : <a className="btn btn-line" href={v.src} target="_blank" rel="noopener noreferrer">{isAr ? 'شاهد الفيديو' : 'Watch the video'}</a>}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
+          <div className="evd-side">
+          <MealGallery lang={lang} photos={meals.map((m) => ({ id: m.id, src: m.src, caption: m.caption }))} />
           <aside className="evd-book" id="book" aria-labelledby="bookH">
             <h2 id="bookH">{isAr ? 'احجز تذكرتك' : 'Book your ticket'}</h2>
             {errMsg && <p role="alert" className="form-msg">{errMsg}</p>}
@@ -110,9 +133,14 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 guestPriceCents={ev.guest_price_cents}
                 currency={ev.currency}
                 methods={ev.methods}
+                wallets={{
+                  instapay: { address: wallets.instapay.address, phone: wallets.instapay.phone, name: wallets.instapay.name, link: wallets.instapay.link },
+                  vodafone_cash: { number: wallets.vodafone_cash.number, name: wallets.vodafone_cash.name },
+                }}
               />
             )}
           </aside>
+          </div>
         </div>
       </main>
       <ClaudeFooter lang={lang} />
