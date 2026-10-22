@@ -10,7 +10,7 @@ import { taskTemplateSave, taskRedistribute, taskReassign, taskSettingsSave } fr
 
 export const dynamic = 'force-dynamic';
 
-const KINDS: [string, string][] = [['check', 'Checklist'], ['money', 'Money check'], ['unpaid', 'Unpaid guests (automatic list)'], ['washes', 'Washes (automatic list)'], ['tours', 'Tours (automatic list)']];
+const KINDS: [string, string][] = [['check', 'Checklist'], ['money', 'Drawer check (whoever receives the drawer)'], ['unpaid', 'Unpaid guests (automatic list)'], ['washes', 'Washes (automatic list)'], ['tours', 'Tours (automatic list)'], ['taxi', 'Taxis (automatic list)']];
 
 export default async function TasksPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const u = await requireUser('staff.view');
@@ -42,10 +42,10 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
       <Flash sp={sp} />
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Shift now" value={cur ? cur.shift.label : 'None'} hint={cur ? `Shared ${cur.run.distributed_at ? 'at ' + dt(cur.run.distributed_at) : 'at ' + dt(cur.shareAt)}` : undefined} />
+        <Stat label="Shift now" value={cur ? cur.shift.label : 'None'} hint={cur ? `Last-hour tasks ${cur.run.distributed_at ? 'shared at ' + dt(cur.run.distributed_at) : 'shared at ' + dt(cur.shareAt)}` : undefined} />
         <Stat label="Clocked in" value={staffNow.length} hint={staffNow.map((s: any) => s.full_name).join(', ') || 'Nobody'} />
         <Stat label="Done this shift" value={view ? `${done}/${view.tasks.length}` : '—'} tone={view && done === view.tasks.length ? 'ok' : 'default'} />
-        <Stat label="Share after" value={`${setting?.distribute_after_minutes ?? 15} min`} hint="from the shift start" />
+        <Stat label="Start-of-shift tasks" value={`+${setting?.distribute_after_minutes ?? 15} min`} hint="last-hour tasks: 60 min before the end" />
       </div>
 
       {runs.length > 1 && (
@@ -104,11 +104,12 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
         <Card title="Checklist (same every shift)" className="xl:col-span-2">
           <div id="templates" className="scroll-mt-24" />
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-500"><tr><th className="py-2">Task</th><th>Items</th><th>Shifts</th><th className="text-right">Minutes</th><th /></tr></thead>
+            <thead className="text-left text-slate-500"><tr><th className="py-2">Task</th><th>Items</th><th>When</th><th>Shifts</th><th className="text-right">Minutes</th><th /></tr></thead>
             <tbody>{templates.map((t) => (
               <tr key={t.id} className={`border-t border-slate-100 ${t.active ? '' : 'opacity-50'}`}>
                 <td className="py-2"><b>{t.title}</b><div className="text-xs text-slate-500">{kindLabel(t.kind)}</div></td>
                 <td className="text-xs">{(t.items as string[]).join(', ') || '—'}</td>
+                <td className="text-xs">{t.kind === 'money' ? 'Drawer handover' : t.phase === 'start' ? 'Start of shift' : 'Last hour'}</td>
                 <td className="text-xs">{(t.shift_codes as string[]).map((c) => shiftTypes.find((s) => s.code === c)?.label ?? c).join(', ')}</td>
                 <td className="text-right tabular-nums">{t.minutes}</td>
                 <td className="text-right">{manage && <a href={`?edit=${t.id}#templates`} className="font-semibold text-cocoa-600 underline">Edit</a>}</td>
@@ -122,6 +123,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                 {edit.id && <input type="hidden" name="id" value={edit.id} />}
                 <div><Lbl htmlFor="tt">Task</Lbl><input id="tt" name="title" required defaultValue={edit.title} className={Input} /></div>
                 <div><Lbl htmlFor="tk">Type</Lbl><select id="tk" name="kind" defaultValue={edit.kind ?? 'check'} className={Input}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
+                <div><Lbl htmlFor="tp">When</Lbl><select id="tp" name="phase" defaultValue={edit.phase ?? 'last_hour'} className={Input}><option value="last_hour">Last hour before handover</option><option value="start">Start of the shift</option></select></div>
                 <div><Lbl htmlFor="ti">Items to tick (one per line, optional)</Lbl><textarea id="ti" name="items" rows={3} defaultValue={(edit.items ?? []).join('\n')} className={Input} /></div>
                 <fieldset><legend className="mb-1 text-sm font-medium text-slate-700">Shifts</legend>
                   <div className="flex flex-wrap gap-3 text-sm">{shiftTypes.map((s) => <label key={s.code} className="flex items-center gap-1.5"><input type="checkbox" name="shifts" value={s.code} defaultChecked={!edit.shift_codes || edit.shift_codes.includes(s.code)} /> {s.label}</label>)}</div>
@@ -144,7 +146,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
           {manage && (
             <Card title="Sharing">
               <form action={taskSettingsSave} className="flex items-end gap-2">
-                <div className="flex-1"><Lbl htmlFor="ta">Share tasks this many minutes after the shift starts</Lbl><input id="ta" name="after" type="number" min={0} max={120} defaultValue={setting?.distribute_after_minutes ?? 15} className={Input} /></div>
+                <div className="flex-1"><Lbl htmlFor="ta">Share start-of-shift tasks this many minutes after the shift starts</Lbl><input id="ta" name="after" type="number" min={0} max={120} defaultValue={setting?.distribute_after_minutes ?? 15} className={Input} /></div>
                 <button className={BtnGhost}>Save</button>
               </form>
             </Card>

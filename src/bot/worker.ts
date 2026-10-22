@@ -7,7 +7,8 @@ import { tg } from './telegram';
 import { handleTelegramUpdate } from './flow';
 import { sweepExpired } from '@/services/reservations';
 import { sweepMovedOutRooms } from '@/services/pms/frontdesk';
-import { syncCurrentRun } from '@/services/pms/tasks';
+import { syncRuns } from '@/services/pms/tasks';
+import { refreshRates } from '@/services/pms/fx';
 import { scanAndSchedule, runDue, schedule } from '@/services/followups';
 import { botSend, notifyStaff } from '@/services/conversations';
 import { syncHostelworldData } from '@/services/hostelworld-sync';
@@ -23,7 +24,8 @@ async function tick() {
     }
     const moved = await sweepMovedOutRooms();
     if (moved) log('rooms vacated by a room move marked dirty:', moved);
-    await syncCurrentRun().catch((e) => console.error('[tasks]', e));
+    await syncRuns().catch((e) => console.error('[tasks]', e));
+    await refreshRates().catch(() => {});
     await scanAndSchedule();
     const n = await runDue(async (conv, text, kb) => botSend(conv, text, kb), notifyStaff);
     if (n) log('processed follow-ups:', n);

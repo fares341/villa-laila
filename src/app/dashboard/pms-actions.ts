@@ -13,6 +13,8 @@ import { saveEvent } from '@/services/events';
 import { audit } from '@/services/audit';
 import { setSetting } from '@/services/settings';
 import { redistribute, reassignTask } from '@/services/pms/tasks';
+import { refreshRates, setManualRates } from '@/services/pms/fx';
+import { createTaxi, setTaxiStatus, setTaxiConfirmed, setTaxiPrices } from '@/services/pms/taxi';
 
 const msg = (e: unknown) => (e instanceof BookingError ? (e.message && e.message !== e.code ? e.message : e.code.replace(/_/g, ' ').toLowerCase()) : (console.error('[pms action]', e), 'Something went wrong'));
 const safe = (v: FormDataEntryValue | null, fallback: string) => { const s = String(v || ''); return s.startsWith('/') && !s.startsWith('//') ? s : fallback; };
@@ -73,7 +75,8 @@ export async function folioPayment(fd: FormData) {
   const u = await requireUser('payment.record'); const id = str(fd.get('id')); const back = `/dashboard/folio/${id}`;
   const method = str(fd.get('method')) === 'card' ? 'card' : 'cash';
   const shift = await openShiftRow();
-  try { await takeFolioPayment({ reservationId: id, amountCents: cents(fd.get('amount')) ?? 0, method, shiftId: shift?.id ?? null, staffId: shift?.staff_id ?? null, userId: u.id, note: str(fd.get('note')) || null || undefined, actor: u.email }); }
+  const currency = (['USD', 'EUR'].includes(str(fd.get('currency'))) && method === 'cash' ? str(fd.get('currency')) : 'EGP') as any;
+  try { await takeFolioPayment({ reservationId: id, amountCents: cents(fd.get('amount')) ?? 0, method, currency, shiftId: shift?.id ?? null, staffId: shift?.staff_id ?? null, userId: u.id, note: str(fd.get('note')) || undefined, actor: u.email }); }
   catch (e) { go(back, 'err', msg(e)); }
   revalidatePath(back); go(back, 'ok', 'Payment recorded');
 }
@@ -110,7 +113,7 @@ export async function staffSave(fd: FormData) {
       id: str(fd.get('id')) || undefined, fullName: str(fd.get('fullName')), role: str(fd.get('role')), phone: str(fd.get('phone')) || null,
       pin: str(fd.get('pin')) || null, isManager: fd.get('isManager') === 'on', canUsePos: fd.get('canUsePos') === 'on',
       monthlyTargetHours: Number(str(fd.get('target'))) || 208, hourlyRateCents: cents(fd.get('hourly')) ?? 0, dailyRateCents: cents(fd.get('daily')) ?? 0,
-      active: fd.get('active') === 'on', userId: str(fd.get('userId')) || null,
+      active: fd.get('active') === 'on', userId: str(fd.get('userId')) || null, canTakeCash: fd.get('canTakeCash') === 'on',
     }, u.email);
   } catch (e) { go(back, 'err', msg(e)); }
   revalidatePath(back); go(back, 'ok', 'Staff saved');
@@ -178,13 +181,26 @@ export async function productSave(fd: FormData) {
 
 export async function tourSave(fd: FormData) {
   const u = await requireUser('catalog.manage'); const back = '/dashboard/catalog?tab=tours';
-  const id = str(fd.get('id'));
-  const vals = [str(fd.get('name')), str(fd.get('organizer')) || 'Villa Layla Tours Desk', str(fd.get('duration')) || null, cents(fd.get('cost')) ?? 0, cents(fd.get('price')) ?? 0, fd.get('active') === 'on', str(fd.get('description')) || null];
+  let id = str(fd.get('id'));
+  const vals = [str(fd.get('name')), str(fd.get('organizer')) || 'Villa Layla Tours Desk', str(fd.get('duration')) || null, cents(fd.get('cost')) ?? 0, cents(fd.get('price')) ?? 0, fd.get('active') === 'on', str(fd.get('description')) || null, String(fd.get('guestMessage') ?? '').trim() || null];
   if (!vals[0]) go(back, 'err', 'Tour name is required');
-  if (id) await q(`UPDATE tours_catalog SET name=$2, organizer=$3, duration=$4, cost_cents=$5, price_cents=$6, active=$7, description=$8 WHERE id=$1`, [id, ...vals]);
-  else await q(`INSERT INTO tours_catalog(name,organizer,duration,cost_cents,price_cents,active,description) VALUES($1,$2,$3,$4,$5,$6,$7)`, vals);
-  await audit(u.email, id ? 'tour.update' : 'tour.create', 'tour', id || null, { name: vals[0] });
-  revalidatePath('/dashboard/catalog'); go(back, 'ok', 'Tour saved');
+  const files = fd.getAll('files').filter((f): f is File => typeof f !== 'string' && (f as File).size > 0);
+  for (const f of files) {
+    if (f.size > 10 * 1024 * 1024) go(back, 'err', `${f.name} is over 10 MB`);
+    if (!/^(application\/pdf|image\/(jpeg|png|webp))$/.test(f.type)) go(back, 'err', `${f.name}: upload PDF, JPG, PNG or WebP`);
+  }
+  if (id) await q(`UPDATE tours_catalog SET name=$2, organizer=$3, duration=$4, cost_cents=$5, price_cents=$6, active=$7, description=$8, guest_message=$9 WHERE id=$1`, [id, ...vals]);
+  else id = (await q<any>(`INSERT INTO tours_catalog(name,organizer,duration,cost_cents,price_cents,active,description,guest_message) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, vals))[0].id;
+  for (const f of files) await q(`INSERT INTO tour_files(tour_id,name,mime,bytes) VALUES($1,$2,$3,$4)`, [id, f.name.slice(0, 120), f.type, Buffer.from(await f.arrayBuffer())]);
+  await audit(u.email, 'tour.save', 'tour', id, { name: vals[0], files: files.length });
+  revalidatePath('/dashboard/catalog'); go(`/dashboard/catalog?tab=tours&edit=${id}#form`, 'ok', 'Tour saved');
+}
+
+export async function tourFileDelete(fd: FormData) {
+  const u = await requireUser('catalog.manage');
+  const r = (await q<any>(`DELETE FROM tour_files WHERE id=$1 RETURNING tour_id`, [str(fd.get('fileId'))]))[0];
+  await audit(u.email, 'tour.file_delete', 'tour', r?.tour_id ?? null, {});
+  revalidatePath('/dashboard/catalog'); go(`/dashboard/catalog?tab=tours&edit=${r?.tour_id ?? ''}#form`, 'ok', 'File removed');
 }
 
 /* ───────── Events ───────── */
@@ -278,9 +294,10 @@ export async function taskTemplateSave(fd: FormData) {
   const items = str(fd.get('items')).split(/\n|,/).map((x) => x.trim()).filter(Boolean).slice(0, 12);
   const shifts = fd.getAll('shifts').map(String).filter(Boolean);
   const minutes = Math.min(480, Math.max(1, parseInt(str(fd.get('minutes')), 10) || 10));
-  const vals = [title, kind, items, shifts.length ? shifts : ['MORNING', 'EVENING', 'NIGHT'], minutes, parseInt(str(fd.get('sort')), 10) || 0, fd.get('active') === 'on'];
-  if (id) await q(`UPDATE shift_task_templates SET title=$2, kind=$3, items=$4, shift_codes=$5, minutes=$6, sort_order=$7, active=$8 WHERE id=$1`, [id, ...vals]);
-  else await q(`INSERT INTO shift_task_templates(title,kind,items,shift_codes,minutes,sort_order,active) VALUES($1,$2,$3,$4,$5,$6,$7)`, vals);
+  const phase = kind === 'money' || str(fd.get('phase')) === 'start' ? 'start' : 'last_hour';
+  const vals = [title, kind, items, shifts.length ? shifts : ['MORNING', 'EVENING', 'NIGHT'], minutes, parseInt(str(fd.get('sort')), 10) || 0, fd.get('active') === 'on', phase];
+  if (id) await q(`UPDATE shift_task_templates SET title=$2, kind=$3, items=$4, shift_codes=$5, minutes=$6, sort_order=$7, active=$8, phase=$9 WHERE id=$1`, [id, ...vals]);
+  else await q(`INSERT INTO shift_task_templates(title,kind,items,shift_codes,minutes,sort_order,active,phase) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, vals);
   await audit(u.email, id ? 'task_template.update' : 'task_template.create', 'shift_task_template', id || null, { title });
   revalidatePath('/dashboard/tasks'); go('/dashboard/tasks', 'ok', 'Saved. Applies from the next shift.');
 }
@@ -303,4 +320,57 @@ export async function taskSettingsSave(fd: FormData) {
   await setSetting('shift_tasks', { distribute_after_minutes: m });
   await audit(u.email, 'task.settings', 'settings', null, { m });
   revalidatePath('/dashboard/tasks'); go('/dashboard/tasks', 'ok', 'Saved');
+}
+
+/* ───────── Cash: shortages, exchange rates ───────── */
+
+export async function shortageResolve(fd: FormData) {
+  const u = await requireUser('staff.manage');
+  const status = str(fd.get('status'));
+  if (!['paid_cash', 'salary', 'waived', 'open'].includes(status)) go('/dashboard/shift-reports?tab=shortages', 'err', 'Choose how it is settled');
+  if (status === 'waived' && !str(fd.get('note'))) go('/dashboard/shift-reports?tab=shortages', 'err', 'Write why the shortage is waived');
+  await q(`UPDATE cash_shortages SET status=$2, note=COALESCE(NULLIF($3,''), note), resolved_by=$4, resolved_at=CASE WHEN $2='open' THEN NULL ELSE now() END WHERE id=$1`,
+    [str(fd.get('id')), status, str(fd.get('note')), u.id]);
+  await audit(u.email, 'cash.shortage_' + status, 'cash_shortage', str(fd.get('id')), { note: str(fd.get('note')) });
+  revalidatePath('/dashboard/shift-reports'); go('/dashboard/shift-reports?tab=shortages', 'ok', 'Saved');
+}
+
+export async function fxSave(fd: FormData) {
+  const u = await requireUser('staff.manage');
+  try {
+    if (fd.get('refresh') === '1') { const r = await refreshRates(true); if (r.source !== 'auto') throw new BookingError('BAD_STATE', 'Could not reach the rates service. Enter the rates by hand.'); }
+    else await setManualRates(Number(str(fd.get('usd'))), Number(str(fd.get('eur'))));
+  } catch (e) { go('/dashboard/shift-reports', 'err', msg(e)); }
+  await audit(u.email, 'fx.update', 'settings', null, {});
+  revalidatePath('/dashboard/shift-reports'); go('/dashboard/shift-reports', 'ok', 'Exchange rates saved');
+}
+
+/* ───────── Taxi ───────── */
+
+export async function taxiCreate(fd: FormData) {
+  const u = await requireUser('frontdesk.use');
+  const back = safe(fd.get('back'), '/dashboard/taxi');
+  try {
+    await createTaxi({
+      reservationId: str(fd.get('reservationId')) || null, guestName: str(fd.get('guestName')), phone: str(fd.get('phone')) || null, room: str(fd.get('room')) || null,
+      direction: str(fd.get('direction')) as any, airport: str(fd.get('airport')) as any, date: str(fd.get('date')), time: str(fd.get('time')), note: str(fd.get('note')) || null,
+      userId: u.id, actor: u.email,
+    });
+  } catch (e) { go(back, 'err', msg(e)); }
+  revalidatePath('/dashboard/taxi'); go(back, 'ok', 'Taxi booked. A reminder to message the guest was added to the right shift.');
+}
+
+export async function taxiStatus(fd: FormData) {
+  const u = await requireUser('frontdesk.use');
+  const id = str(fd.get('id')); const st = str(fd.get('status'));
+  if (st === 'informed' || st === 'uninformed') await setTaxiConfirmed(id, st === 'informed', null);
+  else await setTaxiStatus(id, st as any, u.email);
+  revalidatePath('/dashboard/taxi'); go(safe(fd.get('back'), '/dashboard/taxi'), 'ok', 'Updated');
+}
+
+export async function taxiPricesSave(fd: FormData) {
+  const u = await requireUser('staff.manage');
+  try { await setTaxiPrices(cents(fd.get('cairo')) ?? 0, cents(fd.get('sphinx')) ?? 0); } catch (e) { go('/dashboard/taxi', 'err', msg(e)); }
+  await audit(u.email, 'taxi.prices', 'settings', null, {});
+  revalidatePath('/dashboard/taxi'); go('/dashboard/taxi', 'ok', 'Prices saved');
 }

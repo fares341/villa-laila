@@ -9,7 +9,7 @@ import { notifyStaff } from '../conversations';
 
 export type Staff = {
   id: string; full_name: string; role: string; phone: string | null; user_id: string | null; is_manager: boolean; can_use_pos: boolean;
-  monthly_target_hours: number; hourly_rate_cents: number; daily_rate_cents: number; active: boolean; has_pin: boolean;
+  monthly_target_hours: number; hourly_rate_cents: number; daily_rate_cents: number; active: boolean; has_pin: boolean; can_take_cash?: boolean;
 };
 
 export type LatenessTier = { from: number; to: number | null; fixed_cents: number | null; day_fraction: number; alert?: boolean };
@@ -42,13 +42,13 @@ export function lateness(delayMs: number, policy: LatenessPolicy, dailyRateCents
 }
 
 const PUBLIC_COLS = `id, full_name, role, phone, user_id, is_manager, can_use_pos, monthly_target_hours::float monthly_target_hours,
-  hourly_rate_cents, daily_rate_cents, active, (pin_hash IS NOT NULL) has_pin`;
+  hourly_rate_cents, daily_rate_cents, active, can_take_cash, (pin_hash IS NOT NULL) has_pin`;
 
 export async function listStaff(activeOnly = false): Promise<Staff[]> {
   return q<Staff>(`SELECT ${PUBLIC_COLS} FROM staff ${activeOnly ? 'WHERE active' : ''} ORDER BY active DESC, full_name`);
 }
 
-export async function saveStaff(input: { id?: string; fullName: string; role: string; phone?: string | null; pin?: string | null; isManager?: boolean; canUsePos?: boolean; monthlyTargetHours?: number; hourlyRateCents?: number; dailyRateCents?: number; active?: boolean; userId?: string | null }, actor: string) {
+export async function saveStaff(input: { id?: string; fullName: string; role: string; phone?: string | null; pin?: string | null; isManager?: boolean; canUsePos?: boolean; monthlyTargetHours?: number; hourlyRateCents?: number; dailyRateCents?: number; active?: boolean; userId?: string | null; canTakeCash?: boolean }, actor: string) {
   if (!input.fullName?.trim()) throw new BookingError('INVALID_INPUT', 'Name is required');
   if (input.pin && !/^\d{4,6}$/.test(input.pin)) throw new BookingError('INVALID_INPUT', 'PIN must be 4–6 digits');
   const pinHash = input.pin ? await bcrypt.hash(input.pin, 10) : null;
@@ -57,10 +57,10 @@ export async function saveStaff(input: { id?: string; fullName: string; role: st
   let id = input.id;
   if (id) {
     await q(`UPDATE staff SET full_name=$2, role=$3, phone=$4, is_manager=$5, can_use_pos=$6, monthly_target_hours=$7, hourly_rate_cents=$8, daily_rate_cents=$9, active=$10, user_id=$11,
-             pin_hash=COALESCE($12, pin_hash), updated_at=now() WHERE id=$1`, [id, ...vals, pinHash]);
+             pin_hash=COALESCE($12, pin_hash), can_take_cash=$13, updated_at=now() WHERE id=$1`, [id, ...vals, pinHash, !!input.canTakeCash]);
   } else {
-    id = (await q<any>(`INSERT INTO staff(full_name,role,phone,is_manager,can_use_pos,monthly_target_hours,hourly_rate_cents,daily_rate_cents,active,user_id,pin_hash)
-                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`, [...vals, pinHash]))[0].id;
+    id = (await q<any>(`INSERT INTO staff(full_name,role,phone,is_manager,can_use_pos,monthly_target_hours,hourly_rate_cents,daily_rate_cents,active,user_id,pin_hash,can_take_cash)
+                        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`, [...vals, pinHash, !!input.canTakeCash]))[0].id;
   }
   await audit(actor, input.id ? 'staff.update' : 'staff.create', 'staff', id!, { name: input.fullName, pinChanged: !!input.pin });
   return id!;
@@ -189,7 +189,9 @@ export async function monthlyTimesheet(month: string) {
       COALESCE(w.late_count, 0)::int late_count,
       COALESCE(w.deductions, 0)::bigint deductions_cents,
       COALESCE(w.waived, 0)::bigint waived_cents,
-      COALESCE(w.open_now, 0)::int open_now
+      COALESCE(w.open_now, 0)::int open_now,
+      (SELECT COALESCE(string_agg(cs.currency || ' ' || (cs.amount_minor / 100.0)::text, ' · '), '') FROM cash_shortages cs
+        WHERE cs.staff_id=s.id AND cs.status='salary' AND cs.created_at >= $1::date AND cs.created_at < $2::date) salary_shortages
     FROM staff s
     LEFT JOIN LATERAL (
       SELECT sum(

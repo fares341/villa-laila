@@ -1,5 +1,5 @@
 import { requireUser } from '@/lib/auth';
-import { PageHeader, Flash, Stat, Pill, HK_LABEL, dt } from '@/components/dash';
+import { PageHeader, Flash, Stat, Pill, HK_LABEL, dt, Btn } from '@/components/dash';
 import { Icon } from '@/components/icons';
 import { roomBoard } from '@/services/pms/frontdesk';
 import { fdHousekeeping } from '../pms-actions';
@@ -25,7 +25,9 @@ export default async function Housekeeping({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PageHeader title="Rooms & housekeeping" sub="Checkout and room moves mark rooms dirty automatically. Tap a button when a room is ready." />
+      <PageHeader title="Rooms & housekeeping" sub="Checkout and room moves mark rooms dirty automatically. Tap a button when a room is ready.">
+        <a href="/print/housekeeping" target="_blank" rel="noopener" className={Btn}><Icon name="printer" size={16} /> Print sheet (Arabic)</a>
+      </PageHeader>
       <Flash sp={sp} />
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="To clean" value={count('dirty')} tone={count('dirty') ? 'due' : 'ok'} />

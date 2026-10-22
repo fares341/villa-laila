@@ -10,12 +10,12 @@ import { getFolio } from '@/services/pms/folio';
 import { moveOptions } from '@/services/pms/frontdesk';
 import { openShiftRow } from '@/services/pms/pos';
 import { BookingError } from '@/services/errors';
-import { fdCheckIn, fdCheckOut, fdMoveRoom, folioPayment, folioCharge, folioVoid, folioRateOverride } from '../../pms-actions';
+import { fdCheckIn, fdCheckOut, fdMoveRoom, folioPayment, folioCharge, folioVoid, folioRateOverride, taxiCreate } from '../../pms-actions';
 
 export const dynamic = 'force-dynamic';
 
 const SOURCE: Record<string, string> = { override: 'Manager override', booking: 'Booked rate', little_hotelier: 'Little Hotelier', local_rate: 'Rate table', csv_import: 'Little Hotelier (CSV)', manual: 'Manual rate' };
-const KIND: Record<string, string> = { room: 'Room', pos: 'POS', custom: 'Charge', event: 'Event', tour: 'Tour', adjustment: 'Adjustment', discount: 'Discount', comp: 'Owner comp' };
+const KIND: Record<string, string> = { room: 'Room', pos: 'POS', custom: 'Charge', taxi: 'Taxi', event: 'Event', tour: 'Tour', adjustment: 'Adjustment', discount: 'Discount', comp: 'Owner comp' };
 const METHOD: Record<string, string> = { cash: 'Cash', card_terminal: 'Card', instapay: 'InstaPay', bank_transfer: 'Bank transfer', paymob: 'Paymob', other: 'Other' };
 
 export default async function Folio({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
@@ -140,7 +140,9 @@ export default async function Folio({ params, searchParams }: { params: Promise<
                   <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-cocoa-200 px-3 py-2 text-sm font-semibold has-[:checked]:border-cocoa-800 has-[:checked]:bg-cocoa-800 has-[:checked]:text-white">
                     <input type="radio" name="method" value="card" defaultChecked={!shift} className="sr-only" /><Icon name="credit-card" size={16} /> Card</label>
                 </fieldset>
-                {shift ? <p className="text-xs text-slate-500">Cash goes into the drawer of shift #{shift.shift_no}.</p>
+                <div><Lbl htmlFor="p-cur">Cash currency</Lbl>
+                  <select id="p-cur" name="currency" className={Input}><option value="EGP">EGP</option><option value="USD">USD (converted at today’s rate)</option><option value="EUR">EUR (converted at today’s rate)</option></select></div>
+                {shift ? <p className="text-xs text-slate-500">Cash goes into the drawer of shift #{shift.shift_no}. The amount above is in the currency you choose.</p>
                   : <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">Cash needs an open POS shift so it is counted in the drawer. <a href="/pos" target="_blank" rel="noopener" className="underline">Open the POS</a>.</p>}
                 <input name="note" placeholder="Note (optional)" className={Input} aria-label="Note" />
                 <button className={Btn + ' w-full'}><Icon name="wallet" size={16} /> Record payment</button>
@@ -180,6 +182,20 @@ export default async function Folio({ params, searchParams }: { params: Promise<
                 <button className={BtnGhost + ' w-full'}><Icon name="arrow-left-right" size={16} /> Move guest</button>
               </form>
             )}
+          </Card>
+
+          <Card title="Airport taxi">
+            <form action={taxiCreate} className="space-y-2">
+              <input type="hidden" name="reservationId" value={id} /><input type="hidden" name="back" value={`/dashboard/folio/${id}`} />
+              <div className="grid grid-cols-2 gap-2">
+                <select name="direction" className={Input} aria-label="Direction"><option value="pickup">Pick-up (arrival)</option><option value="dropoff">Drop-off (departure)</option></select>
+                <select name="airport" className={Input} aria-label="Airport"><option value="cairo">Cairo airport</option><option value="sphinx">Sphinx airport</option></select>
+                <input name="date" type="date" required defaultValue={r.status === 'checked_in' ? r.check_out : r.check_in} className={Input} aria-label="Date" />
+                <input name="time" type="time" required className={Input} aria-label="Time" />
+              </div>
+              <button className={BtnGhost + ' w-full'}>Book taxi and add to folio</button>
+              <p className="text-xs text-slate-500">Charged at today’s USD rate. The shift that must message the guest gets a task.</p>
+            </form>
           </Card>
 
           {isMgr && (

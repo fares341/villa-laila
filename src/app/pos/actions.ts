@@ -11,7 +11,10 @@ import {
 } from '@/services/pms/pos';
 import { getFolio } from '@/services/pms/folio';
 import { channelEnabled } from '@/services/pms/channel';
-import { syncCurrentRun, runView, saveTask, finishWithNote, reassignTask, redistribute, setWashReady, setRunNotes, handoverText } from '@/services/pms/tasks';
+import { getRates, refreshRates, type Currency } from '@/services/pms/fx';
+import { taxiMessage, waLink, setTaxiConfirmed } from '@/services/pms/taxi';
+import { recordTaken } from '@/services/pms/pos';
+import { runForStaff, runView, taxiLine, saveTask, finishWithNote, reassignTask, redistribute, setWashReady, setRunNotes, handoverText } from '@/services/pms/tasks';
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -54,6 +57,10 @@ export async function posState(): Promise<ActionResult<any>> {
         drawer: totals && me?.is_manager ? totals.expectedCash : null,
         sales, channel: channelEnabled(), serverTime: new Date().toISOString(),
         tasks: me ? await myTaskCounts(me.id).catch(() => null) : null,
+        rates: me ? await refreshRates().catch(() => getRates()) : null,
+        canTake: me ? !!(await q<any>(`SELECT can_take_cash FROM staff WHERE id=$1`, [me.id]))[0]?.can_take_cash : false,
+        takers: me ? await q<any>(`SELECT id, full_name FROM staff WHERE active AND can_take_cash AND pin_hash IS NOT NULL ORDER BY full_name`) : [],
+        currencies: totals ? Object.fromEntries(Object.entries(totals.currencies).map(([k, v]: any) => [k, me?.is_manager ? v.expected : null])) : null,
       },
     };
   } catch (e) { return fail(e); }
@@ -100,12 +107,13 @@ export async function posClock(staffId: string, pin: string, direction: 'in' | '
   } catch (e) { return fail(e); }
 }
 
-export async function posOpenShift(floatCents: number): Promise<ActionResult<any>> {
+/** Receiving the drawer: the incoming person counts each currency. */
+export async function posOpenShift(counts: number | { EGP: number; USD: number; EUR: number }): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
-    const r = await openPosShift(me.id, Math.round(floatCents), u.id);
-    return { ok: true, data: { no: r.shift.shift_no, late: r.attendance.delay_minutes, tier: r.attendance.tier } };
+    const r = await openPosShift(me.id, counts, u.id);
+    return { ok: true, data: { no: r.shift.shift_no, late: r.attendance.delay_minutes, tier: r.attendance.tier, mismatch: r.mismatch } };
   } catch (e) { return fail(e); }
 }
 
@@ -116,7 +124,7 @@ async function myShift(me: { id: string; is_manager: boolean }) {
   return s;
 }
 
-export async function posSale(input: { reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod; compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean }): Promise<ActionResult<any>> {
+export async function posSale(input: { reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod; compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean; cashCurrency?: Currency }): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
@@ -134,17 +142,17 @@ export async function posGuestFolio(reservationId: string): Promise<ActionResult
   } catch (e) { return fail(e); }
 }
 
-export async function posTakePayment(reservationId: string, amountCents: number, method: PayMethod): Promise<ActionResult<null>> {
+export async function posTakePayment(reservationId: string, amountCents: number, method: PayMethod, currency: Currency = 'EGP'): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
     const s = await myShift(me);
-    await takeFolioPayment({ reservationId, amountCents: Math.round(amountCents), method, shiftId: s.id, staffId: me.id, userId: u.id, note: `Taken at POS by ${me.full_name}`, actor: 'pos:' + me.full_name });
-    return { ok: true, data: null };
+    const r = await takeFolioPayment({ reservationId, amountCents: Math.round(amountCents), method, currency, shiftId: s.id, staffId: me.id, userId: u.id, note: `Received at POS by ${me.full_name}`, actor: 'pos:' + me.full_name });
+    return { ok: true, data: r };
   } catch (e) { return fail(e); }
 }
 
-export async function posExpense(input: { amountCents: number; category: string; description: string; approverId: string; approverPin: string }): Promise<ActionResult<null>> {
+export async function posExpense(input: { amountCents: number; category: string; description: string; approverId: string; approverPin: string; currency?: Currency }): Promise<ActionResult<null>> {
   try {
     await device();
     const me = await cashier();
@@ -155,12 +163,12 @@ export async function posExpense(input: { amountCents: number; category: string;
 }
 
 /** Blind close: the cashier only types what they counted; the Z-report comes back after. */
-export async function posCloseShift(countedCents: number, note: string): Promise<ActionResult<any>> {
+export async function posCloseShift(counted: number | { EGP: number; USD: number; EUR: number }, note: string): Promise<ActionResult<any>> {
   try {
     await device();
     const me = await cashier();
     const s = await myShift(me);
-    const z = await closePosShiftBlind(s.id, Math.round(countedCents), me.id, note?.trim() ? `Close note: ${note.trim()}` : null);
+    const z = await closePosShiftBlind(s.id, counted, me.id, note?.trim() ? `Close note: ${note.trim()}` : null);
     await clearPosStaff();
     return { ok: true, data: z };
   } catch (e) { return fail(e); }
@@ -179,14 +187,15 @@ export async function posTasks(): Promise<ActionResult<any>> {
   try {
     await device();
     const me = await cashier();
-    const s = await syncCurrentRun();
+    const s = await runForStaff(me.id);
     if (!s) return { ok: true, data: { run: null, me } };
     const v = await runView(s.run.id);
+    const taxis = v.taxis.map((x: any) => { const msg = taxiMessage(x); return { ...x, line: taxiLine(x), message: msg, wa: waLink(x.phone, msg) }; });
     return {
       ok: true,
       data: {
-        me, run: { id: v.run.id, label: v.run.label, date: v.run.work_date, notes: v.run.notes, distributed: !!v.run.distributed_at, shareAt: s.shareAt.toISOString() },
-        tasks: v.tasks, unpaid: v.unpaid, washes: v.washes, tours: v.tours,
+        me, run: { id: v.run.id, label: v.run.label, date: v.run.work_date, notes: v.run.notes, distributed: !!v.run.distributed_at, shareAt: s.shareLastAt.toISOString(), shareStartAt: s.shareStartAt.toISOString() },
+        tasks: v.tasks, unpaid: v.unpaid, washes: v.washes, tours: v.tours, taxis,
         staff: s.staff.map((x: any) => ({ id: x.id, name: x.full_name })),
         onDuty: s.staff.some((x: any) => x.id === me.id),
       },
@@ -218,10 +227,10 @@ export async function posTasksShare(): Promise<ActionResult<number>> {
   try {
     await device();
     const me = await cashier();
-    const s = await syncCurrentRun({ force: me.is_manager });
+    if (!me.is_manager) throw new BookingError('FORBIDDEN', 'Tasks are shared automatically; a manager can share them now');
+    const s = await runForStaff(me.id);
     if (!s) throw new BookingError('BAD_STATE', 'No shift is running right now');
-    if (!me.is_manager && !s.run.distributed_at) throw new BookingError('FORBIDDEN', 'Tasks are shared automatically after the grace period, or a manager can share them now');
-    const n = me.is_manager ? await redistribute(s.run.id, 'pos:' + me.full_name) : 0;
+    const n = await redistribute(s.run.id, 'pos:' + me.full_name);
     return { ok: true, data: n };
   } catch (e) { return fail(e); }
 }
@@ -239,10 +248,26 @@ export async function posHandover(runId: string): Promise<ActionResult<string>> 
 }
 
 async function myTaskCounts(staffId: string) {
-  const s = await syncCurrentRun();
+  const s = await runForStaff(staffId);
   if (!s) return null;
   const r = (await q<any>(`SELECT count(*) FILTER (WHERE assigned_to=$2)::int mine, count(*) FILTER (WHERE assigned_to=$2 AND status='pending')::int open,
                                   count(*)::int total, count(*) FILTER (WHERE status='pending')::int team_open
                            FROM shift_tasks WHERE run_id=$1`, [s.run.id, staffId]))[0];
-  return { ...r, distributed: !!s.run.distributed_at, shareAt: s.shareAt.toISOString(), shift: s.shift.label };
+  return { ...r, distributed: !!s.run.distributed_at, shareAt: s.shareLastAt.toISOString(), shift: s.shift.label };
+}
+
+/** Cash removed from the drawer by the owner (Taken). Their own PIN; only staff allowed to take cash. */
+export async function posTaken(input: { takerId: string; takerPin: string; amounts: { EGP: number; USD: number; EUR: number }; note?: string }): Promise<ActionResult<any>> {
+  try {
+    await device();
+    const me = await cashier();
+    const s = await openShiftRow();
+    if (!s) throw new BookingError('BAD_STATE', 'No drawer is open');
+    void me;
+    return { ok: true, data: await recordTaken(s.id, input) };
+  } catch (e) { return fail(e); }
+}
+
+export async function posTaxiConfirmed(taxiId: string, confirmed: boolean): Promise<ActionResult<null>> {
+  try { await device(); const me = await cashier(); await setTaxiConfirmed(taxiId, confirmed, me.id); return { ok: true, data: null }; } catch (e) { return fail(e); }
 }
