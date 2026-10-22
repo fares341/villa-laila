@@ -41,7 +41,9 @@ export default async function HousekeepingSheet({ searchParams }: { searchParams
   return (
     <div dir="rtl" lang="ar" className="hk-sheet">
       <style>{`
-        .hk-sheet { font-family: "Noto Sans Arabic Variable", "Almarai", Tahoma, sans-serif; color: #2F2925; background: #fff; max-width: 820px; margin: 0 auto; padding: 24px; }
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+        .hk-sheet, .hk-sheet * { font-family: "Tajawal", "Noto Sans Arabic Variable", Tahoma, sans-serif; }
+        .hk-sheet { color: #2F2925; background: #fff; max-width: 820px; margin: 0 auto; padding: 24px; }
         .hk-sheet h1 { font-size: 24px; margin: 0; color: #4A3222; }
         .hk-top { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #4A3222; padding-bottom: 10px; margin-bottom: 12px; }
         .hk-top p { margin: 4px 0 0; font-size: 14px; }
