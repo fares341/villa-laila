@@ -6,6 +6,7 @@ import { PageHeader, Card, Flash, fmt, Btn, BtnGhost, Input, Lbl } from '@/compo
 import { Icon } from '@/components/icons';
 import { EVENT_COLS, tr, hiddenReason, eventMedia } from '@/services/events';
 import { eventSave } from '../../../pms-actions';
+import { EventMediaManager } from '@/components/event-media-manager';
 
 export const dynamic = 'force-dynamic';
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -21,7 +22,6 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
   if (!e) notFound();
   const v = (n: number | null | undefined) => (n == null ? '' : Number(n) / 100);
   const media = isNew ? [] : await eventMedia(e.id);
-  const meals = media.filter((m) => m.kind === 'meal'), videos = media.filter((m) => m.kind === 'video');
   const why = isNew ? null : hiddenReason(e);
   const profitPer = Number(e.price_cents ?? 0) - Number(e.cost_per_attendee_cents ?? 0);
 
@@ -51,6 +51,9 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
             </div>
           </Card>
 
+          <Card title="Videos & meal photos" className="scroll-mt-6" id="media">
+            <EventMediaManager eventId={isNew ? null : e.id} items={media.map((m) => ({ id: m.id, kind: m.kind, src: m.src, external: m.external, orientation: m.orientation, size: m.size }))} />
+          </Card>
           <Card title="Date & time">
             <div className="grid gap-3 sm:grid-cols-3">
               <div><Lbl htmlFor="e-r">Repeats</Lbl>
@@ -87,7 +90,7 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
               <p className="text-xs text-slate-500">Accounts are set in <Link className="underline" href="/dashboard/events?tab=settings">Events → Payment accounts</Link>.</p>
             </div>
           </Card>
-          <Card title="Image">
+          <Card title="Cover photo">
             {e.image && <img src={e.image} alt="" className="mb-3 aspect-video w-full rounded-lg object-cover" />}
             <input type="file" name="image" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm" aria-label="Upload image" />
             <p className="mt-1 text-xs text-slate-500">JPG, PNG or WebP under 5 MB. 16:9 looks best.</p>
@@ -97,61 +100,6 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
         </div>
       </form>
 
-      {!isNew && (
-        <section id="media" className="mt-6 grid scroll-mt-6 gap-5 xl:grid-cols-2">
-          <Card title={`Meal photos (${meals.length})`}>
-            <p className="mb-3 text-sm text-slate-600">Shown beside the booking box on the event page. Add as many as you like.</p>
-            {meals.length > 0 && (
-              <ul className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {meals.map((m) => (
-                  <li key={m.id} className="group relative">
-                    <img src={m.src} alt="" className="aspect-square w-full rounded-lg object-cover" />
-                    <form action="/api/dashboard/event-media" method="post" encType="multipart/form-data" className="absolute right-1 top-1">
-                      <input type="hidden" name="eventId" value={e.id} /><input type="hidden" name="delete" value={m.id} />
-                      <button className="rounded-md bg-white/90 px-2 py-0.5 text-xs font-semibold text-red-800 shadow" title="Remove">Remove</button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <form action="/api/dashboard/event-media" method="post" encType="multipart/form-data" className="flex flex-wrap items-center gap-2">
-              <input type="hidden" name="eventId" value={e.id} /><input type="hidden" name="kind" value="meal" />
-              <input type="file" name="files" accept="image/jpeg,image/png,image/webp" multiple className="min-w-0 flex-1 text-sm" aria-label="Meal photos" />
-              <button className={Btn}><Icon name="upload" size={16} /> Upload photos</button>
-            </form>
-          </Card>
-          <Card title={`Videos (${videos.length})`}>
-            <p className="mb-3 text-sm text-slate-600">Played on the event page. Upload an MP4 / MOV (up to 50 MB) or paste a YouTube, Instagram or .mp4 link.</p>
-            {videos.length > 0 && (
-              <ul className="mb-4 space-y-2">
-                {videos.map((m, i) => (
-                  <li key={m.id} className="flex items-center justify-between gap-3 rounded-lg border border-cocoa-100 p-2 text-sm">
-                    {m.external ? <a className="truncate underline" href={m.src} target="_blank" rel="noopener">{m.src}</a> : <video src={m.src} className="h-16 w-28 rounded-md bg-black object-cover" muted preload="metadata" />}
-                    <span className="flex-1 text-xs text-slate-500">Video {i + 1} · {m.orientation === 'portrait' ? 'tall (9:16)' : 'wide (16:9)'}</span>
-                    <form action="/api/dashboard/event-media" method="post" encType="multipart/form-data">
-                      <input type="hidden" name="eventId" value={e.id} /><input type="hidden" name="shapeOf" value={m.id} /><input type="hidden" name="orientation" value={m.orientation === 'portrait' ? 'landscape' : 'portrait'} />
-                      <button className="text-xs font-semibold text-cocoa-700 underline">Make it {m.orientation === 'portrait' ? 'wide' : 'tall'}</button>
-                    </form>
-                    <form action="/api/dashboard/event-media" method="post" encType="multipart/form-data">
-                      <input type="hidden" name="eventId" value={e.id} /><input type="hidden" name="delete" value={m.id} />
-                      <button className="text-xs font-semibold text-red-800 underline">Remove</button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <form action="/api/dashboard/event-media" method="post" encType="multipart/form-data" className="space-y-2">
-              <input type="hidden" name="eventId" value={e.id} /><input type="hidden" name="kind" value="video" />
-              <fieldset className="flex flex-wrap gap-2 text-sm"><legend className="mb-1 text-sm font-medium text-slate-700">Video shape</legend>
-                <label className="flex items-center gap-2 rounded-lg border border-cocoa-200 px-3 py-1.5 has-[:checked]:border-cocoa-800 has-[:checked]:bg-cocoa-800 has-[:checked]:text-white"><input type="radio" name="orientation" value="landscape" defaultChecked className="sr-only" />Wide 16:9 (landscape)</label>
-                <label className="flex items-center gap-2 rounded-lg border border-cocoa-200 px-3 py-1.5 has-[:checked]:border-cocoa-800 has-[:checked]:bg-cocoa-800 has-[:checked]:text-white"><input type="radio" name="orientation" value="portrait" className="sr-only" />Tall 9:16 (portrait, like Reels)</label>
-              </fieldset>
-              <input type="file" name="files" accept="video/mp4,video/quicktime,video/webm" multiple className="block w-full text-sm" aria-label="Video files" />
-              <div className="flex gap-2"><input name="url" dir="ltr" placeholder="or https://youtube.com/…" className={Input} aria-label="Video link" /><button className={Btn}><Icon name="upload" size={16} /> Add</button></div>
-            </form>
-          </Card>
-        </section>
-      )}
     </>
   );
 }

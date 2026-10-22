@@ -28,6 +28,8 @@ services:
     build: .
     restart: unless-stopped
     env_file: .env
+    volumes:
+      - ./uploads:/app/data/uploads   # event videos (kept across rebuilds)
     environment:
       DATABASE_URL: postgres://villa:${POSTGRES_PASSWORD}@db:5432/villa
     depends_on:
@@ -40,6 +42,8 @@ services:
     command: npm run worker
     restart: unless-stopped
     env_file: .env
+    volumes:
+      - ./uploads:/app/data/uploads   # event videos (kept across rebuilds)
     environment:
       DATABASE_URL: postgres://villa:${POSTGRES_PASSWORD}@db:5432/villa
     depends_on:

@@ -271,7 +271,7 @@ async function onCallback(chat: string, actor: string, cq: any) {
     if (a === 'pt') { await togglePayMethod(y, x, actor); return payMenu(chat, y, mid); }
     if (a === 'm') { // x = cover|meal|video, y = id
       await setState(chat, { step: 'media', eventId: y, mediaKind: x, added: 0 });
-      return adminApi.send(chat, x === 'cover' ? 'ابعت صورة الغلاف.' : x === 'meal' ? 'ابعت صور الوجبات (ممكن أكتر من صورة). لما تخلص اكتب: تم' : 'ابعت الفيديو (لحد 20 ميجا من تليجرام) أو لينك يوتيوب / إنستجرام. لما تخلص اكتب: تم');
+      return adminApi.send(chat, x === 'cover' ? 'ابعت صورة الغلاف.' : x === 'meal' ? 'ابعت صور الوجبات (ممكن أكتر من صورة). لما تخلص اكتب: تم' : 'ابعت الفيديو (من تليجرام لحد 20 ميجا، الأكبر ارفعه من الداش بورد) أو لينك يوتيوب / إنستجرام. لما تخلص اكتب: تم');
     }
     if (a === 'd') {
       const media = await eventMedia(x);
@@ -388,7 +388,7 @@ async function onMedia(chat: string, actor: string, m: any, st: State, text: str
 
   if (kind === 'video') {
     if (vid) {
-      if (vid.file_size && vid.file_size > 20 * 1024 * 1024) return adminApi.send(chat, 'تليجرام مش بيسمح للبوت ينزل فيديو أكبر من 20 ميجا. ابعته أصغر، أو ارفعه من الداش بورد، أو ابعت لينك.');
+      if (vid.file_size && vid.file_size > 20 * 1024 * 1024) return adminApi.send(chat, 'تليجرام مش بيسمح للبوتات تنزّل فيديو أكبر من 20 ميجا. ارفعه من الداش بورد (أي حجم) من صفحة الفعالية، أو ابعت لينك يوتيوب / إنستجرام.');
       const bytes = await adminApi.download(vid.file_id);
       const tall = vid.width && vid.height ? vid.height > vid.width : false;
       await addEventMedia(id, 'video', { bytes, mime: vid.mime_type || 'video/mp4' }, null, actor, null, tall ? 'portrait' : 'landscape');

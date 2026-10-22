@@ -10,3 +10,5 @@ backups/
 
 test_*.mjs
 *.mjs
+uploads/
+data/uploads/

@@ -3,11 +3,13 @@ import { BookingError } from './errors';
 import { audit } from './audit';
 import { EVENT_COLS, type EventRow } from './events';
 import { parseDate } from './event-admin';
+import { randomUUID } from 'node:crypto';
+import { saveBuffer, removeFile, extFor, MAX_UPLOAD_BYTES } from '@/lib/uploads';
 
 /** Event content edited from the dashboard or the Telegram admin bot: media, single fields, quick create. */
 
-export const MAX_PHOTO = 8 * 1024 * 1024;
-export const MAX_VIDEO = 50 * 1024 * 1024;
+export const MAX_PHOTO = 25 * 1024 * 1024;
+export const MAX_VIDEO = MAX_UPLOAD_BYTES;
 
 /** Shorts / Reels / TikTok links are tall; everything else starts wide (changeable in the dashboard). */
 export const guessOrientation = (url: string | null) => (url && /youtube\.com\/shorts\/|instagram\.com\/(reel|reels)\/|tiktok\.com\//i.test(url) ? 'portrait' : 'landscape');
@@ -21,7 +23,13 @@ export async function addEventMedia(eventId: string, kind: 'meal' | 'video' | 'g
   if (file) {
     const isVideo = /^video\//.test(file.mime);
     if (kind === 'video' ? !isVideo : !/^image\//.test(file.mime)) throw new BookingError('INVALID_INPUT', kind === 'video' ? 'Upload an MP4 / MOV video' : 'Upload a JPG, PNG or WebP photo');
-    if (file.bytes.length > (isVideo ? MAX_VIDEO : MAX_PHOTO)) throw new BookingError('INVALID_INPUT', isVideo ? 'Video must be under 50 MB' : 'Photo must be under 8 MB');
+    if (file.bytes.length > (isVideo ? MAX_VIDEO : MAX_PHOTO)) throw new BookingError('INVALID_INPUT', isVideo ? 'Video is too large' : 'Photo must be under 25 MB');
+    // Videos go to the uploads folder, not the database.
+    if (isVideo) {
+      const rel = `events/${eventId}/${randomUUID()}.${extFor(file.mime)}`;
+      await saveBuffer(rel, file.bytes);
+      return addEventMediaFile(eventId, kind, rel, file.mime, file.bytes.length, orientation ?? 'landscape', actor);
+    }
   } else if (!url || !/^https?:\/\//.test(url)) throw new BookingError('INVALID_INPUT', 'Add a file or a link');
   const shape = orientation ?? (file ? 'landscape' : guessOrientation(url));
   const r = (await q<any>(`INSERT INTO event_media(event_id,kind,bytes,mime,url,caption,orientation,sort_order)
@@ -31,15 +39,25 @@ export async function addEventMedia(eventId: string, kind: 'meal' | 'video' | 'g
   return r.id as string;
 }
 
+/** A file already written to the uploads folder (large video from the chunked uploader, or the bot). */
+export async function addEventMediaFile(eventId: string, kind: 'meal' | 'video' | 'gallery', rel: string, mime: string, size: number, orientation: 'landscape' | 'portrait', actor: string) {
+  const r = (await q<any>(`INSERT INTO event_media(event_id,kind,file_path,mime,size_bytes,orientation,sort_order)
+    VALUES($1,$2,$3,$4,$5,$6,(SELECT COALESCE(max(sort_order),0)+1 FROM event_media WHERE event_id=$1 AND kind=$2)) RETURNING id`,
+    [eventId, kind, rel, mime, size, orientation === 'portrait' ? 'portrait' : 'landscape']))[0];
+  await audit(actor, 'event.media_add', 'event', eventId, { kind, size });
+  return r.id as string;
+}
+
 export async function deleteEventMedia(mediaId: string, actor: string) {
-  const r = await q<any>(`DELETE FROM event_media WHERE id=$1 RETURNING event_id, kind`, [mediaId]);
+  const r = await q<any>(`DELETE FROM event_media WHERE id=$1 RETURNING event_id, kind, file_path`, [mediaId]);
+  await removeFile(r[0]?.file_path);
   if (r[0]) await audit(actor, 'event.media_delete', 'event', r[0].event_id, { kind: r[0].kind });
   return r[0]?.event_id as string | undefined;
 }
 
 export async function setEventCover(eventId: string, file: { bytes: Buffer; mime: string }, actor: string) {
   if (!/^image\//.test(file.mime)) throw new BookingError('INVALID_INPUT', 'Upload a photo');
-  if (file.bytes.length > MAX_PHOTO) throw new BookingError('INVALID_INPUT', 'Photo must be under 8 MB');
+  if (file.bytes.length > MAX_PHOTO) throw new BookingError('INVALID_INPUT', 'Photo must be under 25 MB');
   await q(`UPDATE events SET image_bytes=$2, image_mime=$3, image='/api/media/event/' || id::text || '?v=' || extract(epoch from now())::bigint, updated_at=now() WHERE id=$1`, [eventId, file.bytes, file.mime]);
   await audit(actor, 'event.cover', 'event', eventId);
 }

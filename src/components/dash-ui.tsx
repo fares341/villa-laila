@@ -77,8 +77,8 @@ export const Empty = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
-export const Card = ({ title, children, className = '' }: { title?: string; children: React.ReactNode; className?: string }) => (
-  <section className={`rounded-2xl border border-cocoa-200 bg-white p-5 shadow-[0_1px_2px_rgba(81,64,47,.06)] ${className}`}>
+export const Card = ({ title, children, className = '', id }: { title?: string; children: React.ReactNode; className?: string; id?: string }) => (
+  <section id={id} className={`rounded-2xl border border-cocoa-200 bg-white p-5 shadow-[0_1px_2px_rgba(81,64,47,.06)] ${className}`}>
     {title && <h2 className="mb-3 text-lg font-bold text-cocoa-800">{title}</h2>}
     {children}
   </section>
