@@ -11,6 +11,7 @@ import {
 } from '@/services/pms/pos';
 import { getFolio } from '@/services/pms/folio';
 import { channelEnabled } from '@/services/pms/channel';
+import { syncCurrentRun, runView, saveTask, finishWithNote, reassignTask, redistribute, setWashReady, setRunNotes, handoverText } from '@/services/pms/tasks';
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -52,6 +53,7 @@ export async function posState(): Promise<ActionResult<any>> {
         catalog, guests, revenue, onClock,
         drawer: totals && me?.is_manager ? totals.expectedCash : null,
         sales, channel: channelEnabled(), serverTime: new Date().toISOString(),
+        tasks: me ? await myTaskCounts(me.id).catch(() => null) : null,
       },
     };
   } catch (e) { return fail(e); }
@@ -169,4 +171,78 @@ export async function posManagers(): Promise<ActionResult<any[]>> {
     await device();
     return { ok: true, data: await q<any>(`SELECT id, full_name FROM staff WHERE active AND is_manager AND pin_hash IS NOT NULL ORDER BY full_name`) };
   } catch (e) { return fail(e); }
+}
+
+/* ───────── Shift tasks ───────── */
+
+export async function posTasks(): Promise<ActionResult<any>> {
+  try {
+    await device();
+    const me = await cashier();
+    const s = await syncCurrentRun();
+    if (!s) return { ok: true, data: { run: null, me } };
+    const v = await runView(s.run.id);
+    return {
+      ok: true,
+      data: {
+        me, run: { id: v.run.id, label: v.run.label, date: v.run.work_date, notes: v.run.notes, distributed: !!v.run.distributed_at, shareAt: s.shareAt.toISOString() },
+        tasks: v.tasks, unpaid: v.unpaid, washes: v.washes, tours: v.tours,
+        staff: s.staff.map((x: any) => ({ id: x.id, name: x.full_name })),
+        onDuty: s.staff.some((x: any) => x.id === me.id),
+      },
+    };
+  } catch (e) { return fail(e); }
+}
+
+export async function posTaskSave(taskId: string, input: { items?: { label: string; done: boolean }[]; note?: string | null; done?: boolean; withNote?: boolean }): Promise<ActionResult<null>> {
+  try {
+    await device();
+    const me = await cashier();
+    if (input.withNote) await finishWithNote(taskId, me, input.note ?? '');
+    else await saveTask(taskId, me, input);
+    return { ok: true, data: null };
+  } catch (e) { return fail(e); }
+}
+
+export async function posTaskReassign(taskId: string, staffId: string): Promise<ActionResult<null>> {
+  try {
+    await device();
+    const me = await cashier();
+    if (!me.is_manager) throw new BookingError('FORBIDDEN', 'Only a manager can move tasks');
+    await reassignTask(taskId, staffId || null, 'pos:' + me.full_name);
+    return { ok: true, data: null };
+  } catch (e) { return fail(e); }
+}
+
+export async function posTasksShare(): Promise<ActionResult<number>> {
+  try {
+    await device();
+    const me = await cashier();
+    const s = await syncCurrentRun({ force: me.is_manager });
+    if (!s) throw new BookingError('BAD_STATE', 'No shift is running right now');
+    if (!me.is_manager && !s.run.distributed_at) throw new BookingError('FORBIDDEN', 'Tasks are shared automatically after the grace period, or a manager can share them now');
+    const n = me.is_manager ? await redistribute(s.run.id, 'pos:' + me.full_name) : 0;
+    return { ok: true, data: n };
+  } catch (e) { return fail(e); }
+}
+
+export async function posWashReady(serviceOrderId: string, ready: boolean): Promise<ActionResult<null>> {
+  try { await device(); await cashier(); await setWashReady(serviceOrderId, ready); return { ok: true, data: null }; } catch (e) { return fail(e); }
+}
+
+export async function posRunNotes(runId: string, notes: string): Promise<ActionResult<null>> {
+  try { await device(); await cashier(); await setRunNotes(runId, notes.slice(0, 1000)); return { ok: true, data: null }; } catch (e) { return fail(e); }
+}
+
+export async function posHandover(runId: string): Promise<ActionResult<string>> {
+  try { await device(); await cashier(); return { ok: true, data: await handoverText(runId) }; } catch (e) { return fail(e); }
+}
+
+async function myTaskCounts(staffId: string) {
+  const s = await syncCurrentRun();
+  if (!s) return null;
+  const r = (await q<any>(`SELECT count(*) FILTER (WHERE assigned_to=$2)::int mine, count(*) FILTER (WHERE assigned_to=$2 AND status='pending')::int open,
+                                  count(*)::int total, count(*) FILTER (WHERE status='pending')::int team_open
+                           FROM shift_tasks WHERE run_id=$1`, [s.run.id, staffId]))[0];
+  return { ...r, distributed: !!s.run.distributed_at, shareAt: s.shareAt.toISOString(), shift: s.shift.label };
 }

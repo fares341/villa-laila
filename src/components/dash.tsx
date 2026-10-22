@@ -35,6 +35,7 @@ const NAV: [string, NavItem[]][] = [
   ['Team', [
     { href: '/dashboard/staff', label: 'Staff & roster', perm: 'staff.view', icon: 'user-plus' },
     { href: '/dashboard/staff/timesheet', label: 'Attendance & hours', perm: 'staff.view', icon: 'clock' },
+    { href: '/dashboard/tasks', label: 'Shift tasks', perm: 'staff.view', icon: 'clipboard-list' },
   ]],
   ['Setup', [
     { href: '/dashboard/rooms', label: 'Rooms & rates', perm: 'inventory.manage', icon: 'settings' },

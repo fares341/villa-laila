@@ -12,6 +12,7 @@ import { pullRates, importRatesCsv, storeRates } from '@/services/pms/channel';
 import { saveEvent } from '@/services/events';
 import { audit } from '@/services/audit';
 import { setSetting } from '@/services/settings';
+import { redistribute, reassignTask } from '@/services/pms/tasks';
 
 const msg = (e: unknown) => (e instanceof BookingError ? (e.message && e.message !== e.code ? e.message : e.code.replace(/_/g, ' ').toLowerCase()) : (console.error('[pms action]', e), 'Something went wrong'));
 const safe = (v: FormDataEntryValue | null, fallback: string) => { const s = String(v || ''); return s.startsWith('/') && !s.startsWith('//') ? s : fallback; };
@@ -264,4 +265,42 @@ export async function latenessPolicySave(fd: FormData) {
   await setSetting('lateness_policy', policy);
   await audit(u.email, 'staff.lateness_policy', 'settings', null, policy);
   revalidatePath('/dashboard/staff/timesheet'); go('/dashboard/staff/timesheet', 'ok', 'Lateness policy saved');
+}
+
+/* ───────── Shift tasks ───────── */
+
+export async function taskTemplateSave(fd: FormData) {
+  const u = await requireUser('staff.manage'); const back = '/dashboard/tasks#templates';
+  const id = str(fd.get('id'));
+  const title = str(fd.get('title'));
+  if (title.length < 2) go(back, 'err', 'Write the task name');
+  const kind = ['check', 'money', 'unpaid', 'washes', 'tours', 'taxi'].includes(str(fd.get('kind'))) ? str(fd.get('kind')) : 'check';
+  const items = str(fd.get('items')).split(/\n|,/).map((x) => x.trim()).filter(Boolean).slice(0, 12);
+  const shifts = fd.getAll('shifts').map(String).filter(Boolean);
+  const minutes = Math.min(480, Math.max(1, parseInt(str(fd.get('minutes')), 10) || 10));
+  const vals = [title, kind, items, shifts.length ? shifts : ['MORNING', 'EVENING', 'NIGHT'], minutes, parseInt(str(fd.get('sort')), 10) || 0, fd.get('active') === 'on'];
+  if (id) await q(`UPDATE shift_task_templates SET title=$2, kind=$3, items=$4, shift_codes=$5, minutes=$6, sort_order=$7, active=$8 WHERE id=$1`, [id, ...vals]);
+  else await q(`INSERT INTO shift_task_templates(title,kind,items,shift_codes,minutes,sort_order,active) VALUES($1,$2,$3,$4,$5,$6,$7)`, vals);
+  await audit(u.email, id ? 'task_template.update' : 'task_template.create', 'shift_task_template', id || null, { title });
+  revalidatePath('/dashboard/tasks'); go('/dashboard/tasks', 'ok', 'Saved. Applies from the next shift.');
+}
+
+export async function taskRedistribute(fd: FormData) {
+  const u = await requireUser('staff.manage');
+  try { await redistribute(str(fd.get('runId')), u.email); } catch (e) { go('/dashboard/tasks', 'err', msg(e)); }
+  revalidatePath('/dashboard/tasks'); go('/dashboard/tasks', 'ok', 'Open tasks shared again between everyone clocked in');
+}
+
+export async function taskReassign(fd: FormData) {
+  const u = await requireUser('staff.manage');
+  await reassignTask(str(fd.get('taskId')), str(fd.get('staffId')) || null, u.email);
+  revalidatePath('/dashboard/tasks'); go('/dashboard/tasks', 'ok', 'Task moved');
+}
+
+export async function taskSettingsSave(fd: FormData) {
+  const u = await requireUser('staff.manage');
+  const m = Math.min(120, Math.max(0, parseInt(str(fd.get('after')), 10) || 0));
+  await setSetting('shift_tasks', { distribute_after_minutes: m });
+  await audit(u.email, 'task.settings', 'settings', null, { m });
+  revalidatePath('/dashboard/tasks'); go('/dashboard/tasks', 'ok', 'Saved');
 }

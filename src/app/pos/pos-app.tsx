@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '@/components/icons';
 import {
   posState, posStaffList, posUnlock, posLock, posClock, posOpenShift, posSale, posGuestFolio, posTakePayment, posExpense, posCloseShift, posManagers,
+  posTasks, posTaskSave, posTaskReassign, posTasksShare, posWashReady, posRunNotes, posHandover,
 } from './actions';
 
 /* ───────── helpers ───────── */
@@ -178,6 +179,7 @@ export function PosApp({ hotel, branch, device }: { hotel: string; branch: strin
   const [online, setOnline] = useState(true);
   const [toast, setToast] = useState<{ text: string; kind: 'ok' | 'bad' } | null>(null);
   const [lockNotice, setLockNotice] = useState<string | null>(null);
+  const [showTasks, setShowTasks] = useState(false);
 
   const refresh = useCallback(async () => {
     const r = await posState();
@@ -198,8 +200,12 @@ export function PosApp({ hotel, branch, device }: { hotel: string; branch: strin
   if (!st.me) return <div className="pos-root"><LockScreen hotel={hotel} branch={branch} notice={lockNotice} onUnlocked={() => { setLockNotice(null); refresh(); }} />{toast && <Toast t={toast} />}</div>;
 
   const lock = async () => { await posLock(); setLockNotice(null); refresh(); };
+  const tasksBtn = (
+    <button className="pos-btn" onClick={() => setShowTasks(true)}><Icon name="clipboard-list" /> My tasks{st.tasks?.open ? ` (${st.tasks.open})` : ''}</button>
+  );
+  const tasksModal = showTasks ? <TasksModal onClose={() => { setShowTasks(false); refresh(); }} notify={(text, kind = 'ok') => setToast({ text, kind })} /> : null;
 
-  if (!st.shift) return <div className="pos-root"><OpenShift me={st.me} onOpened={(m) => { setToast({ text: m, kind: 'ok' }); refresh(); }} onLock={lock} />{toast && <Toast t={toast} />}</div>;
+  if (!st.shift) return <div className="pos-root"><OpenShift me={st.me} tasksBtn={tasksBtn} onOpened={(m) => { setToast({ text: m, kind: 'ok' }); refresh(); }} onLock={lock} />{tasksModal}{toast && <Toast t={toast} />}</div>;
 
   if (st.shift.staffId !== st.me.id && !st.me.is_manager) {
     return (
@@ -207,9 +213,11 @@ export function PosApp({ hotel, branch, device }: { hotel: string; branch: strin
         <div className="pos-card-msg">
           <Icon name="alert-triangle" size={28} />
           <h2>Shift #{st.shift.no} is open by {st.shift.staffName}</h2>
-          <p>Only one cash drawer can be open. Ask {st.shift.staffName} to close their shift, then open yours.</p>
-          <button className="pos-btn" onClick={lock}><Icon name="lock" /> Back to lock screen</button>
+          <p>Only one cash drawer can be open. Ask {st.shift.staffName} to close their shift, then open yours. You can still see and tick your shift tasks.</p>
+          <div className="pos-row center">{tasksBtn}<button className="pos-btn" onClick={lock}><Icon name="lock" /> Back to lock screen</button></div>
         </div>
+        {tasksModal}
+        {toast && <Toast t={toast} />}
       </div>
     );
   }
@@ -227,7 +235,7 @@ function Toast({ t }: { t: { text: string; kind: 'ok' | 'bad' } }) {
   return <div className={`pos-toast ${t.kind}`} role="status"><Icon name={t.kind === 'ok' ? 'check-circle' : 'alert-triangle'} size={20} />{t.text}</div>;
 }
 
-function OpenShift({ me, onOpened, onLock }: { me: Staff; onOpened: (msg: string) => void; onLock: () => void }) {
+function OpenShift({ me, onOpened, onLock, tasksBtn }: { me: Staff; onOpened: (msg: string) => void; onLock: () => void; tasksBtn?: React.ReactNode }) {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -247,7 +255,7 @@ function OpenShift({ me, onOpened, onLock }: { me: Staff; onOpened: (msg: string
         <AmountPad label="Opening float" value={amount} onChange={setAmount} />
         {err && <p className="pos-msg bad">{err}</p>}
         <div className="pos-row">
-          <button className="pos-btn ghost" onClick={onLock}><Icon name="lock" /> Lock</button>
+          {tasksBtn}<button className="pos-btn ghost" onClick={onLock}><Icon name="lock" /> Lock</button>
           <button className="pos-btn primary big" onClick={go} disabled={busy}><Icon name="log-in" /> Open Shift</button>
         </div>
       </div>
@@ -269,7 +277,7 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
   const [guestQuery, setGuestQuery] = useState('');
   const [guestOpen, setGuestOpen] = useState(false);
   const [method, setMethod] = useState<'cash' | 'card'>('cash');
-  const [modal, setModal] = useState<null | 'custom' | 'comp' | 'pay' | 'close' | 'folio' | 'payment' | 'expense' | 'menu'>(null);
+  const [modal, setModal] = useState<null | 'custom' | 'comp' | 'pay' | 'close' | 'folio' | 'payment' | 'expense' | 'menu' | 'tasks'>(null);
   const [busy, setBusy] = useState(false);
   const guest = guests.find((g) => g.id === guestId) ?? null;
   const total = cart.reduce((s, l) => s + l.unit * l.qty, 0);
@@ -362,6 +370,10 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
           <div title={st.drawer == null ? 'Hidden until the blind count at close' : undefined}><small>Current Drawer Cash</small><b className="num">{st.drawer == null ? 'Blind' : egp(st.drawer)}</b></div>
         </div>
         <div className="pos-top-acts">
+          <button className={`pos-btn ghost ${st.tasks?.open ? 'has-tasks' : ''}`} onClick={() => setModal('tasks')}>
+            <Icon name="clipboard-list" /> Tasks{st.tasks ? (st.tasks.distributed ? ` ${st.tasks.mine - st.tasks.open}/${st.tasks.mine}` : '') : ''}
+            {st.tasks?.open ? <span className="pos-dot">{st.tasks.open}</span> : null}
+          </button>
           <button className="pos-icon-btn" onClick={() => refresh()} aria-label="Refresh"><Icon name="refresh" size={20} /></button>
           <button className="pos-icon-btn" onClick={() => setModal('menu')} aria-label="More"><Icon name="menu" size={20} /></button>
           <button className="pos-btn ghost" onClick={lock}><Icon name="lock" /> Lock Screen</button>
@@ -521,6 +533,7 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
           </div>
         </Modal>
       )}
+      {modal === 'tasks' && <TasksModal onClose={() => { setModal(null); refresh(); }} notify={notify} />}
       {modal === 'close' && <CloseShift shiftNo={st.shift.no} onClose={() => setModal(null)} onFinished={(m) => onClosed(m)} />}
     </div>
   );
@@ -733,5 +746,166 @@ function CloseShift({ shiftNo, onClose, onFinished }: { shiftNo: number; onClose
         }}><Icon name="lock" /> Confirm count & close</button>
       </div>
     </Modal>
+  );
+}
+
+/* ───────── Shift tasks ───────── */
+
+type TaskRow = { id: string; title: string; kind: string; items: { label: string; done: boolean }[]; minutes: number; assigned_to: string | null; assignee: string | null; status: 'pending' | 'done'; note: string | null; done_by_name: string | null; started_at: string | null };
+
+function TasksModal({ onClose, notify }: { onClose: () => void; notify: (t: string, k?: 'ok' | 'bad') => void }) {
+  const [d, setD] = useState<any>(null);
+  const [notes, setNotes] = useState('');
+  const [handover, setHandover] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    const r = await posTasks();
+    if (!r.ok) { notify(r.error, 'bad'); return; }
+    setD(r.data); setNotes(r.data.run?.notes ?? '');
+  }, [notify]);
+  useEffect(() => { load(); }, [load]);
+
+  if (!d) return <Modal title="Shift tasks" onClose={onClose} wide><p className="pos-muted"><Icon name="refresh" size={16} className="spin" /> Loading…</p></Modal>;
+  if (!d.run) return <Modal title="Shift tasks" onClose={onClose}><p className="pos-muted">No shift is running at this hour.</p></Modal>;
+
+  const mine: TaskRow[] = d.tasks.filter((t: TaskRow) => t.assigned_to === d.me.id);
+  const others: TaskRow[] = d.tasks.filter((t: TaskRow) => t.assigned_to !== d.me.id);
+  const done = d.tasks.filter((t: TaskRow) => t.status === 'done').length;
+  const save = async (t: TaskRow, input: any, msg?: string) => {
+    const r = await posTaskSave(t.id, input);
+    if (!r.ok) { notify(r.error, 'bad'); return; }
+    if (msg) notify(msg);
+    load();
+  };
+  const share = async () => { const r = await posTasksShare(); if (!r.ok) notify(r.error, 'bad'); else { notify('Tasks shared between everyone clocked in'); load(); } };
+  const shareAt = new Date(d.run.shareAt);
+  const dayLabel = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(d.run.date + 'T12:00:00Z'));
+
+  return (
+    <Modal title={`${d.run.label} shift tasks · ${dayLabel}`} onClose={onClose} wide>
+      <div className="pos-tasks-head">
+        <div className="pos-progress" aria-label={`${done} of ${d.tasks.length} done`}><span style={{ width: `${d.tasks.length ? (done / d.tasks.length) * 100 : 0}%` }} /></div>
+        <b className="num">{done}/{d.tasks.length} done</b>
+        <span className="pos-muted">On shift: {d.staff.map((s: any) => s.name).join(', ') || 'nobody yet'}</span>
+        {d.me.is_manager && <button className="pos-btn small" onClick={share}><Icon name="refresh" size={16} /> {d.run.distributed ? 'Share again' : 'Share now'}</button>}
+      </div>
+
+      {!d.run.distributed && (
+        <p className="pos-note"><Icon name="clock" size={16} /> Tasks are shared at random at <b>{time(shareAt.toISOString())}</b> between everyone clocked in, so late arrivals in the grace period are counted.</p>
+      )}
+      {d.run.distributed && !d.onDuty && <p className="pos-note"><Icon name="alert-triangle" size={16} /> You are not clocked in, so you have no tasks this shift.</p>}
+
+      {d.run.distributed && d.onDuty && (
+        <>
+          <h3 className="pos-tasks-h">My tasks · {mine.filter((t) => t.status === 'pending').length} open</h3>
+          {mine.length === 0 && <p className="pos-muted">Nothing assigned to you.</p>}
+          <div className="pos-tasks">
+            {mine.map((t) => <TaskCard key={t.id} t={t} d={d} onSave={save} onWash={async (id, ready) => { const r = await posWashReady(id, ready); if (!r.ok) notify(r.error, 'bad'); load(); }} />)}
+          </div>
+        </>
+      )}
+
+      {d.run.distributed && others.length > 0 && (
+        <>
+          <h3 className="pos-tasks-h">Team</h3>
+          <div className="pos-team">
+            {others.map((t) => (
+              <div key={t.id} className={`pos-team-row ${t.status}`}>
+                <Icon name={t.status === 'done' ? 'check-circle' : 'clipboard-list'} size={18} />
+                <span className="t">{t.title}</span>
+                {d.me.is_manager ? (
+                  <select value={t.assigned_to ?? ''} onChange={async (e) => { const r = await posTaskReassign(t.id, e.target.value); if (!r.ok) notify(r.error, 'bad'); load(); }} aria-label={`Assign ${t.title}`}>
+                    <option value="">Unassigned</option>
+                    {d.staff.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                ) : <span className="who">{t.assignee ?? 'Unassigned'}</span>}
+                <span className={`pos-badge ${t.status === 'done' ? 'green' : 'gray'}`}>{t.status === 'done' ? 'Done' : 'Open'}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="pos-field" style={{ marginTop: 18 }}>
+        <label htmlFor="shift-notes">Shift notes (handover)</label>
+        <textarea id="shift-notes" className="pos-textarea" rows={2} value={notes} placeholder="e.g. Folklore free breakfast tomorrow" onChange={(e) => setNotes(e.target.value)}
+          onBlur={async () => { if ((d.run.notes ?? '') !== notes) { const r = await posRunNotes(d.run.id, notes); if (!r.ok) notify(r.error, 'bad'); else load(); } }} />
+      </div>
+      <div className="pos-row" style={{ marginTop: 12 }}>
+        <button className="pos-btn" onClick={async () => { const r = await posHandover(d.run.id); if (r.ok) setHandover(r.data); else notify(r.error, 'bad'); }}><Icon name="file-text" /> Handover report</button>
+      </div>
+      {handover != null && (
+        <div className="pos-handover">
+          <pre>{handover}</pre>
+          <button className="pos-btn primary" onClick={async () => { try { await navigator.clipboard.writeText(handover); notify('Copied. Paste it in the team WhatsApp group.'); } catch { notify('Select the text and copy it', 'bad'); } }}>
+            <Icon name="check" /> Copy for WhatsApp</button>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function TaskCard({ t, d, onSave, onWash }: { t: TaskRow; d: any; onSave: (t: TaskRow, input: any, msg?: string) => void; onWash: (id: string, ready: boolean) => void }) {
+  const [note, setNote] = useState(t.note ?? '');
+  const allTicked = t.items.every((i) => i.done);
+  const isDone = t.status === 'done';
+  const toggle = (idx: number) => onSave(t, { items: t.items.map((it, i) => (i === idx ? { ...it, done: !it.done } : it)), note });
+  return (
+    <div className={`pos-task ${isDone ? 'done' : ''}`}>
+      <div className="pos-task-hd">
+        <Icon name={isDone ? 'check-circle' : 'clipboard-list'} size={20} />
+        <b>{t.title}</b>
+        <span className="pos-muted small">~{t.minutes} min</span>
+      </div>
+
+      {t.items.length > 0 && (
+        <div className="pos-task-items">
+          {t.items.map((it, i) => (
+            <button key={it.label} type="button" disabled={isDone} className={`pos-check ${it.done ? 'on' : ''}`} onClick={() => toggle(i)} aria-pressed={it.done}>
+              <Icon name={it.done ? 'check' : 'plus'} size={16} /> {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {t.kind === 'unpaid' && (
+        <ul className="pos-task-list">
+          {d.unpaid.length === 0 && <li className="pos-muted">Every in-house guest is fully paid.</li>}
+          {d.unpaid.map((u: any) => <li key={u.id}><span>{u.guest}{u.rooms ? ` · ${u.rooms}` : ''}</span><b className="num">{egp(u.cents)}</b></li>)}
+        </ul>
+      )}
+      {t.kind === 'washes' && (
+        <ul className="pos-task-list">
+          {d.washes.length === 0 && <li className="pos-muted">No washes in progress.</li>}
+          {d.washes.map((w: any) => (
+            <li key={w.id}>
+              <span>{w.room_number || w.guest_name || 'Walk-in'} · {['paid', 'comp'].includes(w.payment_status) ? 'paid' : 'not paid'}</span>
+              <button type="button" className={`pos-check ${w.ready_at ? 'on' : ''}`} onClick={() => onWash(w.id, !w.ready_at)}>{w.ready_at ? 'Ready' : 'Mark ready'}</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {t.kind === 'tours' && (
+        <ul className="pos-task-list">
+          {d.tours.length === 0 && <li className="pos-muted">No tours today or tomorrow.</li>}
+          {d.tours.map((x: any) => <li key={x.id}><span>{x.guest_name || 'Walk-in'}{x.room_number ? ` · ${x.room_number}` : ''}</span><span>{x.item_name} × {x.quantity}</span></li>)}
+        </ul>
+      )}
+      {t.kind === 'money' && <p className="pos-muted small">Count the cash and card slips against the POS before you tick this.</p>}
+
+      {!isDone ? (
+        <>
+          <input className="pos-task-note" placeholder="Note (what is missing, who was informed…)" value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => { if ((t.note ?? '') !== note) onSave(t, { note }); }} />
+          <div className="pos-row">
+            <button className="pos-btn primary" disabled={!allTicked} onClick={() => onSave(t, { done: true, note }, `${t.title}: done`)}><Icon name="check" /> Done</button>
+            {!allTicked && <button className="pos-btn" disabled={!note.trim()} onClick={() => onSave(t, { withNote: true, note }, `${t.title}: done with a note`)}>Done with note</button>}
+          </div>
+        </>
+      ) : (
+        <div className="pos-row">
+          {t.note && <span className="pos-muted small">{t.note}</span>}
+          <button className="pos-link" onClick={() => onSave(t, { done: false, note })}>Undo</button>
+        </div>
+      )}
+    </div>
   );
 }
