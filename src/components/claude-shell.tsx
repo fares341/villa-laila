@@ -488,7 +488,7 @@ export function ClaudeFooter({ lang }: { lang: string }) {
                   </svg>
                 </a>
                 <a
-                  href="https://t.me/laylaevmbot"
+                  href="https://t.me/villalayldbot"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Telegram"
