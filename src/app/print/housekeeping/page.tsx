@@ -17,6 +17,9 @@ export default async function HousekeepingSheet({ searchParams }: { searchParams
   const yesterday = addDays(day, -1);
   const units = await q<any>(`
     SELECT u.id, u.label, rm.id room_id, rm.name room, rm.hk_status, t.kind, t.sort_order,
+      CASE WHEN t.name->>'ar' IS NULL OR t.name->>'ar' = '' THEN rm.name
+           WHEN rm.name = t.name->>'en' THEN t.name->>'ar'
+           ELSE (t.name->>'ar') || ' · ' || rm.name END room_ar,
       EXISTS (SELECT 1 FROM reservation_units ru JOIN reservations r ON r.id=ru.reservation_id
               WHERE ru.unit_id=u.id AND upper(ru.during)=$1::date AND r.status IN ('checked_out','checked_in')) departed,
       EXISTS (SELECT 1 FROM reservation_units ru JOIN reservations r ON r.id=ru.reservation_id
@@ -81,7 +84,7 @@ export default async function HousekeepingSheet({ searchParams }: { searchParams
         <tbody>
           {[...rooms.values()].map((list) => list.map((u, i) => (
             <tr key={u.id} className={i === 0 ? 'room-start' : ''}>
-              <td><b><bdi dir="ltr">{u.room}</bdi></b>{u.kind === 'dorm' && <> · {u.label.replace(/^Bed\s*/i, 'سرير ')}</>}</td>
+              <td><b>{u.room_ar}</b>{u.kind === 'dorm' && <> · {u.label.replace(/^Bed\s*/i, 'سرير ')}</>}</td>
               <td className="m">{mark(u)}</td>
               <td><span className="st">{status(u)}</span>{u.arriving && <> {status(u) ? '· ' : ''}<span className="arr">وصول</span></>}</td>
               <td className="box"><span /></td>
