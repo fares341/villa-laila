@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { q } from './db';
 import { env } from './env';
@@ -19,7 +19,8 @@ function key() {
 
 export async function createSession(u: SessionUser) {
   const token = await new SignJWT({ ...u }).setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime(`${MAX_AGE}s`).sign(key());
-  (await cookies()).set(COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: process.env.PUBLIC_BASE_URL?.startsWith('https') ?? false, path: '/', maxAge: MAX_AGE });
+  const isHttps = (await headers()).get('x-forwarded-proto') === 'https';
+  (await cookies()).set(COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: isHttps, path: '/', maxAge: MAX_AGE });
 }
 
 export async function destroySession() { (await cookies()).delete(COOKIE); }
@@ -60,4 +61,4 @@ export async function login(email: string, password: string, ip: string): Promis
   return { id: u.id, email: u.email, name: u.name, role: u.role };
 }
 
-export const hash = (p: string) => bcrypt.hash(p, 11);
+export async function hash(pw: string) { return bcrypt.hash(pw, 11); }
