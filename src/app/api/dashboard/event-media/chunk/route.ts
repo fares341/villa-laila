@@ -27,12 +27,12 @@ export async function POST(req: Request) {
   const index = parseInt(h('x-chunk-index'), 10), count = parseInt(h('x-chunk-count'), 10), total = parseInt(h('x-file-size'), 10);
   const mime = h('x-file-type') || 'application/octet-stream';
   const name = decodeURIComponent(h('x-file-name') || 'video');
-  const kind = h('x-kind') === 'meal' ? 'meal' : 'video';
+  const kind = h('x-kind') === 'meal' ? 'meal' : h('x-kind') === 'hero' ? 'hero' : 'video';
   const orientation = h('x-orientation') === 'portrait' ? 'portrait' : 'landscape';
   if (!/^[0-9a-f-]{36}$/i.test(uploadId) || !/^[0-9a-f-]{36}$/i.test(eventId)) return err('Bad upload');
   if (!(index >= 0 && count >= 1 && index < count && total > 0)) return err('Bad piece');
   if (total > MAX_UPLOAD_BYTES) return err(`File is larger than ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB`);
-  if (kind === 'video' ? !/^video\//.test(mime) : !/^image\//.test(mime)) return err(kind === 'video' ? 'Choose a video file (MP4, MOV…)' : 'Choose a photo');
+  if (kind === 'hero' ? !/^(video|image)\//.test(mime) : kind === 'video' ? !/^video\//.test(mime) : !/^image\//.test(mime)) return err(kind === 'meal' ? 'Choose a photo' : kind === 'hero' ? 'Choose photos or a video' : 'Choose a video file (MP4, MOV…)');
   if (!(await q(`SELECT 1 FROM events WHERE id=$1`, [eventId])).length) return err('Event not found', 404);
 
   const body = Buffer.from(await req.arrayBuffer());

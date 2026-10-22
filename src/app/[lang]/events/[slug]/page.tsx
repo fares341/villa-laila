@@ -6,6 +6,7 @@ import { getPublicEvent, seatsLeft, tr, eventMedia } from '@/services/events';
 import { getWallets } from '@/services/wallets';
 import { toEmbed } from '@/content/videos';
 import { MealGallery } from './meal-gallery';
+import { HeroMedia } from './hero-media';
 import { priceLabel, whenLabel } from '@/services/event-view';
 import { scheduleLabel, timeLabel, dateLabel } from '@/lib/event-dates';
 import { EventBooker } from './event-booker';
@@ -40,6 +41,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const L = (o: { en: string; ar: string }) => (isAr ? o.ar : o.en);
   const [left, media, wallets] = await Promise.all([seatsLeft(ev), eventMedia(ev.id), getWallets()]);
   const meals = media.filter((m) => m.kind === 'meal');
+  const hero = media.filter((m) => m.kind === 'hero');
+  const heroVideo = hero.find((m) => m.mime?.startsWith('video/'))?.src ?? null;
+  const heroPhotos = hero.filter((m) => !m.mime?.startsWith('video/')).map((m) => m.src);
   const videos = media.filter((m) => m.kind === 'video').map((m) => ({ ...m, embed: m.external ? toEmbed(m.src) : null }));
   const dates = ev.dates.slice(0, 14).map((d) => {
     const when = whenLabel(d, lang);
@@ -57,7 +61,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       <ClaudeHeader lang={lang} />
       <main id="main" className="flex-1">
         <section className="evd-hero">
-          {ev.image && <img src={ev.image} alt="" />}
+          <HeroMedia video={heroVideo} photos={heroPhotos} cover={ev.image} />
           <div className="wrap evd-hero-in">
             <a href={`/${lang}#events`} className="evd-back">{isAr ? '→ كل الفعاليات' : '← All events'}</a>
             <span className="kicker">{isAr ? 'فعالية في فيلا ليلى' : 'At Villa Layla'}</span>

@@ -212,7 +212,8 @@ async function eventCard(e: EventRow): Promise<{ text: string; kb: Kb }> {
   ].filter(Boolean).join('\n');
   const kb: Kb = [
     [{ text: '✏️ تعديل البيانات', data: `e:f:${e.id}` }, { text: '📋 الحجوزات', data: `e:b:${e.id}` }],
-    [{ text: '🖼️ صورة الغلاف', data: `e:m:cover:${e.id}` }, { text: '🍽️ صور الوجبات', data: `e:m:meal:${e.id}` }, { text: '🎬 فيديو', data: `e:m:video:${e.id}` }],
+    [{ text: '🖼️ صورة الغلاف', data: `e:m:cover:${e.id}` }, { text: '🌅 شكل صفحة الفعالية', data: `e:m:hero:${e.id}` }],
+    [{ text: '🍽️ صور الوجبات', data: `e:m:meal:${e.id}` }, { text: '🎬 فيديو', data: `e:m:video:${e.id}` }],
     [{ text: '💳 طرق الدفع', data: `e:p:${e.id}` }, { text: '🗑️ حذف وسائط', data: `e:d:${e.id}` }],
     [{ text: e.active ? '👁️ إخفاء من الموقع' : '🟢 نشر على الموقع', data: `e:a:${e.id}` }, { text: '🌐 فتح بالموقع', url: `${(await ticketUrl({ ticket_code: '' })).replace(/\/tickets\/$/, '')}/events/${e.slug}` }],
     [{ text: '🔙 قائمة الفعاليات', data: 'cmd:events' }, { text: '🏠 الرئيسية', data: 'cmd:help' }],
@@ -328,14 +329,14 @@ async function onCallback(chat: string, actor: string, cq: any) {
     if (a === 'pt') { await togglePayMethod(y, x, actor); return payMenu(chat, y, mid); }
     if (a === 'm') { // x = cover|meal|video, y = id
       await setState(chat, { step: 'media', eventId: y, mediaKind: x, added: 0 });
-      return adminApi.send(chat, x === 'cover' ? 'ابعت صورة الغلاف.' : x === 'meal' ? 'ابعت صور الوجبات (ممكن أكتر من صورة). لما تخلص اضغط "تم الانتهاء".' : 'ابعت الفيديو (من تليجرام لحد 20 ميجا، الأكبر ارفعه من الداش بورد) أو لينك يوتيوب / إنستجرام.', [
+      return adminApi.send(chat, x === 'cover' ? 'ابعت صورة الغلاف (اللي بتظهر في قايمة الفعاليات).' : x === 'hero' ? 'ابعت صور أو فيديو لأعلى صفحة الفعالية (مختلفين عن صورة الغلاف). لما تخلص اضغط "تم الانتهاء".' : x === 'meal' ? 'ابعت صور الوجبات (ممكن أكتر من صورة). لما تخلص اضغط "تم الانتهاء".' : 'ابعت الفيديو (من تليجرام لحد 20 ميجا، الأكبر ارفعه من الداش بورد) أو لينك يوتيوب / إنستجرام.', [
         [{ text: '✅ تم الانتهاء', data: `m:done:${y}` }, { text: '❌ إلغاء', data: `e:v:${y}` }]
       ]);
     }
     if (a === 'd') {
       const media = await eventMedia(x);
       if (!media.length) return adminApi.send(chat, 'مفيش صور وجبات أو فيديوهات على الفعالية دي.', [[{ text: '🔙 رجوع للفعالية', data: `e:v:${x}` }]]);
-      return adminApi.send(chat, 'اختار اللي عايز تحذفه:', [...chunk(media.map((m, i) => ({ text: `${m.kind === 'meal' ? 'صورة وجبة' : m.kind === 'video' ? 'فيديو' : 'صورة'} ${i + 1}`, data: `md:${m.id}` })), 2), [{ text: '🔙 رجوع', data: `e:v:${x}` }]]);
+      return adminApi.send(chat, 'اختار اللي عايز تحذفه:', [...chunk(media.map((m, i) => ({ text: `${m.kind === 'meal' ? 'صورة وجبة' : m.kind === 'video' ? 'فيديو' : m.kind === 'hero' ? 'شكل الصفحة' : 'صورة'} ${i + 1}`, data: `md:${m.id}` })), 2), [{ text: '🔙 رجوع', data: `e:v:${x}` }]]);
     }
   }
   if (k === 'ef') {
@@ -477,7 +478,7 @@ async function onNewStep(chat: string, actor: string, st: State, m: any, text: s
 
 async function onMedia(chat: string, actor: string, m: any, st: State, text: string) {
   const id = st.eventId!;
-  const kind = st.mediaKind as 'cover' | 'meal' | 'video';
+  const kind = st.mediaKind as 'cover' | 'meal' | 'video' | 'hero';
   const done = async () => { await clearState(chat); const c = await eventCard(await eventRow(id)); return adminApi.send(chat, (st.added ? `اتضاف ${st.added}.\n\n` : '') + c.text, c.kb); };
   if (/^(تم|خلاص|done|ok)$/i.test(text) && !m.photo && !m.video && !m.document) return done();
 
@@ -486,12 +487,12 @@ async function onMedia(chat: string, actor: string, m: any, st: State, text: str
   const vid = m.video ?? (doc && /^video\//.test(doc.mime_type) ? doc : null);
   const img = photo ?? (doc && /^image\//.test(doc.mime_type) ? doc : null);
 
-  if (kind === 'video') {
+  if (kind === 'video' || (kind === 'hero' && vid)) {
     if (vid) {
       if (vid.file_size && vid.file_size > 20 * 1024 * 1024) return adminApi.send(chat, 'تليجرام مش بيسمح للبوتات تنزّل فيديو أكبر من 20 ميجا. ارفعه من الداش بورد (أي حجم) من صفحة الفعالية، أو ابعت لينك يوتيوب / إنستجرام.');
       const bytes = await adminApi.download(vid.file_id);
       const tall = vid.width && vid.height ? vid.height > vid.width : false;
-      await addEventMedia(id, 'video', { bytes, mime: vid.mime_type || 'video/mp4' }, null, actor, null, tall ? 'portrait' : 'landscape');
+      await addEventMedia(id, kind === 'hero' ? 'hero' : 'video', { bytes, mime: vid.mime_type || 'video/mp4' }, null, actor, null, tall ? 'portrait' : 'landscape');
     } else if (/^https?:\/\//.test(text)) await addEventMedia(id, 'video', null, text, actor);
     else return adminApi.send(chat, 'ابعت فيديو أو لينك، أو اضغط "تم الانتهاء".', [[{ text: '✅ تم الانتهاء', data: `m:done:${id}` }]]);
   } else {
@@ -499,7 +500,7 @@ async function onMedia(chat: string, actor: string, m: any, st: State, text: str
     const bytes = await adminApi.download(img.file_id);
     const file = { bytes, mime: img.mime_type || 'image/jpeg' };
     if (kind === 'cover') { await setEventCover(id, file, actor); st.added = (st.added ?? 0) + 1; return done(); }
-    await addEventMedia(id, 'meal', file, null, actor, m.caption ?? null);
+    await addEventMedia(id, kind === 'hero' ? 'hero' : 'meal', file, null, actor, m.caption ?? null);
   }
   st.added = (st.added ?? 0) + 1;
   await setState(chat, st);

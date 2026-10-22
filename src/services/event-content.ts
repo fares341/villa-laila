@@ -19,10 +19,10 @@ export async function setMediaOrientation(mediaId: string, orientation: 'landsca
   return r[0]?.event_id as string | undefined;
 }
 
-export async function addEventMedia(eventId: string, kind: 'meal' | 'video' | 'gallery', file: { bytes: Buffer; mime: string } | null, url: string | null, actor: string, caption?: string | null, orientation?: 'landscape' | 'portrait') {
+export async function addEventMedia(eventId: string, kind: 'meal' | 'video' | 'gallery' | 'hero', file: { bytes: Buffer; mime: string } | null, url: string | null, actor: string, caption?: string | null, orientation?: 'landscape' | 'portrait') {
   if (file) {
     const isVideo = /^video\//.test(file.mime);
-    if (kind === 'video' ? !isVideo : !/^image\//.test(file.mime)) throw new BookingError('INVALID_INPUT', kind === 'video' ? 'Upload an MP4 / MOV video' : 'Upload a JPG, PNG or WebP photo');
+    if (kind === 'hero' ? !(isVideo || /^image\//.test(file.mime)) : kind === 'video' ? !isVideo : !/^image\//.test(file.mime)) throw new BookingError('INVALID_INPUT', kind === 'video' ? 'Upload an MP4 / MOV video' : 'Upload a JPG, PNG or WebP photo');
     if (file.bytes.length > (isVideo ? MAX_VIDEO : MAX_PHOTO)) throw new BookingError('INVALID_INPUT', isVideo ? 'Video is too large' : 'Photo must be under 25 MB');
     // Videos go to the uploads folder, not the database.
     if (isVideo) {
@@ -40,7 +40,7 @@ export async function addEventMedia(eventId: string, kind: 'meal' | 'video' | 'g
 }
 
 /** A file already written to the uploads folder (large video from the chunked uploader, or the bot). */
-export async function addEventMediaFile(eventId: string, kind: 'meal' | 'video' | 'gallery', rel: string, mime: string, size: number, orientation: 'landscape' | 'portrait', actor: string) {
+export async function addEventMediaFile(eventId: string, kind: 'meal' | 'video' | 'gallery' | 'hero', rel: string, mime: string, size: number, orientation: 'landscape' | 'portrait', actor: string) {
   const r = (await q<any>(`INSERT INTO event_media(event_id,kind,file_path,mime,size_bytes,orientation,sort_order)
     VALUES($1,$2,$3,$4,$5,$6,(SELECT COALESCE(max(sort_order),0)+1 FROM event_media WHERE event_id=$1 AND kind=$2)) RETURNING id`,
     [eventId, kind, rel, mime, size, orientation === 'portrait' ? 'portrait' : 'landscape']))[0];

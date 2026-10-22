@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { Icon } from '@/components/icons';
 
-type Item = { id: string; kind: 'meal' | 'video' | 'gallery'; src: string; external: boolean; orientation: 'landscape' | 'portrait'; size?: number | null };
+type Item = { id: string; kind: 'meal' | 'video' | 'gallery' | 'hero'; src: string; external: boolean; orientation: 'landscape' | 'portrait'; size?: number | null; mime?: string | null };
 type Job = { name: string; size: number; sent: number; state: 'waiting' | 'sending' | 'done' | 'error'; msg?: string };
 
 const CHUNK = 8 * 1024 * 1024;
@@ -12,7 +12,7 @@ const btn = 'inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-
 const BTN = `${btn} bg-cocoa-800 text-white hover:bg-cocoa-900 disabled:opacity-50`;
 const GHOST = `${btn} border border-cocoa-200 bg-white text-cocoa-800 hover:border-cocoa-600`;
 
-async function uploadFile(file: File, eventId: string, kind: 'meal' | 'video', orientation: string, onProgress: (sent: number) => void) {
+async function uploadFile(file: File, eventId: string, kind: 'meal' | 'video' | 'hero', orientation: string, onProgress: (sent: number) => void) {
   const uploadId = crypto.randomUUID();
   const count = Math.max(1, Math.ceil(file.size / CHUNK));
   let offset = 0;
@@ -26,7 +26,7 @@ async function uploadFile(file: File, eventId: string, kind: 'meal' | 'video', o
           method: 'POST', body: piece,
           headers: {
             'x-upload-id': uploadId, 'x-event-id': eventId, 'x-chunk-index': String(index), 'x-chunk-count': String(count), 'x-offset': String(offset),
-            'x-file-size': String(file.size), 'x-file-type': file.type || (kind === 'video' ? 'video/mp4' : 'image/jpeg'), 'x-file-name': encodeURIComponent(file.name), 'x-kind': kind, 'x-orientation': orientation,
+            'x-file-size': String(file.size), 'x-file-type': file.type || (kind === 'meal' ? 'image/jpeg' : 'video/mp4'), 'x-file-name': encodeURIComponent(file.name), 'x-kind': kind, 'x-orientation': orientation,
           },
         });
         const j = await res.json().catch(() => ({}));
@@ -57,6 +57,8 @@ export function EventMediaManager({ eventId, items: initial }: { eventId: string
   const videoInput = useRef<HTMLInputElement | null>(null);
   const photoInput = useRef<HTMLInputElement | null>(null);
   const meals = items.filter((i) => i.kind === 'meal');
+  const hero = items.filter((i) => i.kind === 'hero');
+  const heroInput = useRef<HTMLInputElement | null>(null);
   const videos = items.filter((i) => i.kind === 'video');
 
   if (!eventId) {
@@ -70,7 +72,7 @@ export function EventMediaManager({ eventId, items: initial }: { eventId: string
 
   const refresh = () => { window.location.replace(window.location.pathname + '?ok=' + encodeURIComponent('Saved · shown on the event page') + '#media'); };
 
-  async function send(files: FileList | null, kind: 'meal' | 'video') {
+  async function send(files: FileList | null, kind: 'meal' | 'video' | 'hero') {
     if (!files?.length) return;
     setError('');
     const list = Array.from(files);
@@ -96,8 +98,29 @@ export function EventMediaManager({ eventId, items: initial }: { eventId: string
 
   return (
     <div className="space-y-5">
-      {/* Videos */}
+      {/* Top of the event page */}
       <div>
+        <p className="mb-1 text-sm font-semibold text-cocoa-800">Event page look ({hero.length})</p>
+        <p className="mb-2 text-xs text-slate-500">Photos or one video for the top of this event's own page. The cover photo stays on the event cards and when the link is shared. Several photos turn into a slideshow; a video plays silently in a loop.</p>
+        {hero.length > 0 && (
+          <ul className="mb-2 grid grid-cols-3 gap-2">
+            {hero.map((m) => (
+              <li key={m.id} className="relative">
+                {m.mime?.startsWith('video/')
+                  ? <video src={m.src} muted preload="metadata" className="aspect-video w-full rounded-lg bg-black object-cover" />
+                  : <img src={m.src} alt="" className="aspect-video w-full rounded-lg object-cover" />}
+                <button type="button" className="absolute right-1 top-1 rounded-md bg-white/90 px-1.5 py-0.5 text-[11px] font-semibold text-red-800 shadow"
+                  onClick={async () => { if (await act({ op: 'delete', id: m.id })) setItems((s) => s.filter((x) => x.id !== m.id)); }}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <input ref={heroInput} type="file" accept="image/*,video/*" multiple className="sr-only" onChange={(e) => { void send(e.target.files, 'hero'); e.target.value = ''; }} />
+        <button type="button" className={`${GHOST} w-full justify-center py-2.5`} disabled={busy} onClick={() => heroInput.current?.click()}><Icon name="upload" size={16} /> Add photos or a video for the page top</button>
+      </div>
+
+      {/* Videos */}
+      <div className="border-t border-cocoa-100 pt-4">
         <p className="mb-2 flex items-center justify-between text-sm font-semibold text-cocoa-800"><span>Videos ({videos.length})</span><span className="text-xs font-normal text-slate-500">Any size · MP4, MOV, WebM</span></p>
         <div className="mb-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Video shape">
           {(['landscape', 'portrait'] as const).map((o) => (

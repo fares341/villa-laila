@@ -51,8 +51,8 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
             </div>
           </Card>
 
-          <Card title="Videos & meal photos" className="scroll-mt-6" id="media">
-            <EventMediaManager eventId={isNew ? null : e.id} items={media.map((m) => ({ id: m.id, kind: m.kind, src: m.src, external: m.external, orientation: m.orientation, size: m.size }))} />
+          <Card title="Event page look, videos & meal photos" className="scroll-mt-6" id="media">
+            <EventMediaManager eventId={isNew ? null : e.id} items={media.map((m) => ({ id: m.id, kind: m.kind, src: m.src, external: m.external, orientation: m.orientation, size: m.size, mime: m.mime }))} />
           </Card>
           <Card title="Date & time">
             <div className="grid gap-3 sm:grid-cols-3">

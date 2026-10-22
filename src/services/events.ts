@@ -41,7 +41,7 @@ export function hiddenReason(e: EventRow, now = new Date()): string | null {
   return null;
 }
 
-export type MediaItem = { id: string; kind: 'meal' | 'video' | 'gallery'; src: string; mime: string | null; caption: string | null; external: boolean; orientation: 'landscape' | 'portrait'; size: number | null };
+export type MediaItem = { id: string; kind: 'meal' | 'video' | 'gallery' | 'hero'; src: string; mime: string | null; caption: string | null; external: boolean; orientation: 'landscape' | 'portrait'; size: number | null };
 /** Meal photos and videos of an event, in display order. Uploaded files are served by /api/media/event-media/[id]. */
 export async function eventMedia(eventId: string): Promise<MediaItem[]> {
   const rows = await q<any>(`SELECT id, kind, mime, url, caption, orientation, COALESCE(size_bytes, octet_length(bytes))::bigint size, (bytes IS NOT NULL OR file_path IS NOT NULL) up, extract(epoch from created_at)::bigint v FROM event_media WHERE event_id=$1 ORDER BY kind, sort_order, created_at`, [eventId]).catch(() => []);
