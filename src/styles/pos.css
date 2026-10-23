@@ -298,3 +298,8 @@ a.pos-check { text-decoration: none; }
 .pos-counts > * { min-width: 0; }
 .pos-amount { min-width: 0; }
 .pos-amount input { width: 100%; }
+
+/* Card payer (foreign guests: passport details for the daily Excel) */
+.pos-payer { display: grid; gap: 10px; margin: 6px 0 14px; padding: 14px; border-radius: 14px; background: var(--ivory); border: 1.5px solid var(--line); }
+.pos-payer-q { margin: 0; font-weight: 800; color: var(--ink); }
+.pos-payer-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }

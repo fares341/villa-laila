@@ -142,6 +142,15 @@ export default async function Folio({ params, searchParams }: { params: Promise<
                 </fieldset>
                 <div><Lbl htmlFor="p-cur">Cash currency</Lbl>
                   <select id="p-cur" name="currency" className={Input}><option value="EGP">EGP</option><option value="USD">USD (converted at today’s rate)</option><option value="EUR">EUR (converted at today’s rate)</option></select></div>
+                <fieldset className="rounded-lg border border-cocoa-100 p-3 text-sm">
+                  <legend className="px-1 text-xs font-semibold text-cocoa-700">Card only: who is paying?</legend>
+                  <div className="flex gap-4"><label className="flex items-center gap-1.5"><input type="radio" name="payerKind" value="eg" /> Egyptian</label><label className="flex items-center gap-1.5"><input type="radio" name="payerKind" value="foreign" /> Foreign guest</label></div>
+                  <div className="mt-2 grid gap-2">
+                    <input name="payerName" placeholder="Foreign guest: name as in passport" className={Input} aria-label="Name as in passport" defaultValue={f.reservation?.full_name ?? ''} />
+                    <input name="payerNationality" placeholder="Nationality" className={Input} aria-label="Nationality" />
+                    <input name="payerPassport" placeholder="Passport number" className={Input + ' uppercase'} aria-label="Passport number" />
+                  </div>
+                </fieldset>
                 {shift ? <p className="text-xs text-slate-500">Cash goes into the drawer of shift #{shift.shift_no}. The amount above is in the currency you choose.</p>
                   : <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">Cash needs an open POS shift so it is counted in the drawer. <a href="/pos" target="_blank" rel="noopener" className="underline">Open the POS</a>.</p>}
                 <input name="note" placeholder="Note (optional)" className={Input} aria-label="Note" />

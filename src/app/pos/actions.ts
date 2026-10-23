@@ -1,4 +1,5 @@
 'use server';
+import type { CardPayer } from '@/services/pms/card-payers';
 import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { setPosStaff, clearPosStaff, posStaffId } from '@/lib/pos-session';
@@ -124,7 +125,7 @@ async function myShift(me: { id: string; is_manager: boolean }) {
   return s;
 }
 
-export async function posSale(input: { reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod; compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean; cashCurrency?: Currency }): Promise<ActionResult<any>> {
+export async function posSale(input: { reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod; compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean; cashCurrency?: Currency; cardPayer?: CardPayer | null }): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
@@ -142,12 +143,12 @@ export async function posGuestFolio(reservationId: string): Promise<ActionResult
   } catch (e) { return fail(e); }
 }
 
-export async function posTakePayment(reservationId: string, amountCents: number, method: PayMethod, currency: Currency = 'EGP'): Promise<ActionResult<any>> {
+export async function posTakePayment(reservationId: string, amountCents: number, method: PayMethod, currency: Currency = 'EGP', cardPayer: CardPayer | null = null): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
     const s = await myShift(me);
-    const r = await takeFolioPayment({ reservationId, amountCents: Math.round(amountCents), method, currency, shiftId: s.id, staffId: me.id, userId: u.id, note: `Received at POS by ${me.full_name}`, actor: 'pos:' + me.full_name });
+    const r = await takeFolioPayment({ reservationId, amountCents: Math.round(amountCents), method, currency, shiftId: s.id, staffId: me.id, userId: u.id, note: `Received at POS by ${me.full_name}`, actor: 'pos:' + me.full_name, cardPayer, staffName: me.full_name });
     return { ok: true, data: r };
   } catch (e) { return fail(e); }
 }

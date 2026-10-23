@@ -20,7 +20,39 @@ const time = (iso: string | Date) => new Intl.DateTimeFormat('en-GB', { hour: '2
 type Staff = { id: string; full_name: string; role: string; is_manager: boolean };
 type Product = { id: string; name: string; pos_category: 'market' | 'meals' | 'services'; price_cents: number; stock_quantity: number; track_stock: boolean; low_stock_threshold: number; barcode: string | null; unit_label: string | null };
 type Tour = { id: string; name: string; organizer: string; cost_cents: number; price_cents: number; duration: string | null; guest_message?: string | null; files?: { id: string; name: string; mime: string }[] };
-type Guest = { id: string; reference: string; full_name: string; rooms: string | null; check_out: string; charges: number; paid: number; balance: number; state: 'due' | 'settled' | 'credit' };
+type Guest = { id: string; reference: string; full_name: string; nationality?: string | null; rooms: string | null; check_out: string; charges: number; paid: number; balance: number; state: 'due' | 'settled' | 'credit' };
+type Payer = { kind: 'eg' | 'foreign' | null; name: string; nationality: string; passport: string };
+
+const ISO = 'AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR BN BG BF BI KH CM CA CV CF TD CL CN CO KM CG CD CR CI HR CU CY CZ DK DJ DM DO EC SV GQ ER EE SZ ET FJ FI FR GA GM GE DE GH GR GD GT GN GW GY HT HN HK HU IS IN ID IR IQ IE IL IT JM JP JO KZ KE KI KW KG LA LV LB LS LR LY LI LT LU MO MG MW MY MV ML MT MH MR MU MX FM MD MC MN ME MA MZ MM NA NR NP NL NZ NI NE NG KP MK NO OM PK PW PS PA PG PY PE PH PL PT PR QA RO RU RW KN LC VC WS SM ST SA SN RS SC SL SG SK SI SB SO ZA KR SS ES LK SD SR SE CH SY TW TJ TZ TH TL TG TO TT TN TR TM TV UG UA AE GB US UY UZ VU VA VE VN YE ZM ZW'.split(' ');
+const regionName = (() => { try { const d = new Intl.DisplayNames(['en'], { type: 'region' }); return (c: string) => d.of(c) ?? c; } catch { return (c: string) => c; } })();
+const COUNTRIES = ISO.map(regionName).sort();
+const countryOf = (v?: string | null) => (!v ? '' : /^[A-Z]{2}$/i.test(v) ? regionName(v.toUpperCase()) : v);
+const isEgypt = (v?: string | null) => !!v && /^(eg|egypt|egyptian|مصر)/i.test(v.trim());
+const newPayer = (g: Guest | null): Payer => ({ kind: g?.nationality ? (isEgypt(g.nationality) ? 'eg' : 'foreign') : null, name: g?.full_name ?? '', nationality: g?.nationality && !isEgypt(g.nationality) ? countryOf(g.nationality) : '', passport: '' });
+const payerReady = (p: Payer) => p.kind === 'eg' || (p.kind === 'foreign' && p.name.trim().length >= 3 && p.nationality.trim().length >= 2 && /^[A-Z0-9]{5,20}$/.test(p.passport.replace(/\s+/g, '').toUpperCase()));
+const payerOut = (p: Payer) => (p.kind === 'foreign' ? { name: p.name.trim(), nationality: p.nationality.trim(), passport: p.passport.replace(/\s+/g, '').toUpperCase() } : null);
+
+/** Card on the venue machine: who is paying. Foreign guests give name, nationality and passport number (daily Excel). */
+function CardPayerFields({ value, onChange }: { value: Payer; onChange: (p: Payer) => void }) {
+  const set = (k: keyof Payer, v: string) => onChange({ ...value, [k]: v } as Payer);
+  return (
+    <div className="pos-payer">
+      <p className="pos-payer-q">Who is paying by card?</p>
+      <div className="pos-method" role="radiogroup" aria-label="Guest nationality">
+        <button type="button" role="radio" aria-checked={value.kind === 'eg'} className={value.kind === 'eg' ? 'on' : ''} onClick={() => onChange({ ...value, kind: 'eg' })}>Egyptian</button>
+        <button type="button" role="radio" aria-checked={value.kind === 'foreign'} className={value.kind === 'foreign' ? 'on' : ''} onClick={() => onChange({ ...value, kind: 'foreign' })}>Foreign guest</button>
+      </div>
+      {value.kind === 'foreign' && (
+        <div className="pos-payer-grid">
+          <div className="pos-field"><label htmlFor="cp-name">Name as in passport</label><input id="cp-name" value={value.name} onChange={(e) => set('name', e.target.value)} autoComplete="off" /></div>
+          <div className="pos-field"><label htmlFor="cp-nat">Nationality</label><input id="cp-nat" list="cp-countries" value={value.nationality} onChange={(e) => set('nationality', e.target.value)} autoComplete="off" placeholder="Start typing…" />
+            <datalist id="cp-countries">{COUNTRIES.map((c) => <option key={c} value={c} />)}</datalist></div>
+          <div className="pos-field"><label htmlFor="cp-pass">Passport number</label><input id="cp-pass" value={value.passport} onChange={(e) => set('passport', e.target.value.toUpperCase())} autoComplete="off" autoCapitalize="characters" inputMode="text" /></div>
+        </div>
+      )}
+    </div>
+  );
+}
 type CartLine = { key: string; type: 'product' | 'tour' | 'custom'; id?: string; name: string; unit: number; qty: number; max?: number | null };
 type Tab = 'market' | 'meals' | 'services' | 'tours';
 
@@ -318,6 +350,7 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
   const curNow: Cur = method === 'cash' ? cashCur : 'EGP';
   const [modal, setModal] = useState<null | 'custom' | 'comp' | 'pay' | 'close' | 'folio' | 'payment' | 'expense' | 'menu' | 'tasks' | 'taken'>(null);
   const [busy, setBusy] = useState(false);
+  const [payMode, setPayMode] = useState<'pay_now' | 'settle_all' | 'walk_in'>('pay_now');
   const guest = guests.find((g) => g.id === guestId) ?? null;
   const total = cart.reduce((s, l) => s + l.unit * l.qty, 0);
 
@@ -372,6 +405,8 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
     return guests.filter((g) => !s || g.full_name.toLowerCase().includes(s) || (g.rooms ?? '').toLowerCase().includes(s) || g.reference.toLowerCase().includes(s)).slice(0, 8);
   }, [guestQuery, guests]);
 
+  // Card payments always go through the pay screen, which asks for a foreign guest's passport details.
+  const cardOr = (mode: 'settle_all' | 'walk_in') => { if (method === 'card') { setPayMode(mode); setModal('pay'); } else void run(mode); };
   const run = async (mode: 'charge_room' | 'pay_now' | 'settle_all' | 'walk_in', extra: Record<string, unknown> = {}) => {
     setBusy(true);
     const r = await posSale({
@@ -495,8 +530,8 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
           <div className="pos-actions">
             <button className="pos-btn primary" disabled={busy || !guest || !cart.length} onClick={() => run('charge_room')}><Icon name="bed" /> Charge to Room</button>
             <button className="pos-btn accent" disabled={busy || !cart.length} onClick={() => setModal('pay')}><Icon name={method === 'cash' ? 'banknote' : 'credit-card'} /> Pay Now ({method === 'cash' ? 'Cash' : 'Card'})</button>
-            <button className="pos-btn" disabled={busy || !guest || (guest.balance <= 0 && !cart.length)} onClick={() => run('settle_all')}><Icon name="wallet" /> Settle Outstanding{guest && guest.balance + total > 0 ? ` · ${curNow === 'EGP' ? egp(guest.balance + total) : cur(inCur(guest.balance + total, curNow, st.rates), curNow)}` : ''}</button>
-            <button className="pos-btn" disabled={busy || !cart.length} onClick={() => run('walk_in')}><Icon name="user" /> Walk-in Direct Cashier</button>
+            <button className="pos-btn" disabled={busy || !guest || (guest.balance <= 0 && !cart.length)} onClick={() => cardOr('settle_all')}><Icon name="wallet" /> Settle Outstanding{guest && guest.balance + total > 0 ? ` · ${curNow === 'EGP' ? egp(guest.balance + total) : cur(inCur(guest.balance + total, curNow, st.rates), curNow)}` : ''}</button>
+            <button className="pos-btn" disabled={busy || !cart.length} onClick={() => cardOr('walk_in')}><Icon name="user" /> Walk-in Direct Cashier</button>
             <button className="pos-btn" onClick={() => setModal('custom')}><Icon name="plus" /> Add Custom Charge</button>
             <button className="pos-btn" disabled={busy || (!cart.length && !(guest && guest.balance > 0))} onClick={() => setModal('comp')}><Icon name="gift" /> Owner Comp / Other</button>
           </div>
@@ -556,7 +591,8 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
       </div>
 
       {modal === 'custom' && <CustomCharge onClose={() => setModal(null)} onAdd={(name, cents, qty) => { add({ type: 'custom', name, unit: cents, qty }); setModal(null); }} />}
-      {modal === 'pay' && <PayModal total={total} method={method} cashCur={curNow} rates={st.rates} guest={guest} busy={busy} onClose={() => setModal(null)} onConfirm={() => run('pay_now')} />}
+      {modal === 'pay' && <PayModal total={payMode === 'settle_all' && guest ? guest.balance + total : total} method={method} cashCur={curNow} rates={st.rates} guest={payMode === 'walk_in' ? null : guest} busy={busy}
+        onClose={() => { setModal(null); setPayMode('pay_now'); }} onConfirm={async (payer) => { const m = payMode; setPayMode('pay_now'); await run(m, payer ? { cardPayer: payerOut(payer) } : {}); }} />}
       {modal === 'comp' && <CompModal cartTotal={total} guest={guest} onClose={() => setModal(null)} onDone={async (extra) => { const ok = await (async () => {
         setBusy(true);
         const r = await posSale({ reservationId: guestId, mode: 'comp', method, items: cart.map((l) => ({ type: l.type, id: l.id, name: l.name, qty: l.qty, unitCents: l.unit })), ...extra });
@@ -605,8 +641,9 @@ function CustomCharge({ onClose, onAdd }: { onClose: () => void; onAdd: (name: s
   );
 }
 
-function PayModal({ total, method, cashCur, rates, guest, busy, onClose, onConfirm }: { total: number; method: 'cash' | 'card'; cashCur: Cur; rates: any; guest: Guest | null; busy: boolean; onClose: () => void; onConfirm: () => void }) {
+function PayModal({ total, method, cashCur, rates, guest, busy, onClose, onConfirm }: { total: number; method: 'cash' | 'card'; cashCur: Cur; rates: any; guest: Guest | null; busy: boolean; onClose: () => void; onConfirm: (payer: Payer | null) => void }) {
   const [given, setGiven] = useState('');
+  const [payer, setPayer] = useState<Payer>(() => newPayer(guest));
   const due = inCur(total, cashCur, rates);
   const change = toCents(given) - due;
   return (
@@ -618,8 +655,8 @@ function PayModal({ total, method, cashCur, rates, guest, busy, onClose, onConfi
           <AmountPad label={`Cash received in ${cashCur} (optional)`} value={given} onChange={setGiven} unit={cashCur} />
           {toCents(given) > 0 && <p className={`pos-change ${change < 0 ? 'bad' : ''}`}>{change < 0 ? `Short by ${cur(-change, cashCur)}` : `Change to give: ${cur(change, cashCur)}${cashCur !== 'EGP' ? ` (${egp(Math.round(change * rates[cashCur]))})` : ''}`}</p>}
         </>
-      ) : <p className="pos-fine">Run {egp(total)} on the card terminal, then confirm.</p>}
-      <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button><button className="pos-btn primary big" disabled={busy || (method === 'cash' && toCents(given) > 0 && change < 0)} onClick={onConfirm}><Icon name="check" /> Confirm payment</button></div>
+      ) : <><p className="pos-fine">Run {egp(total)} on the card terminal, then confirm.</p><CardPayerFields value={payer} onChange={setPayer} /></>}
+      <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button><button className="pos-btn primary big" disabled={busy || (method === 'cash' && toCents(given) > 0 && change < 0) || (method === 'card' && !payerReady(payer))} onClick={() => onConfirm(method === 'card' ? payer : null)}><Icon name="check" /> Confirm payment</button></div>
     </Modal>
   );
 }
@@ -692,6 +729,7 @@ function PaymentModal({ guest, method, rates, onClose, onDone }: { guest: Guest;
   const [c, setC] = useState<Cur>('EGP');
   const [amount, setAmount] = useState(guest.balance > 0 ? String(guest.balance / 100) : '');
   const [m, setM] = useState<'cash' | 'card'>(method);
+  const [payer, setPayer] = useState<Payer>(() => newPayer(guest));
   const curPay: Cur = m === 'cash' ? c : 'EGP';
   const pick = (x: Cur) => { setC(x); if (guest.balance > 0) setAmount(String(inCur(guest.balance, x, rates) / 100)); };
   const [busy, setBusy] = useState(false);
@@ -702,12 +740,13 @@ function PaymentModal({ guest, method, rates, onClose, onDone }: { guest: Guest;
       <div className="pos-method"><button className={m === 'cash' ? 'on' : ''} onClick={() => setM('cash')}><Icon name="banknote" /> Cash</button><button className={m === 'card' ? 'on' : ''} onClick={() => { setM('card'); pick('EGP'); }}><Icon name="credit-card" /> Card (EGP)</button></div>
       {m === 'cash' && <CurSwitch value={c} onChange={pick} rates={rates} />}
       <AmountPad label={`Amount received in ${curPay}`} value={amount} onChange={setAmount} unit={curPay} />
+      {m === 'card' && <CardPayerFields value={payer} onChange={setPayer} />}
       {curPay !== 'EGP' && toCents(amount) > 0 && <p className="pos-fine">Credited to the guest as {egp(Math.round(toCents(amount) * rates[curPay]))} at {Number(rates[curPay]).toFixed(2)}.</p>}
       {err && <p className="pos-msg bad">{err}</p>}
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
-        <button className="pos-btn primary" disabled={busy || toCents(amount) <= 0} onClick={async () => {
+        <button className="pos-btn primary" disabled={busy || toCents(amount) <= 0 || (m === 'card' && !payerReady(payer))} onClick={async () => {
           setBusy(true); setErr(null);
-          const r = await posTakePayment(guest.id, toCents(amount), m, curPay);
+          const r = await posTakePayment(guest.id, toCents(amount), m, curPay, m === 'card' ? payerOut(payer) : null);
           setBusy(false);
           if (!r.ok) { setErr(r.error); return; }
           const left = guest.balance - r.data.egp;

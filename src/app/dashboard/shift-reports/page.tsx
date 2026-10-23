@@ -5,6 +5,7 @@ import { todayLocal, addDays } from '@/lib/dates';
 import { PageHeader, Card, fmt, dt, BtnGhost, Input, Stat, Pill } from '@/components/dash';
 import { Icon } from '@/components/icons';
 import { shiftTotals } from '@/services/pms/pos';
+import { cardPayersFor } from '@/services/pms/card-payers';
 import { getRates } from '@/services/pms/fx';
 import { shortageResolve, fxSave } from '../pms-actions';
 import { Lbl, Btn, Flash } from '@/components/dash';
@@ -22,7 +23,7 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
   const today = todayLocal();
   const from = sp.from && /^\d{4}-\d{2}-\d{2}$/.test(sp.from) ? sp.from : addDays(today, -13);
   const to = sp.to && /^\d{4}-\d{2}-\d{2}$/.test(sp.to) ? sp.to : today;
-  const tab = (['comps', 'expenses', 'shortages', 'taken'] as const).find((t) => t === sp.tab) ?? 'shifts';
+  const tab = (['comps', 'expenses', 'shortages', 'taken', 'foreign'] as const).find((t) => t === sp.tab) ?? 'shifts';
   const [shifts, comps, expenses] = await Promise.all([
     q<any>(`SELECT cs.*, s1.full_name cashier, s2.full_name closer FROM cash_shifts cs LEFT JOIN staff s1 ON s1.id=cs.staff_id LEFT JOIN staff s2 ON s2.id=cs.closed_by_staff
             WHERE cs.shift_no IS NOT NULL AND (COALESCE(cs.opened_at, cs.created_at) AT TIME ZONE 'Africa/Cairo')::date BETWEEN $1 AND $2
@@ -83,7 +84,7 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
       </Card>
 
       <nav className="mb-4 flex flex-wrap gap-2">
-        {[['shifts', 'Z-reports', 'receipt'], ['shortages', `Shortages${openShort.length ? ` (${openShort.length})` : ''}`, 'alert-triangle'], ['taken', 'Taken (owner)', 'wallet'], ['comps', 'Owner allowances', 'gift'], ['expenses', 'Drawer expenses', 'banknote']].map(([k, l, i]) => (
+        {[['shifts', 'Z-reports', 'receipt'], ['shortages', `Shortages${openShort.length ? ` (${openShort.length})` : ''}`, 'alert-triangle'], ['taken', 'Taken (owner)', 'wallet'], ['comps', 'Owner allowances', 'gift'], ['expenses', 'Drawer expenses', 'banknote'], ['foreign', 'Foreign card payers', 'credit-card']].map(([k, l, i]) => (
           <Link key={k} href={`?tab=${k}&${range}`} aria-current={tab === k ? 'page' : undefined}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${tab === k ? 'border-cocoa-800 bg-cocoa-800 text-white' : 'border-cocoa-200 bg-white text-cocoa-800 hover:border-cocoa-600'}`}><Icon name={i} size={15} /> {l}</Link>
         ))}
@@ -130,6 +131,34 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
           {shifts.length === 0 && <p className="text-slate-500">No shifts in this period.</p>}
         </div>
       )}
+
+      {tab === 'foreign' && await (async () => {
+        const day = sp.day && /^\d{4}-\d{2}-\d{2}$/.test(sp.day) ? sp.day : addDays(todayLocal(), -1);
+        const rows = await cardPayersFor(day);
+        const total = rows.reduce((a: number, r: any) => a + Number(r.amount_cents), 0);
+        return (
+          <Card title="Foreign guests who paid by card (venue POS machine)">
+            <p className="mb-3 text-sm text-slate-600">The cashier records passport number, name and nationality on the POS for every card payment by a foreign guest. Each night at 00:00 the previous day's Excel is sent to the owner on Telegram; any day can be downloaded here.</p>
+            <form className="mb-4 flex flex-wrap items-end gap-2">
+              <input type="hidden" name="tab" value="foreign" />
+              <div><Lbl htmlFor="fd">Day</Lbl><input id="fd" type="date" name="day" defaultValue={day} className={Input + ' w-44'} /></div>
+              <button className={BtnGhost}>Show</button>
+              <a className={Btn} href={`/api/dashboard/foreign-card-report?date=${day}`}><Icon name="download" size={16} /> Download Excel</a>
+            </form>
+            {rows.length === 0 ? <p className="text-sm text-slate-500">No card payments by foreign guests on {day}.</p> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-left text-slate-600"><tr><th className="py-2">Time</th><th>Name</th><th>Nationality</th><th>Passport No.</th><th className="text-right">Amount</th><th>Paid for</th><th>Booking</th><th>Cashier</th></tr></thead>
+                  <tbody>{rows.map((r: any) => (
+                    <tr key={r.id} className="border-t border-slate-100"><td className="py-2 tabular-nums">{r.time}</td><td className="font-medium">{r.full_name}</td><td>{r.nationality}</td><td className="font-mono">{r.passport_no}</td>
+                      <td className="text-right font-semibold tabular-nums">{fmt(Number(r.amount_cents))}</td><td className="text-xs">{r.paid_for}</td><td className="text-xs">{r.reference ?? 'Walk-in'}</td><td className="text-xs">{r.staff_name}{r.shift_no ? ` · #${r.shift_no}` : ''}</td></tr>))}</tbody>
+                  <tfoot><tr className="border-t-2 border-cocoa-200 font-semibold"><td className="py-2" colSpan={4}>{rows.length} payment(s)</td><td className="text-right tabular-nums">{fmt(total)}</td><td colSpan={3} /></tr></tfoot>
+                </table>
+              </div>
+            )}
+          </Card>
+        );
+      })()}
 
       {tab === 'shortages' && (
         <Card title="Cash shortages">

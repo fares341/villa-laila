@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { q, tx } from '@/lib/db';
 import type { Q } from '@/lib/db';
 import { todayLocal } from '@/lib/dates';
+import { cleanPayer, recordCardPayer, type CardPayer } from './card-payers';
 import { BookingError } from '../errors';
 import { audit } from '../audit';
 import { verifyPin, clockIn, clockOut } from './staff';
@@ -206,7 +207,7 @@ export async function posCatalog() {
 /** Checked-in guests with their rooms and live balance. */
 export async function inHouseGuests() {
   const rows = await q<any>(`
-    SELECT r.id, r.reference, r.check_in, r.check_out, r.currency, g.full_name,
+    SELECT r.id, r.reference, r.check_in, r.check_out, r.currency, g.full_name, g.nationality,
       (SELECT string_agg(DISTINCT rm.name || CASE WHEN t.kind='dorm' THEN ' · ' || u.label ELSE '' END, ', ')
        FROM reservation_units ru JOIN units u ON u.id=ru.unit_id JOIN rooms rm ON rm.id=u.room_id JOIN room_types t ON t.id=rm.room_type_id
        WHERE ru.reservation_id=r.id AND ru.active AND ru.during @> current_date) rooms
@@ -256,9 +257,11 @@ export type SaleInput = {
   reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod;
   compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean;
   cashCurrency?: Currency;   // cash only: EGP, USD or EUR physically received
+  cardPayer?: CardPayer | null; // card only: foreign guest's passport details (daily Excel)
 };
 
 export async function processSale(input: SaleInput) {
+  const payer = input.method === 'card' ? cleanPayer(input.cardPayer) : null;
   const shift = (await q<any>(`SELECT * FROM cash_shifts WHERE id=$1 AND status='open'`, [input.shiftId]))[0];
   if (!shift) throw new BookingError('BAD_STATE', 'No open shift. Open a shift first.');
   const guestModes: SettleMode[] = ['charge_room', 'settle_all'];
@@ -346,6 +349,10 @@ export async function processSale(input: SaleInput) {
     } else if (input.mode !== 'charge_room') {
       paidCents = cartTotal;
     }
+    if (payer && method === 'card' && paidCents > 0) {
+      await recordCardPayer(cq, payer, { amountCents: paidCents, source: 'pos_sale', saleId, reservationId: res?.id ?? null, shiftId: input.shiftId, staffName: input.staffName,
+        paidFor: [lines.map((l) => `${l.name} ×${l.qty}`).join(', '), input.mode === 'settle_all' ? `Account balance ${res?.reference ?? ''}`.trim() : ''].filter(Boolean).join(' + ') });
+    }
     if (input.mode === 'comp' && compCents > 0) {
       await c.query(`INSERT INTO owner_comps(reservation_id,sale_id,amount_cents,note,approved_by,cashier_id,shift_id) VALUES($1,$2,$3,$4,$5,$6,$7)`,
         [res?.id ?? null, saleId, compCents, input.compNote, approver!.id, input.staffId, input.shiftId]);
@@ -360,8 +367,9 @@ export async function processSale(input: SaleInput) {
 }
 
 /** Partial / full payment on a guest account (front desk or POS). Cash may be EGP, USD or EUR; card is always EGP. */
-export async function takeFolioPayment(input: { reservationId: string; amountCents: number; method: PayMethod; shiftId: string | null; staffId: string | null; userId: string; note?: string; actor: string; currency?: Currency }) {
+export async function takeFolioPayment(input: { reservationId: string; amountCents: number; method: PayMethod; shiftId: string | null; staffId: string | null; userId: string; note?: string; actor: string; currency?: Currency; cardPayer?: CardPayer | null; staffName?: string | null }) {
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new BookingError('INVALID_INPUT', 'Enter an amount');
+  const payer = input.method === 'card' ? cleanPayer(input.cardPayer) : null;
   if (input.method === 'cash' && !input.shiftId) throw new BookingError('BAD_STATE', 'Open a POS shift to take cash, so it is counted in the drawer');
   const sh = input.shiftId ? (await q<any>(`SELECT shift_no FROM cash_shifts WHERE id=$1 AND status='open'`, [input.shiftId]))[0] : null;
   if (input.shiftId && !sh) throw new BookingError('BAD_STATE', 'The shift is closed');
@@ -369,11 +377,17 @@ export async function takeFolioPayment(input: { reservationId: string; amountCen
   const rate = cur === 'EGP' ? 1 : await rateFor(cur);
   // amountCents is in the currency received; the folio is credited with its EGP value at today's rate.
   const egp = cur === 'EGP' ? input.amountCents : toEgp(input.amountCents, rate);
-  await q(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at,shift_id,staff_id,cash_currency,cash_amount_minor,fx_rate)
-           VALUES($1,$2,$3,$4,'verified',$5,$6,$6,now(),$7,$8,$9,$10,$11)`,
+  await tx(async (c) => {
+  const pay = (await c.query(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at,shift_id,staff_id,cash_currency,cash_amount_minor,fx_rate)
+           VALUES($1,$2,$3,$4,'verified',$5,$6,$6,now(),$7,$8,$9,$10,$11) RETURNING id`,
     [input.reservationId, egp, input.method === 'card' ? 'card_terminal' : 'cash', sh ? `Shift #${sh.shift_no}` : 'Front desk',
       cur === 'EGP' ? input.note ?? null : [`${cur} ${input.amountCents / 100} @ ${rate}`, input.note].filter(Boolean).join(' · '),
-      input.userId, input.shiftId, input.staffId, cur, cur === 'EGP' ? null : input.amountCents, cur === 'EGP' ? null : rate]);
+      input.userId, input.shiftId, input.staffId, cur, cur === 'EGP' ? null : input.amountCents, cur === 'EGP' ? null : rate])).rows[0];
+  if (payer) {
+    const ref = (await c.query(`SELECT reference FROM reservations WHERE id=$1`, [input.reservationId])).rows[0]?.reference ?? '';
+    await recordCardPayer(c as unknown as Q, payer, { amountCents: egp, source: 'folio_payment', paymentId: pay.id, reservationId: input.reservationId, shiftId: input.shiftId, staffName: input.staffName ?? input.actor, paidFor: `Payment on account ${ref}`.trim() });
+  }
+  });
   await audit(input.actor, 'folio.payment', 'reservation', input.reservationId, { amount: input.amountCents, currency: cur, egp, method: input.method });
   return { egp, currency: cur, rate };
 }

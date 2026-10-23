@@ -76,7 +76,12 @@ export async function folioPayment(fd: FormData) {
   const method = str(fd.get('method')) === 'card' ? 'card' : 'cash';
   const shift = await openShiftRow();
   const currency = (['USD', 'EUR'].includes(str(fd.get('currency'))) && method === 'cash' ? str(fd.get('currency')) : 'EGP') as any;
-  try { await takeFolioPayment({ reservationId: id, amountCents: cents(fd.get('amount')) ?? 0, method, currency, shiftId: shift?.id ?? null, staffId: shift?.staff_id ?? null, userId: u.id, note: str(fd.get('note')) || undefined, actor: u.email }); }
+  // Card payments: a foreign guest's passport details go on the daily Excel (same rule as the POS).
+  const kind = str(fd.get('payerKind'));
+  if (method === 'card' && !['eg', 'foreign'].includes(kind)) go(back, 'err', 'Card payment: choose Egyptian or Foreign guest');
+  const cardPayer = method === 'card' && kind === 'foreign' ? { name: str(fd.get('payerName')), nationality: str(fd.get('payerNationality')), passport: str(fd.get('payerPassport')) } : null;
+  if (cardPayer && (!cardPayer.name || !cardPayer.nationality || !cardPayer.passport)) go(back, 'err', 'Foreign guest: name, nationality and passport number are required');
+  try { await takeFolioPayment({ reservationId: id, amountCents: cents(fd.get('amount')) ?? 0, method, currency, shiftId: shift?.id ?? null, staffId: shift?.staff_id ?? null, userId: u.id, note: str(fd.get('note')) || undefined, actor: u.email, cardPayer, staffName: u.name }); }
   catch (e) { go(back, 'err', msg(e)); }
   revalidatePath(back); go(back, 'ok', 'Payment recorded');
 }

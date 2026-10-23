@@ -14,6 +14,7 @@ import { botSend, notifyStaff } from '@/services/conversations';
 import { syncHostelworldData } from '@/services/hostelworld-sync';
 import { adminPollLoop, notifyNewEventBooking, getAdminBotConfig } from '@/services/admin-bot';
 import { sendDueReminders } from '@/services/event-admin';
+import { sendDailyCardPayersReport } from '@/services/pms/card-payers';
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), '[worker]', ...a);
 
@@ -35,6 +36,8 @@ async function tick() {
       const missed = await q<any>(`SELECT id FROM event_bookings WHERE admin_notified_at IS NULL AND created_at < now() - interval '1 minute' AND created_at > now() - interval '2 days' AND status NOT IN ('expired') LIMIT 20`);
       for (const r of missed) await notifyNewEventBooking(r.id).catch((e) => console.error('[admin bot]', e.message));
     }
+    // Midnight: yesterday's Excel of foreign guests who paid by card on the venue machine (owner's Telegram).
+    if (await sendDailyCardPayersReport().catch((e) => { console.error('[card report]', e); return false; })) log('foreign card payments report sent');
     await scanAndSchedule();
     const n = await runDue(async (conv, text, kb) => botSend(conv, text, kb), notifyStaff);
     if (n) log('processed follow-ups:', n);

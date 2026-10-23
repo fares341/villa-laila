@@ -70,6 +70,14 @@ export const adminApi = {
     fd.append(kind, new Blob([new Uint8Array(bytes)], { type: mime }), kind === 'photo' ? 'receipt.jpg' : mime === 'application/pdf' ? 'receipt.pdf' : 'file');
     return call(token, kind === 'photo' ? 'sendPhoto' : 'sendDocument', fd);
   },
+  /** A named file (e.g. the daily Excel). */
+  async document(chatId: string, bytes: Buffer, filename: string, caption: string) {
+    const { token } = await getAdminBotConfig(); if (!token) return null;
+    const fd = new FormData();
+    fd.append('chat_id', chatId); fd.append('caption', caption.slice(0, 1000));
+    fd.append('document', new Blob([new Uint8Array(bytes)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
+    return call(token, 'sendDocument', fd);
+  },
   async answer(id: string, text?: string) {
     const { token } = await getAdminBotConfig(); if (!token) return;
     await call(token, 'answerCallbackQuery', { callback_query_id: id, text }).catch(() => {});
