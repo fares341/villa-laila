@@ -7,7 +7,7 @@
   --ivory: #FBF7F1; --sand: #F4ECE0; --line: #E6DACA; --white: #fff;
   --red: #B3261E; --red-bg: #FDECEA; --green: #146C3A; --green-bg: #E6F4EC; --blue: #0B5F8A; --blue-bg: #E4F1F8; --amber-bg: #FFF1D6;
   position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--ivory); color: var(--ink);
-  font: 400 15px/1.45 "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  font: 400 15px/1.45 "Plus Jakarta Sans Variable", "Plus Jakarta Sans", "Almarai", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
   user-select: none; -webkit-tap-highlight-color: transparent; overflow: hidden;
 }
 .pos-root *, .pos-root *::before, .pos-root *::after { box-sizing: border-box; }

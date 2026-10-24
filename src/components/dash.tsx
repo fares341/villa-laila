@@ -48,7 +48,7 @@ const NAV: [string, NavItem[]][] = [
 export async function DashShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
   const counts: Record<string, number> = await navCounts().catch(() => ({}));
   return (
-    <div className="dash min-h-screen bg-cocoa-50 text-cocoa-900 md:flex" style={{ fontFamily: '"Plus Jakarta Sans", "Almarai", system-ui, sans-serif' }}>
+    <div className="dash min-h-screen bg-cocoa-50 text-cocoa-900 md:flex" style={{ fontFamily: '"Plus Jakarta Sans Variable", "Plus Jakarta Sans", "Almarai", system-ui, sans-serif' }}>
       <aside className="dash-side bg-cocoa-900 text-cocoa-100 md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto">
         <div className="flex items-center justify-between gap-3 px-4 py-4">
           <Link href="/dashboard" aria-label="Dashboard home" className="flex items-center gap-2.5">

@@ -3,7 +3,7 @@
    Cocoa brown + copper-gold taken from the key logo, warm ivory, sand tint.
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
+/* Fonts (Plus Jakarta Sans, Almarai) are loaded in src/app/layout.tsx from @fontsource — self-hosted. */
 
 :root {
   --color-primary: #6B4A30;
@@ -32,8 +32,8 @@
   --shadow: 0 2px 6px rgba(81,64,47,.05), 0 16px 36px -18px rgba(81,64,47,.28);
   --overlay: rgba(36,28,20,.55);
 
-  --f: "Plus Jakarta Sans", "Almarai", "Segoe UI", Tahoma, system-ui, -apple-system, sans-serif;
-  --f-ar: "Almarai", "Plus Jakarta Sans", Tahoma, "Segoe UI", sans-serif;
+  --f: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", "Almarai", "Segoe UI", Tahoma, system-ui, -apple-system, sans-serif;
+  --f-ar: "Almarai", "Plus Jakarta Sans Variable", "Plus Jakarta Sans", Tahoma, "Segoe UI", sans-serif;
   --r-lg: 24px; --r: 18px; --r-sm: 12px; --r-btn: 12px;
   --btn-h: 48px;
   --wrap: 1280px;
@@ -1403,7 +1403,7 @@
 .bkd-next ol { margin: 0; padding-inline-start: 22px; display: grid; gap: 6px; }
 .bkd-extras { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-width: 520px; }
 .bkd-extras li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; border: 1px solid var(--color-border, #ECE2D4); border-radius: 12px; background: #fff; }
-.bkd-extras b { font-family: "Plus Jakarta Sans", sans-serif; color: var(--color-primary-dark); }
+.bkd-extras b { font-family: var(--f); color: var(--color-primary-dark); }
 
 /* ---- events page, meal photos, videos, wallet payment ---- */
 .ev-all { margin-top: 26px; text-align: center; }
