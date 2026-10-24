@@ -413,6 +413,12 @@ async function onMessage(chat: string, actor: string, m: any) {
     await clearState(chat);
     return sendWelcome(chat);
   }
+  // Sign-in code for the Little Hotelier reader: /lhcode 123456
+  const lh = text.match(/^\/lhcode\s+([0-9A-Za-z]{4,10})$/);
+  if (lh) {
+    await setSetting('lh_otp', { code: lh[1], at: new Date().toISOString() });
+    return adminApi.send(chat, 'تمام، الكود اتبعت لقارئ Little Hotelier.');
+  }
   if (/^\/cancel/.test(text) || text === '❌ إلغاء' || text === 'إلغاء') {
     await clearState(chat);
     return adminApi.send(chat, 'تمام، تم الإلغاء والرجوع للقائمة.', MAIN_INLINE_KB, MAIN_MENU_KEYBOARD);

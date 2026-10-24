@@ -9,6 +9,8 @@
     "migrate": "tsx scripts/migrate.ts",
     "seed": "tsx scripts/seed.ts",
     "worker": "tsx src/bot/worker.ts",
+    "lh:sync": "tsx src/bot/lh-worker.ts",
+    "lh:discover": "tsx scripts/lh-discover.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -22,6 +24,7 @@
     "jose": "^5.9.6",
     "next": "^15.1.0",
     "pg": "^8.13.1",
+    "playwright-core": "^1.48.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "xlsx": "^0.18.5",

@@ -10,7 +10,8 @@ RUN npm run build
 FROM node:22-alpine AS run
 WORKDIR /app
 # ffmpeg converts Telegram voice notes (OGG/Opus) to MP3 for the AI model
-RUN apk add --no-cache ffmpeg
+# chromium: the read-only Little Hotelier reader (lh-reader service)
+RUN apk add --no-cache ffmpeg chromium nss freetype harfbuzz ttf-freefont
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
 COPY --from=build /app ./
 EXPOSE 3000

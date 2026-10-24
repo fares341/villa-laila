@@ -17,11 +17,14 @@ export default async function OtaBookings({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const ch: ChannelKey = ORDER.includes(sp.ch as ChannelKey) ? (sp.ch as ChannelKey) : 'booking_com';
   const c = CHANNELS[ch];
-  const [rows, counts, types, units] = await Promise.all([
+  const [rows, counts, types, units, lhLast, lhIssues] = await Promise.all([
     listOta(ch), otaCounts(),
     q<any>(`SELECT id, name, kind FROM room_types WHERE active ORDER BY sort_order`),
     q<any>(`SELECT u.id, u.label, rm.name room, rm.room_type_id, t.kind FROM units u JOIN rooms rm ON rm.id=u.room_id JOIN room_types t ON t.id=rm.room_type_id WHERE u.active AND rm.active ORDER BY rm.name, u.label`),
+    q<any>(`SELECT at, ok, found, message FROM lh_runs ORDER BY at DESC LIMIT 1`).catch(() => []),
+    q<any>(`SELECT data->>'ref' ref, data->>'guest' guest, data->>'channel' channel, data->>'checkIn' check_in, status, detail FROM lh_seen WHERE status IN ('error','dry_run') AND last_seen > now() - interval '1 day' ORDER BY last_seen DESC LIMIT 20`).catch(() => []),
   ]);
+  const lh = lhLast[0];
   const t0 = todayLocal();
   const upcoming = rows.filter((r) => ['confirmed', 'checked_in'].includes(r.status) && r.check_out >= t0);
   const dueTotal = upcoming.reduce((a, r) => a + Math.max(0, Number(r.charges) - Number(r.paid)), 0);
@@ -33,6 +36,18 @@ export default async function OtaBookings({ searchParams }: { searchParams: Prom
       <PageHeader title="Bookings from sites" sub="Booking.com, Airbnb, Hostelworld and Expedia bookings, typed in here. Every amount still to pay is collected on the POS." />
       <SubTabs tabs={tabs} current={`/dashboard/ota?ch=${ch}`} />
       <Flash sp={sp} />
+      {lh && (
+        <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${lh.ok && Date.now() - new Date(lh.at).getTime() < 15 * 60_000 ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+          <b>Little Hotelier reader:</b>{' '}
+          {lh.ok ? `last read ${new Date(lh.at).toLocaleString('en-GB', { timeZone: 'Africa/Cairo', dateStyle: 'short', timeStyle: 'short' })}, ${lh.found} bookings seen` : `last read failed: ${lh.message}`}
+          {lh.message === 'test mode' && ' · test mode, nothing is saved yet'}
+          {lhIssues.length > 0 && (
+            <ul className="mt-2 space-y-0.5">
+              {lhIssues.map((i: any, n: number) => <li key={n}>{i.status === 'error' ? 'Not copied' : 'Would copy'}: {i.channel} {i.ref} · {i.guest} · {i.check_in}{i.detail ? ` · ${i.detail}` : ''}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Upcoming & in house" value={upcoming.length} />
         <Stat label="Value" value={fmt(value)} />

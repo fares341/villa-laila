@@ -49,6 +49,19 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
 
+  lh-reader:
+    build: .
+    command: npm run lh:sync
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://villa:${POSTGRES_PASSWORD}@db:5432/villa
+    volumes:
+      - ./uploads:/app/data/uploads   # keeps the Little Hotelier sign-in session and discovery reports
+    shm_size: 512m
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
   backup:
     image: postgres:16-alpine
     restart: unless-stopped
