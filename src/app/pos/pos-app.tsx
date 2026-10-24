@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '@/components/icons';
 import {
   posState, posStaffList, posUnlock, posLock, posClock, posOpenShift, posSale, posGuestFolio, posTakePayment, posExpense, posCloseShift, posManagers,
-  posTasks, posTaskSave, posTaskReassign, posTasksShare, posWashReady, posRunNotes, posHandover, posTaken, posExchange, posEventTickets, posPayEvent, posTaxiConfirmed,
+  posTasks, posTaskSave, posTaskReassign, posTasksShare, posWashReady, posRunNotes, posHandover, posTaken, posExchange, posEventTickets, posPayEvent, posEventList, posSellEvent, posTaxiConfirmed,
 } from './actions';
 
 /* ───────── helpers ───────── */
@@ -57,13 +57,14 @@ function CardPayerFields({ value, onChange }: { value: Payer; onChange: (p: Paye
   );
 }
 type CartLine = { key: string; type: 'product' | 'tour' | 'custom'; id?: string; name: string; unit: number; qty: number; max?: number | null };
-type Tab = 'market' | 'meals' | 'services' | 'tours';
+type Tab = 'market' | 'meals' | 'services' | 'tours' | 'events';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'market', label: 'Market', icon: 'store' },
   { key: 'meals', label: 'Meals', icon: 'utensils' },
   { key: 'services', label: 'In-House Services', icon: 'shirt' },
   { key: 'tours', label: 'Tours & Excursions', icon: 'map' },
+  { key: 'events', label: 'Events', icon: 'ticket' },
 ];
 
 /* ───────── small UI pieces ───────── */
@@ -361,6 +362,8 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
   const [guestId, setGuestId] = useState<string | null>(initialGuest);
+  const [evSell, setEvSell] = useState<string | null>(null);
+  const [events, setEvents] = useState<any[] | null>(null);
   const [guestQuery, setGuestQuery] = useState('');
   const [guestOpen, setGuestOpen] = useState(false);
   const [method, setMethod] = useState<'cash' | 'card'>('cash');
@@ -373,6 +376,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
   const guest = guests.find((g) => g.id === guestId) ?? null;
   const total = cart.reduce((s, l) => s + l.unit * l.qty, 0);
 
+  useEffect(() => { if (tab === 'events') posEventList().then((r) => setEvents(r.ok ? r.data : [])); }, [tab]);
   // Forget a guest who left the list (checked out / cancelled); wait until the list has loaded.
   useEffect(() => { if (guestId && st.guests && !guests.some((g) => g.id === guestId)) setGuestId(null); }, [guests, guestId, st.guests]);
 
@@ -426,7 +430,8 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
   }, [guestQuery, guests]);
 
   // Card payments always go through the pay screen, which asks for a foreign guest's passport details.
-  const cardOr = (mode: 'settle_all' | 'walk_in') => { if (method === 'card') { setPayMode(mode); setModal('pay'); } else void run(mode); };
+  // Every payment goes through the pay screen: card asks for a foreign guest's passport details, and a tip can be added.
+  const cardOr = (mode: 'settle_all' | 'walk_in') => { setPayMode(mode); setModal('pay'); };
   const run = async (mode: 'charge_room' | 'pay_now' | 'settle_all' | 'walk_in', extra: Record<string, unknown> = {}) => {
     setBusy(true);
     const r = await posSale({
@@ -441,6 +446,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
       mode === 'settle_all' ? `${d.cashForeign != null ? cur(d.cashForeign, d.cashCurrency) + ' (' + egp(d.paidCents) + ')' : egp(d.paidCents)} collected · ${d.guest} fully settled` :
       `${d.cashForeign != null ? cur(d.cashForeign, d.cashCurrency) + ' (' + egp(d.paidCents) + ')' : egp(d.paidCents)} paid by ${method}`,
     );
+    if (d.tipMinor > 0) notify(`Tip recorded: ${cur(d.tipMinor, method === 'card' ? 'EGP' : d.cashCurrency)}`);
     if (d.tourLines?.length) notify(`Book the car & driver for ${d.tourLines.map((t: any) => t.name).join(', ')} now. It is in your tasks.`);
     setCart([]); setModal(null);
     if (mode === 'walk_in') setGuestId(null);
@@ -573,7 +579,15 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
           </div>
 
           <div className="pos-grid">
-            {tab === 'tours' && !search
+            {tab === 'events' && !search
+              ? (events === null ? <p className="pos-fine">Loading events…</p> : events.length === 0 ? <p className="pos-fine">No events with free seats in the next days.</p> : events.map((e) => (
+                <button key={e.id} className="pos-tile tour" onClick={() => { setEvSell(e.id); setModal('event'); }}>
+                  <b>{(e.title && typeof e.title === 'object' ? e.title.en || e.title.ar : e.title) || 'Event'}</b>
+                  <small>Next: {e.dates[0]?.date}{e.startTime ? ` · ${String(e.startTime).slice(0, 5)}` : ''}{e.dates[0]?.left != null ? ` · ${e.dates[0].left} seats` : ''}</small>
+                  <span className="pos-price num">{egp(Number(e.price))}</span>
+                  {e.guestPrice != null && <span className="pos-tour-fig"><span>Hotel guest {egp(Number(e.guestPrice))}</span></span>}
+                </button>)))
+              : tab === 'tours' && !search
               ? (shown as Tour[]).map((t) => (
                 <div key={t.id} className="pos-tile-wrap">
                   <button className="pos-tile tour" onClick={() => add({ type: 'tour', id: t.id, name: `${t.name}`, unit: t.price_cents })}>
@@ -612,7 +626,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
 
       {modal === 'custom' && <CustomCharge onClose={() => setModal(null)} onAdd={(name, cents, qty) => { add({ type: 'custom', name, unit: cents, qty }); setModal(null); }} />}
       {modal === 'pay' && <PayModal total={payMode === 'settle_all' && guest ? guest.balance + total : total} method={method} cashCur={curNow} rates={st.rates} guest={payMode === 'walk_in' ? null : guest} busy={busy}
-        onClose={() => { setModal(null); setPayMode('pay_now'); }} onConfirm={async (payer) => { const m = payMode; setPayMode('pay_now'); await run(m, payer ? { cardPayer: payerOut(payer) } : {}); }} />}
+        onClose={() => { setModal(null); setPayMode('pay_now'); }} onConfirm={async (payer, tipMinor) => { const m = payMode; setPayMode('pay_now'); await run(m, { ...(payer ? { cardPayer: payerOut(payer) } : {}), ...(tipMinor > 0 ? { tipMinor } : {}) }); }} />}
       {modal === 'comp' && <CompModal cartTotal={total} guest={guest} onClose={() => setModal(null)} onDone={async (extra) => { const ok = await (async () => {
         setBusy(true);
         const r = await posSale({ reservationId: guestId, mode: 'comp', method, items: cart.map((l) => ({ type: l.type, id: l.id, name: l.name, qty: l.qty, unitCents: l.unit })), ...extra });
@@ -627,7 +641,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
         <Modal title="More" onClose={() => setModal(null)}>
           <div className="pos-menu">
             <button className="pos-btn" onClick={() => setModal('expense')}><Icon name="receipt" /> Record petty expense</button>
-            <button className="pos-btn" onClick={() => setModal('event')}><Icon name="ticket" /> Event ticket payment</button>
+            <button className="pos-btn" onClick={() => setModal('event')}><Icon name="ticket" /> Event tickets</button>
             <button className="pos-btn" onClick={() => setModal('exchange')}><Icon name="arrow-left-right" /> Money exchange ($ / € → EGP)</button>
             {st.takers?.length > 0 && <button className="pos-btn" onClick={() => setModal('taken')}><Icon name="wallet" /> Cash taken (owner)</button>}
             <a className="pos-btn" href="/dashboard" target="_blank" rel="noopener"><Icon name="door-open" /> Front desk (Today)</a>
@@ -637,7 +651,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
         </Modal>
       )}
       {catalog && <TourCatalog t={catalog} onClose={() => setCatalog(null)} notify={notify} />}
-      {modal === 'event' && <EventPayModal onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
+      {modal === 'event' && <EventPayModal guest={guest} initialEvent={evSell} onClose={() => { setModal(null); setEvSell(null); }} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'exchange' && <ExchangeModal rates={st.rates} guest={guest} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'taken' && <TakenModal extra={Object.keys(st.currencies ?? {}).filter((c) => !CURS.includes(c))} takers={st.takers} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'tasks' && <TasksModal onClose={() => { setModal(null); refresh(); }} notify={notify} />}
@@ -665,22 +679,19 @@ function CustomCharge({ onClose, onAdd }: { onClose: () => void; onAdd: (name: s
   );
 }
 
-function PayModal({ total, method, cashCur, rates, guest, busy, onClose, onConfirm }: { total: number; method: 'cash' | 'card'; cashCur: Cur; rates: any; guest: Guest | null; busy: boolean; onClose: () => void; onConfirm: (payer: Payer | null) => void }) {
-  const [given, setGiven] = useState('');
+function PayModal({ total, method, cashCur, rates, guest, busy, onClose, onConfirm }: { total: number; method: 'cash' | 'card'; cashCur: Cur; rates: any; guest: Guest | null; busy: boolean; onClose: () => void; onConfirm: (payer: Payer | null, tipMinor: number) => void }) {
+  const [tip, setTip] = useState('');
   const [payer, setPayer] = useState<Payer>(() => newPayer(guest));
-  const due = inCur(total, cashCur, rates);
-  const change = toCents(given) - due;
+  const unit = method === 'cash' ? cashCur : 'EGP';
+  const due = inCur(total, unit, rates);
   return (
     <Modal title={`Pay now · ${method === 'cash' ? `Cash ${cashCur}` : 'Card'}`} onClose={onClose}>
       <div className="pos-big-total"><small>{guest ? `${guest.full_name} · this cart only` : 'This cart'}</small><b className="num">{cur(due, cashCur)}</b>
         {cashCur !== 'EGP' && <small>{egp(total)} at {rateOf(rates, cashCur).toFixed(2)} EGP per {cashCur}</small>}</div>
-      {method === 'cash' ? (
-        <>
-          <AmountPad label={`Cash received in ${cashCur} (optional)`} value={given} onChange={setGiven} unit={cashCur} />
-          {toCents(given) > 0 && <p className={`pos-change ${change < 0 ? 'bad' : ''}`}>{change < 0 ? `Short by ${cur(-change, cashCur)}` : `Change to give: ${cur(change, cashCur)}${cashCur !== 'EGP' ? ` (${egp(Math.round(change * rateOf(rates, cashCur)))})` : ''}`}</p>}
-        </>
-      ) : <><p className="pos-fine">Run {egp(total)} on the card terminal, then confirm.</p><CardPayerFields value={payer} onChange={setPayer} /></>}
-      <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button><button className="pos-btn primary big" disabled={busy || (method === 'cash' && toCents(given) > 0 && change < 0) || (method === 'card' && !payerReady(payer))} onClick={() => onConfirm(method === 'card' ? payer : null)}><Icon name="check" /> Confirm payment</button></div>
+      {method === 'card' && <><p className="pos-fine">Run {egp(total + toCents(tip))} on the card terminal{toCents(tip) > 0 ? ' (with the tip)' : ''}, then confirm.</p><CardPayerFields value={payer} onChange={setPayer} /></>}
+      <TipField value={tip} onChange={setTip} unit={unit} />
+      {toCents(tip) > 0 && <p className="pos-total"><span>Guest pays in total</span><b className="num">{cur(due + toCents(tip), unit)}</b></p>}
+      <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button><button className="pos-btn primary big" disabled={busy || (method === 'card' && !payerReady(payer))} onClick={() => onConfirm(method === 'card' ? payer : null, toCents(tip))}><Icon name="check" /> Confirm payment</button></div>
     </Modal>
   );
 }
@@ -756,6 +767,7 @@ function PaymentModal({ guest, method, rates, onClose, onDone }: { guest: Guest;
   const [payer, setPayer] = useState<Payer>(() => newPayer(guest));
   const curPay: Cur = m === 'cash' ? c : 'EGP';
   const pick = (x: Cur) => { setC(x); if (guest.balance > 0) setAmount(String(inCur(guest.balance, x, rates) / 100)); };
+  const [tip, setTip] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   return (
@@ -765,17 +777,19 @@ function PaymentModal({ guest, method, rates, onClose, onDone }: { guest: Guest;
       {m === 'cash' && <CurSwitch value={c} onChange={pick} rates={rates} />}
       <AmountPad label={`Amount received in ${curPay}`} value={amount} onChange={setAmount} unit={curPay} />
       {m === 'card' && <CardPayerFields value={payer} onChange={setPayer} />}
-      {curPay !== 'EGP' && toCents(amount) > 0 && <p className="pos-fine">Credited to the guest as {egp(Math.round(toCents(amount) * rates[curPay]))} at {Number(rates[curPay]).toFixed(2)}.</p>}
+      {curPay !== 'EGP' && toCents(amount) > 0 && <p className="pos-fine">Credited to the guest as {egp(Math.round(toCents(amount) * rateOf(rates, curPay)))} at {rateOf(rates, curPay).toFixed(2)}.</p>}
+      <TipField value={tip} onChange={setTip} unit={curPay} />
       {err && <p className="pos-msg bad">{err}</p>}
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
         <button className="pos-btn primary" disabled={busy || toCents(amount) <= 0 || (m === 'card' && !payerReady(payer))} onClick={async () => {
           setBusy(true); setErr(null);
-          const r = await posTakePayment(guest.id, toCents(amount), m, curPay, m === 'card' ? payerOut(payer) : null);
+          const r = await posTakePayment(guest.id, toCents(amount), m, curPay, m === 'card' ? payerOut(payer) : null, toCents(tip));
           setBusy(false);
           if (!r.ok) { setErr(r.error); return; }
           const left = guest.balance - r.data.egp;
           const got = curPay === 'EGP' ? egp(r.data.egp) : `${cur(toCents(amount), curPay)} (${egp(r.data.egp)})`;
-          onDone(left > 0 ? `${got} received · ${egp(left)} still due` : `${got} received · fully settled`);
+          const t = toCents(tip) > 0 ? ` · tip ${cur(toCents(tip), curPay)}` : '';
+          onDone(left > 0 ? `${got} received · ${egp(left)} still due${t}` : `${got} received · fully settled${t}`);
         }}><Icon name="check" /> Record payment</button>
       </div>
     </Modal>
@@ -830,7 +844,7 @@ function CloseShift({ shiftNo, onClose, onFinished, extra = [] }: { shiftNo: num
         <table className="pos-table z">
           <thead><tr><th />{Object.keys(z.currencies ?? {}).map((c) => <th key={c} className="r">{c}</th>)}</tr></thead>
           <tbody>
-            {([['opening', 'Start of shift'], ['sales', '+ Cash sales'], ['payments', '+ Room payments (cash)'], ['events', '+ Event tickets (cash)'], ['exchange', '± Money exchange'], ['expenses', '− Paid from drawer'], ['taken', '− Taken by owner'], ['expected', 'Should be in drawer'], ['counted', 'Counted']] as const).map(([k, l]) => (
+            {([['opening', 'Start of shift'], ['sales', '+ Cash sales'], ['payments', '+ Room payments (cash)'], ['events', '+ Event tickets (cash)'], ['exchange', '± Money exchange'], ['tips', '+ Tips (cash)'], ['expenses', '− Paid from drawer'], ['taken', '− Taken by owner'], ['expected', 'Should be in drawer'], ['counted', 'Counted']] as const).map(([k, l]) => (
               <tr key={k} className={k === 'expected' || k === 'counted' ? 'strong' : ''}><td>{l}</td>{Object.keys(z.currencies ?? {}).map((c) => <td key={c} className="r num">{cur(z.currencies?.[c]?.[k] ?? 0, c)}</td>)}</tr>
             ))}
             <tr className="strong"><td>Difference</td>{Object.keys(z.currencies ?? {}).map((c) => { const v = Number(z.currencies?.[c]?.variance ?? 0); return <td key={c} className={`r num ${v === 0 ? 'ok' : 'bad'}`}>{v === 0 ? 'Balanced' : v > 0 ? `Over ${cur(v, c)}` : `Short ${cur(-v, c)}`}</td>; })}</tr>
@@ -1046,50 +1060,114 @@ function TaskCard({ t, d, onSave, onWash, onTaxi }: { t: TaskRow; d: any; onSave
   );
 }
 
-/** Event tickets booked on the website "pay at the door": paid here, cash into the drawer or card on the machine. */
-function EventPayModal({ onClose, onDone }: { onClose: () => void; onDone: (m: string) => void }) {
+/** Optional tip on top of a payment, in the same currency. Recorded apart from the price (it is not hostel income). */
+function TipField({ value, onChange, unit }: { value: string; onChange: (v: string) => void; unit: string }) {
+  const steps = unit === 'EGP' ? ['20', '50', '100'] : ['1', '2', '5'];
+  return (
+    <div className="pos-field">
+      <label>Tip (optional)</label>
+      <div className="pos-amount small"><span>{unit}</span>
+        <input inputMode="decimal" value={value} placeholder="0" onChange={(e) => onChange(e.target.value.replace(/[^\d.]/g, ''))} aria-label="Tip" /></div>
+      <div className="pos-quick">{steps.map((v) => <button type="button" key={v} onClick={() => onChange(String((Number(value) || 0) + Number(v)))}>+{v}</button>)}<button type="button" onClick={() => onChange('')}>No tip</button></div>
+    </div>
+  );
+}
+
+/**
+ * Event tickets on the POS: sell a ticket to someone at the villa now, or take payment for a ticket booked online
+ * as "pay at the door". Cash into the drawer or card on the machine; a tip can be added.
+ */
+function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClose: () => void; onDone: (m: string) => void; guest: Guest | null; initialEvent?: string | null }) {
+  const [mode, setMode] = useState<'sell' | 'booked'>(initialEvent ? 'sell' : 'sell');
+  const [events, setEvents] = useState<any[] | null>(null);
   const [list, setList] = useState<any[] | null>(null);
   const [qy, setQy] = useState('');
   const [pick, setPick] = useState<any | null>(null);
+  const [evId, setEvId] = useState<string | null>(initialEvent);
+  const [date, setDate] = useState('');
+  const [qty, setQty] = useState(1);
+  const [opt, setOpt] = useState('');
+  const [name, setName] = useState(guest?.full_name ?? '');
+  const [phone, setPhone] = useState('');
   const [m, setM] = useState<'cash' | 'card'>('cash');
-  const [payer, setPayer] = useState<Payer>(newPayer(null));
+  const [payer, setPayer] = useState<Payer>(newPayer(guest));
+  const [tip, setTip] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { posEventTickets().then((r) => (r.ok ? setList(r.data) : setErr(r.error))); }, []);
+  useEffect(() => { posEventList().then((r) => (r.ok ? setEvents(r.data) : setErr(r.error))); posEventTickets().then((r) => (r.ok ? setList(r.data) : setErr(r.error))); }, []);
+  const ev = events?.find((e) => e.id === evId) ?? null;
+  useEffect(() => { if (ev && !date) setDate(ev.dates[0]?.date ?? ''); if (ev?.options?.length && !opt) setOpt(ev.options[0].key); }, [ev, date, opt]);
+  const title = (t: any) => (t && typeof t === 'object' ? t.en || t.ar : t) || 'Event';
+  const unit = ev ? (guest && ev.guestPrice != null ? Number(ev.guestPrice) : Number(ev.price)) : 0;
+  const total = mode === 'sell' ? unit * qty : Number(pick?.total_cents ?? 0);
   const s = qy.trim().toLowerCase();
   const shown = (list ?? []).filter((b) => !s || `${b.full_name} ${b.ticket_code} ${b.phone ?? ''}`.toLowerCase().includes(s)).slice(0, 12);
-  const title = (t: any) => (t && typeof t === 'object' ? t.en || t.ar : t) || 'Event';
+  const left = ev?.dates.find((d: any) => d.date === date)?.left;
+  const ready = mode === 'sell' ? !!ev && !!date && name.trim().length >= 2 && qty >= 1 : !!pick;
   return (
-    <Modal title="Event ticket payment" onClose={onClose}>
-      {!pick ? (
-        <>
-          <div className="pos-field"><label htmlFor="ev-q">Name, phone or ticket code</label><input id="ev-q" value={qy} onChange={(e) => setQy(e.target.value)} autoFocus /></div>
-          {list === null ? <p className="pos-fine">Loading…</p> : shown.length === 0 ? <p className="pos-fine">No unpaid tickets{s ? ' match' : ''}.</p> : (
-            <ul className="pos-guest-list static">{shown.map((b) => (
-              <li key={b.id}><button onClick={() => setPick(b)}><span><b>{b.full_name}</b> · {title(b.title)} · {b.event_date}</span><span className="num">{egp(Number(b.total_cents))}</span></button></li>
-            ))}</ul>)}
-        </>
+    <Modal title="Event tickets" onClose={onClose}>
+      <div className="pos-method" role="tablist">
+        <button type="button" role="tab" aria-selected={mode === 'sell'} className={mode === 'sell' ? 'on' : ''} onClick={() => setMode('sell')}><Icon name="plus" /> Sell a ticket</button>
+        <button type="button" role="tab" aria-selected={mode === 'booked'} className={mode === 'booked' ? 'on' : ''} onClick={() => setMode('booked')}><Icon name="ticket" /> Booked online{list?.length ? ` (${list.length})` : ''}</button>
+      </div>
+      {mode === 'sell' ? (
+        events === null ? <p className="pos-fine">Loading…</p> : !events.length ? <p className="pos-fine">No events with free seats in the next days.</p> : (
+          <>
+            <div className="pos-two">
+              <div className="pos-field"><label htmlFor="ev-e">Event</label>
+                <select id="ev-e" className="pos-select" value={evId ?? ''} onChange={(e) => { setEvId(e.target.value || null); setDate(''); setOpt(''); }}>
+                  <option value="">Choose…</option>{events.map((e) => <option key={e.id} value={e.id}>{title(e.title)} · {egp(Number(e.price))}</option>)}
+                </select></div>
+              <div className="pos-field"><label htmlFor="ev-d">Day</label>
+                <select id="ev-d" className="pos-select" value={date} onChange={(e) => setDate(e.target.value)} disabled={!ev}>
+                  {(ev?.dates ?? []).map((d: any) => <option key={d.date} value={d.date}>{d.date}{d.left != null ? ` · ${d.left} seats left` : ''}</option>)}
+                </select></div>
+            </div>
+            {ev?.options?.length > 0 && <div className="pos-field"><label htmlFor="ev-o">Option</label><select id="ev-o" className="pos-select" value={opt} onChange={(e) => setOpt(e.target.value)}>{ev.options.map((o: any) => <option key={o.key} value={o.key}>{o.en}</option>)}</select></div>}
+            <div className="pos-two">
+              <div className="pos-field"><label htmlFor="ev-n">Guest name</label><input id="ev-n" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></div>
+              <div className="pos-field"><label htmlFor="ev-p">Phone (optional)</label><input id="ev-p" value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" maxLength={30} /></div>
+            </div>
+            <div className="pos-field"><label>Tickets</label>
+              <div className="pos-qty big"><button onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Less"><Icon name="minus" /></button><span className="num">{qty}</span><button onClick={() => setQty((q) => Math.min(left ?? 20, q + 1))} aria-label="More"><Icon name="plus" /></button></div></div>
+            {guest && ev?.guestPrice != null && <p className="pos-fine">Hotel guest price for {guest.full_name} (if staying that night).</p>}
+          </>
+        )
       ) : (
+        !pick ? (
+          <>
+            <div className="pos-field"><label htmlFor="ev-q">Name, phone or ticket code</label><input id="ev-q" value={qy} onChange={(e) => setQy(e.target.value)} autoFocus /></div>
+            {list === null ? <p className="pos-fine">Loading…</p> : shown.length === 0 ? <p className="pos-fine">No unpaid tickets{s ? ' match' : ''}.</p> : (
+              <ul className="pos-guest-list static">{shown.map((b) => (
+                <li key={b.id}><button onClick={() => setPick(b)}><span><b>{b.full_name}</b> · {title(b.title)} · {b.event_date}</span><span className="num">{egp(Number(b.total_cents))}</span></button></li>
+              ))}</ul>)}
+          </>
+        ) : <p className="pos-fine"><b>{pick.full_name}</b> · {title(pick.title)} · {pick.event_date} · ticket {pick.ticket_code} <button className="pos-link" onClick={() => setPick(null)}>change</button></p>
+      )}
+      {ready && (
         <>
-          <p className="pos-fine"><b>{pick.full_name}</b> · {title(pick.title)} · {pick.event_date} · ticket {pick.ticket_code}</p>
           <div className="pos-method" role="radiogroup" aria-label="Payment method">
             <button type="button" role="radio" aria-checked={m === 'cash'} className={m === 'cash' ? 'on' : ''} onClick={() => setM('cash')}><Icon name="banknote" /> Cash</button>
             <button type="button" role="radio" aria-checked={m === 'card'} className={m === 'card' ? 'on' : ''} onClick={() => setM('card')}><Icon name="credit-card" /> Card</button>
           </div>
           {m === 'card' && <CardPayerFields value={payer} onChange={setPayer} />}
-          <p className="pos-total"><span>To pay</span><b className="num">{egp(Number(pick.total_cents))}</b></p>
-          {err && <p className="pos-msg bad">{err}</p>}
-          <div className="pos-row end"><button className="pos-btn ghost" onClick={() => setPick(null)}>Back</button>
-            <button className="pos-btn primary" disabled={busy || (m === 'card' && !payerReady(payer))} onClick={async () => {
-              setBusy(true); setErr(null);
-              const r = await posPayEvent({ bookingId: pick.id, method: m, cardPayer: m === 'card' ? payerOut(payer) : null });
-              setBusy(false);
-              if (!r.ok) { setErr(r.error); return; }
-              onDone(`Ticket ${r.data.ticket} paid · ${egp(r.data.cents)} ${m === 'cash' ? 'cash in drawer' : 'by card'}`);
-            }}><Icon name="check" /> Take payment</button>
-          </div>
+          <TipField value={tip} onChange={setTip} unit="EGP" />
+          <p className="pos-total"><span>To pay{toCents(tip) > 0 ? ` (+ tip ${egp(toCents(tip))})` : ''}</span><b className="num">{egp(total + toCents(tip))}</b></p>
         </>
       )}
+      {err && <p className="pos-msg bad">{err}</p>}
+      <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
+        <button className="pos-btn primary" disabled={busy || !ready || (m === 'card' && !payerReady(payer))} onClick={async () => {
+          setBusy(true); setErr(null);
+          const common = { method: m, cardPayer: m === 'card' ? payerOut(payer) : null, tipMinor: toCents(tip) };
+          const r = mode === 'sell'
+            ? await posSellEvent({ eventId: evId!, date, quantity: qty, optionKey: opt || null, fullName: name, phone: phone || null, reservationId: guest?.id ?? null, ...common })
+            : await posPayEvent({ bookingId: pick.id, ...common });
+          setBusy(false);
+          if (!r.ok) { setErr(r.error); return; }
+          onDone(`Ticket ${r.data.ticket} paid · ${egp(r.data.cents)} ${m === 'cash' ? 'cash' : 'by card'}${toCents(tip) > 0 ? ` · tip ${egp(toCents(tip))}` : ''}`);
+        }}><Icon name="check" /> {mode === 'sell' ? 'Sell & take payment' : 'Take payment'}</button>
+      </div>
     </Modal>
   );
 }

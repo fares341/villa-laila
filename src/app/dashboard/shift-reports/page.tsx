@@ -23,7 +23,7 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
   const today = todayLocal();
   const from = sp.from && /^\d{4}-\d{2}-\d{2}$/.test(sp.from) ? sp.from : addDays(today, -13);
   const to = sp.to && /^\d{4}-\d{2}-\d{2}$/.test(sp.to) ? sp.to : today;
-  const tab = (['comps', 'expenses', 'shortages', 'taken', 'foreign', 'exchange'] as const).find((t) => t === sp.tab) ?? 'shifts';
+  const tab = (['comps', 'expenses', 'shortages', 'taken', 'foreign', 'exchange', 'tips'] as const).find((t) => t === sp.tab) ?? 'shifts';
   const [shifts, comps, expenses] = await Promise.all([
     q<any>(`SELECT cs.*, s1.full_name cashier, s2.full_name closer FROM cash_shifts cs LEFT JOIN staff s1 ON s1.id=cs.staff_id LEFT JOIN staff s2 ON s2.id=cs.closed_by_staff
             WHERE cs.shift_no IS NOT NULL AND (COALESCE(cs.opened_at, cs.created_at) AT TIME ZONE 'Africa/Cairo')::date BETWEEN $1 AND $2
@@ -36,7 +36,7 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
     q<any>(`SELECT e.*, s.full_name staff, cs.shift_no FROM cash_expenses e LEFT JOIN staff s ON s.id=e.staff_id LEFT JOIN cash_shifts cs ON cs.id=e.shift_id
             WHERE e.date BETWEEN $1 AND $2 ORDER BY e.created_at DESC`, [from, to]),
   ]);
-  const [shortages, taken, rates, exchanges] = await Promise.all([
+  const [shortages, taken, rates, exchanges, tips] = await Promise.all([
     q<any>(`SELECT cs.*, s.full_name staff, sh.shift_no, sh.closed_at, u.name resolved_name FROM cash_shortages cs LEFT JOIN staff s ON s.id=cs.staff_id
             LEFT JOIN cash_shifts sh ON sh.id=cs.shift_id LEFT JOIN users u ON u.id=cs.resolved_by
             WHERE cs.status='open' OR (cs.created_at AT TIME ZONE 'Africa/Cairo')::date BETWEEN $1 AND $2 ORDER BY cs.status <> 'open', cs.created_at DESC`, [from, to]),
@@ -45,6 +45,8 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
     getRates(),
     q<any>(`SELECT x.*, s.full_name staff, sh.shift_no FROM cash_exchanges x LEFT JOIN staff s ON s.id=x.staff_id LEFT JOIN cash_shifts sh ON sh.id=x.shift_id
             WHERE (x.created_at AT TIME ZONE 'Africa/Cairo')::date BETWEEN $1 AND $2 ORDER BY x.created_at DESC`, [from, to]).catch(() => []),
+    q<any>(`SELECT t.*, s.full_name staff, sh.shift_no FROM cash_tips t LEFT JOIN staff s ON s.id=t.staff_id LEFT JOIN cash_shifts sh ON sh.id=t.shift_id
+            WHERE (t.created_at AT TIME ZONE 'Africa/Cairo')::date BETWEEN $1 AND $2 ORDER BY t.created_at DESC`, [from, to]).catch(() => []),
   ]);
   const openShort = shortages.filter((x) => x.status === 'open');
   const open = shifts.find((s) => s.status === 'open');
@@ -96,7 +98,7 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
       </Card>
 
       <nav className="mb-4 flex flex-wrap gap-2">
-        {[['shifts', 'Shift reports', 'receipt'], ['shortages', `Shortages${openShort.length ? ` (${openShort.length})` : ''}`, 'alert-triangle'], ['taken', 'Taken by owner', 'wallet'], ['exchange', 'Money exchange', 'arrow-left-right'], ['expenses', 'Paid from drawer', 'banknote'], ['comps', 'Free (owner approved)', 'gift'], ['foreign', 'Card payments: foreign guests', 'credit-card']].map(([k, l, i]) => (
+        {[['shifts', 'Shift reports', 'receipt'], ['shortages', `Shortages${openShort.length ? ` (${openShort.length})` : ''}`, 'alert-triangle'], ['taken', 'Taken by owner', 'wallet'], ['exchange', 'Money exchange', 'arrow-left-right'], ['tips', 'Tips', 'gift'], ['expenses', 'Paid from drawer', 'banknote'], ['comps', 'Free (owner approved)', 'gift'], ['foreign', 'Card payments: foreign guests', 'credit-card']].map(([k, l, i]) => (
           <Link key={k} href={`?tab=${k}&${range}`} aria-current={tab === k ? 'page' : undefined}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${tab === k ? 'border-cocoa-800 bg-cocoa-800 text-white' : 'border-cocoa-200 bg-white text-cocoa-800 hover:border-cocoa-600'}`}><Icon name={i} size={15} /> {l}</Link>
         ))}
@@ -105,7 +107,7 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
       {tab === 'shifts' && (
         <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
           {shifts.map((s) => {
-            const z = s.z_report ?? (live && s.id === open?.id ? { opening_float: live.opening, cash_sales: live.cashSales, room_cash_payments: live.roomCashPayments, event_cash: live.eventCash, approved_expenses: live.expenses, expected_cash: live.expectedCash, currencies: live.currencies, card_sales: live.cardSales, room_card_payments: live.roomCardPayments, room_charges: live.roomCharges, owner_comps: live.comps, tour_profit: live.tourProfit, sales_count: live.salesCount } : null);
+            const z = s.z_report ?? (live && s.id === open?.id ? { opening_float: live.opening, cash_sales: live.cashSales, room_cash_payments: live.roomCashPayments, event_cash: live.eventCash, approved_expenses: live.expenses, expected_cash: live.expectedCash, currencies: live.currencies, card_sales: live.cardSales, room_card_payments: live.roomCardPayments, card_tips: live.cardTips, tips_egp: live.tipsEgp, room_charges: live.roomCharges, owner_comps: live.comps, tour_profit: live.tourProfit, sales_count: live.salesCount } : null);
             const v = Number(s.variance_cents ?? 0);
             return (
               <Card key={s.id}>
@@ -118,12 +120,12 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
                   <table className="w-full text-sm">
                     <thead><tr className="text-xs text-slate-500"><th />{Object.keys(z.currencies).map((c) => <th key={c} className="text-right">{c}</th>)}</tr></thead>
                     <tbody>
-                      {([['opening', 'Start of shift'], ['sales', '+ Cash sales'], ['payments', '+ Room payments (cash)'], ['events', '+ Event tickets (cash)'], ['exchange', '± Money exchange'], ['expenses', '− Paid from drawer'], ['taken', '− Taken by owner'], ['expected', 'Should be in drawer'], ['counted', 'Counted']] as const).map(([k, l]) => (
+                      {([['opening', 'Start of shift'], ['sales', '+ Cash sales'], ['payments', '+ Room payments (cash)'], ['events', '+ Event tickets (cash)'], ['exchange', '± Money exchange'], ['tips', '+ Tips (cash)'], ['expenses', '− Paid from drawer'], ['taken', '− Taken by owner'], ['expected', 'Should be in drawer'], ['counted', 'Counted']] as const).map(([k, l]) => (
                         <tr key={k} className={k === 'expected' || k === 'counted' ? 'border-t border-slate-200 font-bold' : ''}><td className="py-1">{l}</td>
                           {Object.keys(z.currencies).map((c) => <td key={c} className="text-right tabular-nums">{z.currencies[c]?.[k] != null ? (Number(z.currencies[c][k]) / 100).toLocaleString('en-US') : '—'}</td>)}</tr>
                       ))}
                       {s.status !== 'open' && <tr className="font-bold"><td className="py-1">Difference</td>{Object.keys(z.currencies).map((c) => { const v = Number(z.currencies[c]?.variance ?? 0); return <td key={c} className={`text-right tabular-nums ${v === 0 ? 'text-emerald-700' : 'text-red-700'}`}>{v > 0 ? '+' : ''}{(v / 100).toLocaleString('en-US')}</td>; })}</tr>}
-                      <tr><td colSpan={4} className="pt-2 text-xs text-slate-500"><span className="block">Card machine: {fmt(Number(z.card_sales ?? 0) + Number(z.room_card_payments ?? 0))}</span><span className="block">Put on room bills (not paid yet): {fmt(Number(z.room_charges ?? 0))}</span><span className="block">Free (owner approved): {fmt(Number(z.owner_comps ?? 0))} · {z.sales_count ?? 0} sales</span></td></tr>
+                      <tr><td colSpan={4} className="pt-2 text-xs text-slate-500"><span className="block">Card machine: {fmt(Number(z.card_sales ?? 0) + Number(z.room_card_payments ?? 0) + Number(z.card_tips ?? 0))}{Number(z.card_tips ?? 0) > 0 ? ` (incl. tips ${fmt(Number(z.card_tips))})` : ''}</span>{Number(z.tips_egp ?? 0) > 0 && <span className="block">Tips this shift (all, in EGP): {fmt(Number(z.tips_egp))}</span>}<span className="block">Put on room bills (not paid yet): {fmt(Number(z.room_charges ?? 0))}</span><span className="block">Free (owner approved): {fmt(Number(z.owner_comps ?? 0))} · {z.sales_count ?? 0} sales</span></td></tr>
                     </tbody>
                   </table>
                 ) : z ? (
@@ -226,6 +228,24 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
                 <td className="text-right tabular-nums">{x.currency} {(Number(x.foreign_minor) / 100).toLocaleString('en-US')}</td><td className="text-right tabular-nums">{Number(x.rate)}</td>
                 <td className="text-right font-semibold tabular-nums">{(Number(x.egp_cents) / 100).toLocaleString('en-US')}</td></tr>))}
               {exchanges.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-slate-500">No exchanges in this period.</td></tr>}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {tab === 'tips' && (
+        <Card title="Tips">
+          <p className="-mt-1 mb-3 text-xs text-slate-500">Tips guests added on top of what they paid on the POS. Not hostel income. Cash tips are in the drawer until shared.</p>
+          <div className="mb-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+            {Object.entries(tips.reduce((a: Record<string, number>, t: any) => { const k = t.method === 'card' ? 'Card (EGP)' : t.currency; a[k] = (a[k] ?? 0) + Number(t.minor); return a; }, {})).map(([k, v]) => <span key={k}>{k}: <b className="tabular-nums">{(Number(v) / 100).toLocaleString('en-US')}</b></span>)}
+            {Object.entries(tips.reduce((a: Record<string, number>, t: any) => { a[t.staff ?? '—'] = (a[t.staff ?? '—'] ?? 0) + Number(t.egp_cents); return a; }, {})).map(([k, v]) => <span key={k} className="text-slate-600">{k}: {fmt(Number(v))}</span>)}
+          </div>
+          <table className="w-full text-sm">
+            <thead className="text-left text-slate-500"><tr><th className="py-2">When</th><th>Guest</th><th>Received by</th><th>Shift</th><th>How</th><th className="text-right">Tip</th><th className="text-right">EGP value</th></tr></thead>
+            <tbody>{tips.map((t: any) => (
+              <tr key={t.id} className="border-t border-slate-100"><td className="py-2">{dt(t.created_at)}</td><td>{t.guest ?? '—'}</td><td>{t.staff ?? '—'}</td><td>#{t.shift_no}</td><td>{t.method === 'card' ? 'Card' : 'Cash'}</td>
+                <td className="text-right tabular-nums">{t.currency} {(Number(t.minor) / 100).toLocaleString('en-US')}</td><td className="text-right tabular-nums">{fmt(Number(t.egp_cents))}</td></tr>))}
+              {tips.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-slate-500">No tips in this period.</td></tr>}
             </tbody>
           </table>
         </Card>

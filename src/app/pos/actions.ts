@@ -14,7 +14,7 @@ import { getFolio } from '@/services/pms/folio';
 import { channelEnabled } from '@/services/pms/channel';
 import { getRates, refreshRates, OTHER_CURRENCIES, type Currency } from '@/services/pms/fx';
 import { taxiMessage, waLink, setTaxiConfirmed } from '@/services/pms/taxi';
-import { recordTaken, recordExchange, unpaidEventTickets, payEventTicket } from '@/services/pms/pos';
+import { recordTaken, recordExchange, unpaidEventTickets, payEventTicket, posEvents, sellEventTicket } from '@/services/pms/pos';
 import { runForStaff, runView, taxiLine, saveTask, finishWithNote, reassignTask, redistribute, setWashReady, setRunNotes, handoverText } from '@/services/pms/tasks';
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
@@ -129,7 +129,7 @@ async function myShift(me: { id: string; is_manager: boolean }) {
   return s;
 }
 
-export async function posSale(input: { reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod; compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean; cashCurrency?: string; cardPayer?: CardPayer | null }): Promise<ActionResult<any>> {
+export async function posSale(input: { reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod; compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean; cashCurrency?: string; cardPayer?: CardPayer | null; tipMinor?: number }): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
@@ -147,12 +147,12 @@ export async function posGuestFolio(reservationId: string): Promise<ActionResult
   } catch (e) { return fail(e); }
 }
 
-export async function posTakePayment(reservationId: string, amountCents: number, method: PayMethod, currency: string = 'EGP', cardPayer: CardPayer | null = null): Promise<ActionResult<any>> {
+export async function posTakePayment(reservationId: string, amountCents: number, method: PayMethod, currency: string = 'EGP', cardPayer: CardPayer | null = null, tipMinor = 0): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
     const s = await myShift(me);
-    const r = await takeFolioPayment({ reservationId, amountCents: Math.round(amountCents), method, currency, shiftId: s.id, staffId: me.id, userId: u.id, note: `Received at POS by ${me.full_name}`, actor: 'pos:' + me.full_name, cardPayer, staffName: me.full_name });
+    const r = await takeFolioPayment({ reservationId, amountCents: Math.round(amountCents), method, currency, shiftId: s.id, staffId: me.id, userId: u.id, note: `Received at POS by ${me.full_name}`, actor: 'pos:' + me.full_name, cardPayer, staffName: me.full_name, tipMinor: Math.round(tipMinor) || 0 });
     return { ok: true, data: r };
   } catch (e) { return fail(e); }
 }
@@ -287,13 +287,27 @@ export async function posEventTickets(): Promise<ActionResult<any[]>> {
   try { await device(); await cashier(); return { ok: true, data: await unpaidEventTickets() }; } catch (e) { return fail(e); }
 }
 
-export async function posPayEvent(input: { bookingId: string; method: 'cash' | 'card'; cardPayer?: { name: string; nationality: string; passport: string } | null }): Promise<ActionResult<any>> {
+export async function posPayEvent(input: { bookingId: string; method: 'cash' | 'card'; cardPayer?: { name: string; nationality: string; passport: string } | null; tipMinor?: number }): Promise<ActionResult<any>> {
   try {
     await device();
     const me = await cashier();
     const s = await openShiftRow();
     if (!s) throw new BookingError('BAD_STATE', 'No drawer is open');
-    return { ok: true, data: await payEventTicket(s.id, { ...input, staffName: me.full_name }) };
+    return { ok: true, data: await payEventTicket(s.id, { ...input, staffName: me.full_name, staffId: me.id }) };
+  } catch (e) { return fail(e); }
+}
+
+export async function posEventList(): Promise<ActionResult<any[]>> {
+  try { await device(); await cashier(); return { ok: true, data: await posEvents() }; } catch (e) { return fail(e); }
+}
+
+export async function posSellEvent(input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: 'cash' | 'card'; cardPayer?: { name: string; nationality: string; passport: string } | null; tipMinor?: number }): Promise<ActionResult<any>> {
+  try {
+    await device();
+    const me = await cashier();
+    const s = await openShiftRow();
+    if (!s) throw new BookingError('BAD_STATE', 'No drawer is open');
+    return { ok: true, data: await sellEventTicket(s.id, { ...input, staffName: me.full_name, staffId: me.id }) };
   } catch (e) { return fail(e); }
 }
 
