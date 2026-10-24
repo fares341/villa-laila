@@ -3,7 +3,7 @@ import { PageHeader, Flash, Stat, Pill, HK_LABEL, dt, Btn } from '@/components/d
 import { Icon } from '@/components/icons';
 import { ConfirmButton } from '@/components/ConfirmButton';
 import { roomBoard } from '@/services/pms/frontdesk';
-import { fdHousekeeping } from '../pms-actions';
+import { fdHousekeeping, fdKeys } from '../pms-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,9 +20,10 @@ export default async function Housekeeping({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const rooms = await roomBoard();
   const filter = sp.show || 'all';
-  const shown = rooms.filter((r) => filter === 'all' || (filter === 'occupied' ? r.occupied > 0 : r.hk_status === filter));
+  const shown = rooms.filter((r) => filter === 'all' || filter === 'keys' || (filter === 'occupied' ? r.occupied > 0 : r.hk_status === filter));
+  const keysMissing = rooms.filter((r) => !r.key_original || !r.key_spare).length;
   const count = (s: string) => rooms.filter((r) => r.hk_status === s).length;
-  const tabs = [['all', 'All rooms', rooms.length], ['dirty', 'Dirty', count('dirty')], ['clean', 'Clean', count('clean')], ['inspected', 'Inspected', count('inspected')], ['occupied', 'Occupied', rooms.filter((r) => r.occupied > 0).length], ['out_of_order', 'Out of order', count('out_of_order')]] as const;
+  const tabs = [['all', 'All rooms', rooms.length], ['dirty', 'Dirty', count('dirty')], ['clean', 'Clean', count('clean')], ['inspected', 'Checked', count('inspected')], ['occupied', 'Occupied', rooms.filter((r) => r.occupied > 0).length], ['out_of_order', 'Out of order', count('out_of_order')], ['keys', 'Keys', keysMissing]] as const;
 
   return (
     <>
@@ -61,6 +62,15 @@ export default async function Housekeeping({ searchParams }: { searchParams: Pro
                 {r.blocked && <Pill tone="amber">Blocked</Pill>}
               </p>
               {r.guests && <p className="truncate text-xs text-slate-500">{r.guests}</p>}
+              <div className={`mt-2 flex flex-wrap items-center gap-1.5 text-xs ${filter === 'keys' ? '' : (r.key_original && r.key_spare ? 'hidden' : '')}`}>
+                <Icon name="key" size={14} />
+                {([['key_original', 'Original key', r.key_original], ['key_spare', 'Spare key', r.key_spare]] as const).map(([k, l, here]) => (
+                  <form key={k} action={fdKeys}>
+                    <input type="hidden" name="roomId" value={r.id} /><input type="hidden" name="which" value={k} /><input type="hidden" name="here" value={here ? '0' : '1'} /><input type="hidden" name="back" value={`/dashboard/housekeeping?show=${filter}`} />
+                    <button title={here ? 'Tap if it is missing' : 'Tap when it is back'} className={`rounded-full px-2 py-1 font-semibold ${here ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>{l}: {here ? 'here' : 'missing'}</button>
+                  </form>
+                ))}
+              </div>
               {r.hk_updated_at && <p className="mt-1 text-[11px] text-slate-400">Updated {dt(r.hk_updated_at)}</p>}
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {(NEXT[r.hk_status] ?? []).map((n) => (

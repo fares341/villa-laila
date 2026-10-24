@@ -110,6 +110,7 @@ export async function navCounts() {
     (SELECT count(*) FROM online_payments WHERE provider='instapay' AND status='submitted')::int instapay,
     (SELECT count(*) FROM reservations WHERE status IN ('pending','confirmed','hold') AND check_in = (now() AT TIME ZONE 'Africa/Cairo')::date)::int arrivals,
     (SELECT count(*) FROM rooms WHERE active AND hk_status='dirty')::int dirty,
+    (SELECT count(*) FROM rooms WHERE active AND NOT (key_original AND key_spare))::int keys,
     (SELECT count(*) FROM products WHERE is_active AND track_stock AND stock_quantity <= low_stock_threshold)::int lowstock,
     (SELECT count(*) FROM cash_shortages WHERE status='open')::int shortages,
     (SELECT count(*) FROM taxi_bookings WHERE status='booked' AND confirmed_at IS NULL AND scheduled_at > now() AND scheduled_at < now() + interval '36 hours')::int taxis,

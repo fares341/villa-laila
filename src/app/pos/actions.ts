@@ -14,7 +14,7 @@ import { getFolio } from '@/services/pms/folio';
 import { channelEnabled } from '@/services/pms/channel';
 import { getRates, refreshRates, type Currency } from '@/services/pms/fx';
 import { taxiMessage, waLink, setTaxiConfirmed } from '@/services/pms/taxi';
-import { recordTaken } from '@/services/pms/pos';
+import { recordTaken, recordExchange, unpaidEventTickets, payEventTicket } from '@/services/pms/pos';
 import { runForStaff, runView, taxiLine, saveTask, finishWithNote, reassignTask, redistribute, setWashReady, setRunNotes, handoverText } from '@/services/pms/tasks';
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
@@ -266,6 +266,30 @@ export async function posTaken(input: { takerId: string; takerPin: string; amoun
     if (!s) throw new BookingError('BAD_STATE', 'No drawer is open');
     void me;
     return { ok: true, data: await recordTaken(s.id, input) };
+  } catch (e) { return fail(e); }
+}
+
+export async function posExchange(input: { currency: 'USD' | 'EUR'; foreignMinor: number; rate?: number | null; guest?: string | null; reservationId?: string | null }): Promise<ActionResult<any>> {
+  try {
+    await device();
+    const me = await cashier();
+    const s = await openShiftRow();
+    if (!s) throw new BookingError('BAD_STATE', 'No drawer is open');
+    return { ok: true, data: await recordExchange(s.id, me.id, input) };
+  } catch (e) { return fail(e); }
+}
+
+export async function posEventTickets(): Promise<ActionResult<any[]>> {
+  try { await device(); await cashier(); return { ok: true, data: await unpaidEventTickets() }; } catch (e) { return fail(e); }
+}
+
+export async function posPayEvent(input: { bookingId: string; method: 'cash' | 'card'; cardPayer?: { name: string; nationality: string; passport: string } | null }): Promise<ActionResult<any>> {
+  try {
+    await device();
+    const me = await cashier();
+    const s = await openShiftRow();
+    if (!s) throw new BookingError('BAD_STATE', 'No drawer is open');
+    return { ok: true, data: await payEventTicket(s.id, { ...input, staffName: me.full_name }) };
   } catch (e) { return fail(e); }
 }
 

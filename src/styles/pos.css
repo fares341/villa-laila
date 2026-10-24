@@ -111,6 +111,7 @@
 .pos-guest-list { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; list-style: none; margin: 0; padding: 6px; background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 40px -18px rgba(0,0,0,.3); max-height: 360px; overflow: auto; }
 .pos-guest-list button { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px; border: 0; background: none; border-radius: 10px; text-align: left; }
 .pos-guest-list button:hover { background: var(--ivory); }
+.pos-guest-list.static { position: static; box-shadow: none; max-height: 320px; }
 .pos-guest-list b { color: var(--cocoa); margin-right: 6px; }
 .pos-close-list { justify-content: center !important; color: var(--ink2); font-weight: 700; }
 .pos-dot { font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }

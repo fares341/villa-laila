@@ -26,6 +26,7 @@ export default async function Today({ searchParams }: { searchParams: Promise<Re
     { n: c.extensions, one: 'stay extension to decide', many: 'stay extensions to decide', href: '/dashboard/extensions', icon: 'arrow-left-right' },
     { n: c.taxis, one: 'taxi guest not told yet', many: 'taxi guests not told yet', href: '/dashboard/taxi', icon: 'map' },
     { n: c.dirty, one: 'room to clean', many: 'rooms to clean', href: '/dashboard/housekeeping?show=dirty', icon: 'brush' },
+    { n: c.keys, one: 'room with a key missing', many: 'rooms with a key missing', href: '/dashboard/housekeeping?show=keys', icon: 'key' },
     { n: c.lowstock, one: 'item low in stock', many: 'items low in stock', href: '/dashboard/catalog', icon: 'package' },
     ...(mgr ? [{ n: c.shortages, one: 'cash shortage to settle', many: 'cash shortages to settle', href: '/dashboard/shift-reports?tab=shortages', icon: 'banknote' }] : []),
   ].filter((t) => t.n > 0);

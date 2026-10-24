@@ -11,7 +11,7 @@ import { getWhatsAppConfig, normalizePhone } from '@/services/whatsapp';
 import { tr, eventProfit, listPublicEvents, hiddenReason, EVENT_COLS } from '@/services/events';
 import { Icon } from '@/components/icons';
 import {
-  decideInstapayAction, markEventPaidAction, checkInEventAction, cancelEventBookingAction, confirmEventBookingAction, findTicketAction,
+  checkInEventAction, cancelEventBookingAction, confirmEventBookingAction, findTicketAction,
   saveWalletsAction, saveAdminBotAction, testAdminBotAction, saveWhatsAppAction,
 } from './actions';
 
@@ -144,7 +144,7 @@ async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
                                 <form action={checkInEventAction}><input type="hidden" name="id" value={b.id} /><button className={Btn}>Check in</button></form>
                               )}
                               {['pay_on_site', 'awaiting_payment'].includes(b.status) && (
-                                <form action={markEventPaidAction}><input type="hidden" name="id" value={b.id} /><button className={b.status === 'pay_on_site' ? Btn : BtnGhost} title="Goes into the open POS drawer">Take cash</button></form>
+                                <a href="/pos" target="_blank" rel="noopener" className={BtnGhost} title="POS → Event ticket payment">Pay on POS</a>
                               )}
                               {phone && <a className={BtnGhost} href={`https://wa.me/${phone}`} target="_blank" rel="noopener" title="Open WhatsApp chat"><Icon name="message-square" size={16} /></a>}
                               {open && !b.checked_in_at && (

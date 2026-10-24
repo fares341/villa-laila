@@ -69,6 +69,27 @@ export async function fdHousekeeping(fd: FormData) {
   revalidatePath(back); go(back, 'ok', 'Room status updated');
 }
 
+/** Key inventory (no money is ever taken for keys): is the original / spare key of this room in its place? */
+export async function fdKeys(fd: FormData) {
+  const u = await requireUser('frontdesk.use'); const back = safe(fd.get('back'), '/dashboard/housekeeping?show=keys');
+  const id = str(fd.get('roomId')); const which = str(fd.get('which')); const here = str(fd.get('here')) === '1';
+  if (!['key_original', 'key_spare'].includes(which)) go(back, 'err', 'Unknown key');
+  await q(`UPDATE rooms SET ${which}=$2, key_note=COALESCE(NULLIF($3,''), key_note), key_checked_at=now() WHERE id=$1`, [id, here, str(fd.get('note'))]);
+  await audit(u.email, 'room.keys', 'room', id, { [which]: here });
+  revalidatePath('/dashboard/housekeeping'); go(back, 'ok', here ? 'Key marked as here' : 'Key marked as missing');
+}
+
+/** Trip details of a tour sold on the POS (day, pick-up time, guide, driver). */
+export async function tourTripSave(fd: FormData) {
+  const u = await requireUser('tours.manage'); const back = '/dashboard/tours';
+  const date = str(fd.get('date')); const time = str(fd.get('time'));
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) go(back, 'err', 'Day is not a date');
+  await q(`UPDATE service_orders SET tour_date=NULLIF($2,'')::date, tour_time=NULLIF($3,''), guide_name=NULLIF($4,''), driver_name=NULLIF($5,''), driver_phone=NULLIF($6,'') WHERE id=$1 AND tour_id IS NOT NULL`,
+    [str(fd.get('id')), date, time, str(fd.get('guide')), str(fd.get('driver')), str(fd.get('phone'))]);
+  await audit(u.email, 'tour.trip', 'service_order', str(fd.get('id')), { date, time });
+  revalidatePath(back); go(back, 'ok', 'Trip saved');
+}
+
 /* ───────── Folio ───────── */
 
 /** Cash and card are only taken on the POS (so every pound is in a drawer); this old form now points there. */

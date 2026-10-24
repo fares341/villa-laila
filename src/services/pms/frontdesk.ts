@@ -39,7 +39,7 @@ export async function cockpit(date = todayLocal()) {
 
 export async function roomBoard(date = todayLocal()) {
   return q<any>(`
-    SELECT rm.id, rm.name, rm.hk_status, rm.hk_updated_at, t.id room_type_id, t.code, t.kind, t.name type_name,
+    SELECT rm.id, rm.name, rm.hk_status, rm.hk_updated_at, rm.key_original, rm.key_spare, rm.key_note, rm.key_checked_at, t.id room_type_id, t.code, t.kind, t.name type_name,
       (SELECT count(*) FROM units u WHERE u.room_id=rm.id AND u.active)::int units,
       (SELECT count(*) FROM reservation_units ru JOIN reservations r ON r.id=ru.reservation_id JOIN units u ON u.id=ru.unit_id
         WHERE u.room_id=rm.id AND ru.active AND r.status='checked_in' AND ru.during @> $1::date)::int occupied,

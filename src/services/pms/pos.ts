@@ -91,18 +91,22 @@ export async function shiftTotals(shiftId: string) {
   const taken = (await q<any>(`SELECT COALESCE(sum(egp_cents),0)::bigint egp, COALESCE(sum(usd_cents),0)::bigint usd, COALESCE(sum(eur_cents),0)::bigint eur FROM cash_taken WHERE shift_id=$1`, [shiftId]))[0];
   const comps = (await q<any>(`SELECT COALESCE(sum(amount_cents),0)::bigint c FROM owner_comps WHERE shift_id=$1`, [shiftId]))[0];
   const ev = (await q<any>(`SELECT COALESCE(sum(total_cents),0)::bigint c FROM event_bookings WHERE shift_id=$1 AND status='paid' AND pay_method='cash'`, [shiftId]))[0];
+  const evCard = (await q<any>(`SELECT COALESCE(sum(total_cents),0)::bigint c FROM event_bookings WHERE shift_id=$1 AND status='paid' AND pay_method='card'`, [shiftId]))[0];
+  // Money exchange: foreign notes come in, EGP goes out (not a sale).
+  const exch = (await q<any>(`SELECT COALESCE(sum(egp_cents),0)::bigint egp, COALESCE(sum(foreign_minor) FILTER (WHERE currency='USD'),0)::bigint usd, COALESCE(sum(foreign_minor) FILTER (WHERE currency='EUR'),0)::bigint eur FROM cash_exchanges WHERE shift_id=$1`, [shiftId]).catch(() => [{ egp: 0, usd: 0, eur: 0 }]))[0];
+  const exchBy: Counts = { EGP: -Number(exch.egp), USD: Number(exch.usd), EUR: Number(exch.eur) };
   const pick = (rows: any[], cur: string) => Number(rows.find((r) => r.cur === cur)?.n ?? 0);
   const openings: Counts = { EGP: Number(s.drawer_egp_start), USD: Math.round(Number(s.drawer_usd_start) * 100), EUR: Math.round(Number(s.drawer_eur_start) * 100) };
   const takenBy: Counts = { EGP: Number(taken.egp), USD: Number(taken.usd), EUR: Number(taken.eur) };
-  const currencies: Record<string, { opening: number; sales: number; payments: number; events: number; expenses: number; taken: number; expected: number }> = {};
+  const currencies: Record<string, { opening: number; sales: number; payments: number; events: number; exchange: number; expenses: number; taken: number; expected: number }> = {};
   for (const cur of ['EGP', 'USD', 'EUR'] as const) {
-    const row = { opening: openings[cur], sales: pick(salesCur, cur), payments: pick(paysCur, cur), events: cur === 'EGP' ? Number(ev.c) : 0, expenses: pick(expCur, cur), taken: takenBy[cur], expected: 0 };
-    row.expected = row.opening + row.sales + row.payments + row.events - row.expenses - row.taken;
+    const row = { opening: openings[cur], sales: pick(salesCur, cur), payments: pick(paysCur, cur), events: cur === 'EGP' ? Number(ev.c) : 0, exchange: exchBy[cur], expenses: pick(expCur, cur), taken: takenBy[cur], expected: 0 };
+    row.expected = row.opening + row.sales + row.payments + row.events + row.exchange - row.expenses - row.taken;
     currencies[cur] = row;
   }
   const egp = currencies.EGP;
   return {
-    shift: s, opening: egp.opening, cashSales: egp.sales, cardSales: Number(sales.card_sales), roomCharges: Number(sales.room_charges),
+    shift: s, opening: egp.opening, cashSales: egp.sales, cardSales: Number(sales.card_sales) + Number(evCard.c), eventCard: Number(evCard.c), roomCharges: Number(sales.room_charges),
     roomCashPayments: egp.payments, eventCash: egp.events, roomCardPayments: Number(pays.card), expenses: egp.expenses, taken: egp.taken, comps: Number(comps.c),
     tourProfit: Number(sales.tour_profit), salesCount: sales.sales_count, expectedCash: egp.expected, currencies,
     allCashEgp: Number(sales.cash_sales) + Number(pays.cash),
@@ -168,6 +172,53 @@ export async function closePosShiftBlind(shiftId: string, counted: Partial<Count
 }
 
 /** Cash removed from the drawer by the owner. Only staff allowed to take cash, with their own PIN. */
+/**
+ * Money exchange at the desk: the guest hands over USD / EUR notes and gets EGP from the drawer at the rate given
+ * (today's rate unless the cashier types another). Not revenue: the drawer gains the foreign notes and loses the EGP.
+ */
+export async function recordExchange(shiftId: string, staffId: string, input: { currency: 'USD' | 'EUR'; foreignMinor: number; rate?: number | null; guest?: string | null; reservationId?: string | null }) {
+  if (!['USD', 'EUR'].includes(input.currency)) throw new BookingError('INVALID_INPUT', 'Choose USD or EUR');
+  if (!Number.isInteger(input.foreignMinor) || input.foreignMinor <= 0) throw new BookingError('INVALID_INPUT', 'Enter the amount the guest gives');
+  const today = await rateFor(input.currency);
+  const rate = input.rate && input.rate > 0 ? input.rate : today;
+  // A typo in the rate would empty the drawer: stay within 15% of today's rate.
+  if (Math.abs(rate - today) / today > 0.15) throw new BookingError('INVALID_INPUT', `That rate is far from today's (${today}). Check it.`);
+  const egp = Math.floor((input.foreignMinor * rate) / 100) * 100; // whole pounds handed out
+  if (egp <= 0) throw new BookingError('INVALID_INPUT', 'Amount too small');
+  const t = await shiftTotals(shiftId);
+  if (t.shift.status !== 'open') throw new BookingError('BAD_STATE', 'The shift is closed');
+  if (egp > t.currencies.EGP.expected) throw new BookingError('INVALID_INPUT', `Only EGP ${(Math.max(0, t.currencies.EGP.expected) / 100).toLocaleString('en-US')} is in the drawer`);
+  const row = (await q<any>(`INSERT INTO cash_exchanges(shift_id,staff_id,currency,foreign_minor,rate,egp_cents,guest,reservation_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    [shiftId, staffId, input.currency, input.foreignMinor, rate, egp, input.guest?.trim() || null, input.reservationId || null]))[0];
+  await audit('pos', 'shift.exchange', 'cash_shift', shiftId, { currency: input.currency, foreign: input.foreignMinor, rate, egp });
+  return { id: row.id, currency: input.currency, foreignMinor: input.foreignMinor, rate, egp };
+}
+
+/** Event tickets that still have to be paid (pay at the door / not paid yet), for the POS. */
+export async function unpaidEventTickets() {
+  return q<any>(`SELECT b.id, b.ticket_code, b.full_name, b.phone, b.event_date, b.total_cents, b.status, e.title
+                 FROM event_bookings b JOIN events e ON e.id=b.event_id
+                 WHERE b.status IN ('pay_on_site','awaiting_payment') AND b.event_date >= (now() AT TIME ZONE 'Africa/Cairo')::date - 1
+                 ORDER BY b.event_date, b.full_name LIMIT 100`);
+}
+
+/** Event ticket paid on the POS: cash into the drawer or card on the machine (foreign card payers on the daily list). */
+export async function payEventTicket(shiftId: string, input: { bookingId: string; method: 'cash' | 'card'; staffName: string; cardPayer?: CardPayer | null }) {
+  const payer = input.method === 'card' ? cleanPayer(input.cardPayer) : null;
+  const sh = (await q<any>(`SELECT shift_no FROM cash_shifts WHERE id=$1 AND status='open'`, [shiftId]))[0];
+  if (!sh) throw new BookingError('BAD_STATE', 'The shift is closed');
+  return tx(async (c) => {
+    const b = (await c.query(`UPDATE event_bookings SET status='paid', paid_at=now(), hold_expires_at=NULL, shift_id=$2, pay_method=$3,
+                                staff_note=COALESCE(staff_note || ' · ', '') || $4, updated_at=now()
+                              WHERE id=$1 AND status IN ('pay_on_site','awaiting_payment','expired') RETURNING id, total_cents, ticket_code`,
+      [input.bookingId, shiftId, input.method, `Paid ${input.method} on the POS · shift #${sh.shift_no} · ${input.staffName}`])).rows[0];
+    if (!b) throw new BookingError('BAD_STATE', 'This ticket is already paid or cancelled');
+    if (payer) await recordCardPayer(c as unknown as Q, payer, { amountCents: Number(b.total_cents), source: 'event', shiftId, staffName: input.staffName, paidFor: `Event ticket ${b.ticket_code}` });
+    await audit('pos:' + input.staffName, 'event_booking.paid', 'event_booking', b.id, { method: input.method, shift: sh.shift_no }, c as unknown as Q);
+    return { ticket: b.ticket_code, cents: Number(b.total_cents), method: input.method };
+  });
+}
+
 export async function recordTaken(shiftId: string, input: { takerId: string; takerPin: string; amounts: Partial<Counts>; note?: string }) {
   const s = await verifyPin(input.takerId, input.takerPin);
   if (!s) throw new BookingError('FORBIDDEN', 'Wrong PIN');

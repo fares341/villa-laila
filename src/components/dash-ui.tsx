@@ -148,5 +148,6 @@ export const TEAM_TABS = [
 export const REPORT_TABS = [
   { href: '/dashboard/reports', label: 'Occupancy & money', icon: 'bar-chart' },
   { href: '/dashboard/reports/services', label: 'Sales by service', icon: 'shopping-cart' },
+  { href: '/dashboard/reports/log', label: 'Sales log', icon: 'receipt' },
   { href: '/dashboard/audit', label: 'Activity log', icon: 'file-text' },
 ];

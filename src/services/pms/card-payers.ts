@@ -22,7 +22,7 @@ export function cleanPayer(p: CardPayer | null | undefined): CardPayer | null {
   return { passport, name: name.slice(0, 100), nationality: nationality.slice(0, 60) };
 }
 
-export async function recordCardPayer(c: Q, p: CardPayer, v: { amountCents: number; source: 'pos_sale' | 'folio_payment'; saleId?: string | null; paymentId?: string | null; reservationId?: string | null; shiftId?: string | null; staffName?: string | null; paidFor?: string | null }) {
+export async function recordCardPayer(c: Q, p: CardPayer, v: { amountCents: number; source: 'pos_sale' | 'folio_payment' | 'event'; saleId?: string | null; paymentId?: string | null; reservationId?: string | null; shiftId?: string | null; staffName?: string | null; paidFor?: string | null }) {
   await c.query(`INSERT INTO card_foreign_payers(amount_cents,full_name,nationality,passport_no,source,sale_id,payment_id,reservation_id,shift_id,staff_name,paid_for)
                  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
     [v.amountCents, p.name, p.nationality, p.passport, v.source, v.saleId ?? null, v.paymentId ?? null, v.reservationId ?? null, v.shiftId ?? null, v.staffName ?? null, v.paidFor ?? null]);
