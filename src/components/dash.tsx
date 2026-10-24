@@ -20,6 +20,7 @@ const NAV: [string, NavItem[]][] = [
   ['Front office', [
     { href: '/dashboard', label: 'Today', perm: 'dashboard.view', icon: 'layout-dashboard', count: 'arrivals' },
     { href: '/dashboard/reservations', label: 'Reservations', perm: 'reservation.view', icon: 'bed', count: 'pending', match: ['/dashboard/extensions', '/dashboard/folio'] },
+    { href: '/dashboard/ota', label: 'Bookings from sites', perm: 'reservation.view', icon: 'globe' },
     { href: '/dashboard/calendar', label: 'Calendar', perm: 'reservation.view', icon: 'calendar-days' },
     { href: '/dashboard/housekeeping', label: 'Rooms & housekeeping', perm: 'frontdesk.use', icon: 'brush', count: 'dirty' },
     { href: '/dashboard/taxi', label: 'Airport taxi', perm: 'frontdesk.use', icon: 'map', count: 'taxis' },
