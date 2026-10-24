@@ -9,10 +9,13 @@ import {
 
 /* ───────── helpers ───────── */
 
-type Cur = 'EGP' | 'USD' | 'EUR';
+type Cur = string; // EGP, USD, EUR, or a rare currency (GBP, SAR…) picked under "Other"
 const CURS: Cur[] = ['EGP', 'USD', 'EUR'];
 const cur = (minor: number | null | undefined, c: string) => (c === 'EGP' ? egp(minor) : `${c} ${((minor ?? 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-const inCur = (egpCents: number, c: Cur, rates: any) => (c === 'EGP' ? egpCents : rates?.[c] ? Math.round(egpCents / rates[c]) : 0);
+const rateOf = (rates: any, c: Cur): number => (c === 'EGP' ? 1 : Number(c === 'USD' || c === 'EUR' ? rates?.[c] : rates?.others?.[c]) || 0);
+const inCur = (egpCents: number, c: Cur, rates: any) => (c === 'EGP' ? egpCents : rateOf(rates, c) ? Math.round(egpCents / rateOf(rates, c)) : 0);
+const CUR_NAMES = (() => { try { return new Intl.DisplayNames(['en'], { type: 'currency' }); } catch { return null; } })();
+const curName = (c: string) => (c === 'EGP' ? 'Egyptian pounds' : c === 'USD' ? 'US dollars' : c === 'EUR' ? 'Euros' : CUR_NAMES?.of(c) ?? c);
 const egp = (cents: number | null | undefined) => `EGP ${((cents ?? 0) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 const toCents = (v: string) => Math.round(Number(String(v).replace(/[^\d.]/g, '')) * 100) || 0;
 const time = (iso: string | Date) => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }).format(new Date(iso));
@@ -127,30 +130,46 @@ function AmountPad({ label, value, onChange, unit = 'EGP' }: { label: string; va
   );
 }
 
-function CountGrid({ value, onChange, hint }: { value: Record<Cur, string>; onChange: (v: Record<Cur, string>) => void; hint?: string }) {
+/** One box per currency. `extra` = rare currencies that are in this drawer (they must be counted too). */
+function CountGrid({ value, onChange, hint, extra = [] }: { value: Record<Cur, string>; onChange: (v: Record<Cur, string>) => void; hint?: string; extra?: string[] }) {
   return (
     <div className="pos-counts">
-      {CURS.map((c) => (
+      {[...CURS, ...extra.filter((c) => !CURS.includes(c))].map((c) => (
         <div key={c} className="pos-field">
-          <label htmlFor={`cnt-${c}`}>{c === 'EGP' ? 'Egyptian pounds' : c === 'USD' ? 'US dollars' : 'Euros'}</label>
+          <label htmlFor={`cnt-${c}`}>{curName(c)}</label>
           <div className="pos-amount small"><span>{c}</span>
-            <input id={`cnt-${c}`} inputMode="decimal" value={value[c]} placeholder="0" autoFocus={c === 'EGP'} onChange={(e) => onChange({ ...value, [c]: e.target.value.replace(/[^\d.]/g, '') })} /></div>
+            <input id={`cnt-${c}`} inputMode="decimal" value={value[c] ?? ''} placeholder="0" autoFocus={c === 'EGP'} onChange={(e) => onChange({ ...value, [c]: e.target.value.replace(/[^\d.]/g, '') })} /></div>
         </div>
       ))}
       {hint && <p className="pos-fine">{hint}</p>}
     </div>
   );
 }
-const countsOf = (v: Record<Cur, string>) => ({ EGP: toCents(v.EGP), USD: toCents(v.USD), EUR: toCents(v.EUR) });
+const countsOf = (v: Record<Cur, string>) => Object.fromEntries(Object.entries({ EGP: '', USD: '', EUR: '', ...v }).map(([k, x]) => [k, toCents(x)])) as Record<string, number> & { EGP: number; USD: number; EUR: number };
 
+/** EGP / USD / EUR, plus "Other" for a rare currency at today's market rate (only currencies that have a rate). */
 function CurSwitch({ value, onChange, rates }: { value: Cur; onChange: (c: Cur) => void; rates: any }) {
+  const others = Object.keys(rates?.others ?? {}).sort();
+  const isOther = !CURS.includes(value);
+  const [open, setOpen] = useState(isOther);
   return (
-    <div className="pos-cur" role="radiogroup" aria-label="Cash currency">
-      {CURS.map((c) => (
-        <button key={c} role="radio" aria-checked={value === c} className={value === c ? 'on' : ''} disabled={c !== 'EGP' && !rates?.[c]} onClick={() => onChange(c)}>
-          {c}{c !== 'EGP' && rates?.[c] ? <small>{Number(rates[c]).toFixed(2)}</small> : null}
+    <div>
+      <div className="pos-cur" role="radiogroup" aria-label="Cash currency">
+        {CURS.map((c) => (
+          <button key={c} role="radio" aria-checked={value === c} className={value === c ? 'on' : ''} disabled={c !== 'EGP' && !rateOf(rates, c)} onClick={() => { setOpen(false); onChange(c); }}>
+            {c}{c !== 'EGP' && rateOf(rates, c) ? <small>{rateOf(rates, c).toFixed(2)}</small> : null}
+          </button>
+        ))}
+        <button role="radio" aria-checked={isOther} className={isOther ? 'on' : ''} disabled={!others.length} onClick={() => setOpen(true)} title={others.length ? 'Another currency, at today’s rate' : 'No rates for other currencies yet'}>
+          {isOther ? value : 'Other'}{isOther ? <small>{rateOf(rates, value).toFixed(2)}</small> : null}
         </button>
-      ))}
+      </div>
+      {open && (
+        <select className="pos-select" aria-label="Other currency" value={isOther ? value : ''} onChange={(e) => e.target.value && onChange(e.target.value)}>
+          <option value="">Choose the currency…</option>
+          {others.map((c) => <option key={c} value={c}>{c} · {curName(c)} · {rateOf(rates, c).toFixed(3)} EGP</option>)}
+        </select>
+      )}
     </div>
   );
 }
@@ -270,7 +289,7 @@ export function PosApp({ hotel, branch, device, initialGuest = null }: { hotel: 
   );
   const tasksModal = showTasks ? <TasksModal onClose={() => { setShowTasks(false); refresh(); }} notify={(text, kind = 'ok') => setToast({ text, kind })} /> : null;
 
-  if (!st.shift) return <div className="pos-root"><OpenShift me={st.me} tasksBtn={tasksBtn} onOpened={(m) => { setToast({ text: m, kind: 'ok' }); refresh(); }} onLock={lock} />{tasksModal}{toast && <Toast t={toast} />}</div>;
+  if (!st.shift) return <div className="pos-root"><OpenShift me={st.me} tasksBtn={tasksBtn} extra={st.handoverExtra ?? []} onOpened={(m) => { setToast({ text: m, kind: 'ok' }); refresh(); }} onLock={lock} />{tasksModal}{toast && <Toast t={toast} />}</div>;
 
   if (st.shift.staffId !== st.me.id && !st.me.is_manager) {
     return (
@@ -300,7 +319,7 @@ function Toast({ t }: { t: { text: string; kind: 'ok' | 'bad' } }) {
   return <div className={`pos-toast ${t.kind}`} role="status"><Icon name={t.kind === 'ok' ? 'check-circle' : 'alert-triangle'} size={20} />{t.text}</div>;
 }
 
-function OpenShift({ me, onOpened, onLock, tasksBtn }: { me: Staff; onOpened: (msg: string) => void; onLock: () => void; tasksBtn?: React.ReactNode }) {
+function OpenShift({ me, onOpened, onLock, tasksBtn, extra = [] }: { me: Staff; onOpened: (msg: string) => void; onLock: () => void; tasksBtn?: React.ReactNode; extra?: string[] }) {
   const [counts, setCounts] = useState<Record<Cur, string>>({ EGP: '', USD: '', EUR: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -320,7 +339,7 @@ function OpenShift({ me, onOpened, onLock, tasksBtn }: { me: Staff; onOpened: (m
         <span className="pos-chip"><Icon name="user" size={14} /> {me.full_name}</span>
         <h2>Receive the drawer</h2>
         <p>Count the cash you receive, each currency on its own, and check the card slips. Any difference is the previous shift’s responsibility.</p>
-        <CountGrid value={counts} onChange={setCounts} />
+        <CountGrid value={counts} onChange={setCounts} extra={extra} />
         {err && <p className="pos-msg bad">{err}</p>}
         <div className="pos-row">
           {tasksBtn}<button className="pos-btn ghost" onClick={onLock}><Icon name="lock" /> Lock</button>
@@ -620,9 +639,9 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
       {catalog && <TourCatalog t={catalog} onClose={() => setCatalog(null)} notify={notify} />}
       {modal === 'event' && <EventPayModal onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'exchange' && <ExchangeModal rates={st.rates} guest={guest} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
-      {modal === 'taken' && <TakenModal takers={st.takers} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
+      {modal === 'taken' && <TakenModal extra={Object.keys(st.currencies ?? {}).filter((c) => !CURS.includes(c))} takers={st.takers} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'tasks' && <TasksModal onClose={() => { setModal(null); refresh(); }} notify={notify} />}
-      {modal === 'close' && <CloseShift shiftNo={st.shift.no} onClose={() => setModal(null)} onFinished={(m) => onClosed(m)} />}
+      {modal === 'close' && <CloseShift extra={Object.keys(st.currencies ?? {}).filter((c) => !CURS.includes(c))} shiftNo={st.shift.no} onClose={() => setModal(null)} onFinished={(m) => onClosed(m)} />}
     </div>
   );
 }
@@ -654,11 +673,11 @@ function PayModal({ total, method, cashCur, rates, guest, busy, onClose, onConfi
   return (
     <Modal title={`Pay now · ${method === 'cash' ? `Cash ${cashCur}` : 'Card'}`} onClose={onClose}>
       <div className="pos-big-total"><small>{guest ? `${guest.full_name} · this cart only` : 'This cart'}</small><b className="num">{cur(due, cashCur)}</b>
-        {cashCur !== 'EGP' && <small>{egp(total)} at {Number(rates?.[cashCur]).toFixed(2)} EGP per {cashCur}</small>}</div>
+        {cashCur !== 'EGP' && <small>{egp(total)} at {rateOf(rates, cashCur).toFixed(2)} EGP per {cashCur}</small>}</div>
       {method === 'cash' ? (
         <>
           <AmountPad label={`Cash received in ${cashCur} (optional)`} value={given} onChange={setGiven} unit={cashCur} />
-          {toCents(given) > 0 && <p className={`pos-change ${change < 0 ? 'bad' : ''}`}>{change < 0 ? `Short by ${cur(-change, cashCur)}` : `Change to give: ${cur(change, cashCur)}${cashCur !== 'EGP' ? ` (${egp(Math.round(change * rates[cashCur]))})` : ''}`}</p>}
+          {toCents(given) > 0 && <p className={`pos-change ${change < 0 ? 'bad' : ''}`}>{change < 0 ? `Short by ${cur(-change, cashCur)}` : `Change to give: ${cur(change, cashCur)}${cashCur !== 'EGP' ? ` (${egp(Math.round(change * rateOf(rates, cashCur)))})` : ''}`}</p>}
         </>
       ) : <><p className="pos-fine">Run {egp(total)} on the card terminal, then confirm.</p><CardPayerFields value={payer} onChange={setPayer} /></>}
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button><button className="pos-btn primary big" disabled={busy || (method === 'cash' && toCents(given) > 0 && change < 0) || (method === 'card' && !payerReady(payer))} onClick={() => onConfirm(method === 'card' ? payer : null)}><Icon name="check" /> Confirm payment</button></div>
@@ -788,7 +807,7 @@ function ExpenseModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
         <button className="pos-btn primary" disabled={busy || toCents(amount) <= 0 || desc.trim().length < 2 || mgr.pin.length < 4} onClick={async () => {
           setBusy(true); setErr(null);
-          const r = await posExpense({ amountCents: toCents(amount), category: cat, description: desc.trim(), approverId: mgr.id, approverPin: mgr.pin, currency: c });
+          const r = await posExpense({ amountCents: toCents(amount), category: cat, description: desc.trim(), approverId: mgr.id, approverPin: mgr.pin, currency: c as 'EGP' | 'USD' | 'EUR' });
           setBusy(false);
           if (!r.ok) { setErr(r.error); return; }
           onDone();
@@ -798,7 +817,7 @@ function ExpenseModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
   );
 }
 
-function CloseShift({ shiftNo, onClose, onFinished }: { shiftNo: number; onClose: () => void; onFinished: (msg: string) => void }) {
+function CloseShift({ shiftNo, onClose, onFinished, extra = [] }: { shiftNo: number; onClose: () => void; onFinished: (msg: string) => void; extra?: string[] }) {
   const [counts, setCounts] = useState<Record<Cur, string>>({ EGP: '', USD: '', EUR: '' });
   const [note, setNote] = useState('');
   const [z, setZ] = useState<any>(null);
@@ -809,15 +828,15 @@ function CloseShift({ shiftNo, onClose, onFinished }: { shiftNo: number; onClose
     return (
       <Modal title={`Z-Report · Shift #${z.shift_no}`} wide>
         <table className="pos-table z">
-          <thead><tr><th /><th className="r">EGP</th><th className="r">USD</th><th className="r">EUR</th></tr></thead>
+          <thead><tr><th />{Object.keys(z.currencies ?? {}).map((c) => <th key={c} className="r">{c}</th>)}</tr></thead>
           <tbody>
             {([['opening', 'Start of shift'], ['sales', '+ Cash sales'], ['payments', '+ Room payments (cash)'], ['events', '+ Event tickets (cash)'], ['exchange', '± Money exchange'], ['expenses', '− Paid from drawer'], ['taken', '− Taken by owner'], ['expected', 'Should be in drawer'], ['counted', 'Counted']] as const).map(([k, l]) => (
-              <tr key={k} className={k === 'expected' || k === 'counted' ? 'strong' : ''}><td>{l}</td>{CURS.map((c) => <td key={c} className="r num">{cur(z.currencies?.[c]?.[k] ?? 0, c)}</td>)}</tr>
+              <tr key={k} className={k === 'expected' || k === 'counted' ? 'strong' : ''}><td>{l}</td>{Object.keys(z.currencies ?? {}).map((c) => <td key={c} className="r num">{cur(z.currencies?.[c]?.[k] ?? 0, c)}</td>)}</tr>
             ))}
-            <tr className="strong"><td>Difference</td>{CURS.map((c) => { const v = Number(z.currencies?.[c]?.variance ?? 0); return <td key={c} className={`r num ${v === 0 ? 'ok' : 'bad'}`}>{v === 0 ? 'Balanced' : v > 0 ? `Over ${cur(v, c)}` : `Short ${cur(-v, c)}`}</td>; })}</tr>
+            <tr className="strong"><td>Difference</td>{Object.keys(z.currencies ?? {}).map((c) => { const v = Number(z.currencies?.[c]?.variance ?? 0); return <td key={c} className={`r num ${v === 0 ? 'ok' : 'bad'}`}>{v === 0 ? 'Balanced' : v > 0 ? `Over ${cur(v, c)}` : `Short ${cur(-v, c)}`}</td>; })}</tr>
           </tbody>
         </table>
-        {CURS.some((c) => Number(z.currencies?.[c]?.variance) < 0) && <p className="pos-msg bad">A shortage is recorded on your name. Pay it now in cash or it will be deducted from your salary; the manager decides.</p>}
+        {Object.keys(z.currencies ?? {}).some((c) => Number(z.currencies?.[c]?.variance) < 0) && <p className="pos-msg bad">A shortage is recorded on your name. Pay it now in cash or it will be deducted from your salary; the manager decides.</p>}
         <table className="pos-table z">
           <tbody>
             <tr><td>Card sales / card guest payments</td><td className="r num">{egp(z.card_sales)} / {egp(z.room_card_payments)}</td></tr>
@@ -834,7 +853,7 @@ function CloseShift({ shiftNo, onClose, onFinished }: { shiftNo: number; onClose
   return (
     <Modal title={`Close shift #${shiftNo}`} onClose={onClose}>
       <p className="pos-fine">Count the cash in the drawer, each currency on its own, and hand it over. The expected amounts are shown only after you confirm.</p>
-      <CountGrid value={counts} onChange={setCounts} />
+      <CountGrid value={counts} onChange={setCounts} extra={extra} />
       <div className="pos-field"><label htmlFor="close-note">Note (optional)</label><input id="close-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} /></div>
       {err && <p className="pos-msg bad">{err}</p>}
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
@@ -1077,9 +1096,9 @@ function EventPayModal({ onClose, onDone }: { onClose: () => void; onDone: (m: s
 
 /** Guest swaps dollars / euros for pounds at the desk. The drawer keeps the foreign notes and pays out EGP. */
 function ExchangeModal({ rates, guest, onClose, onDone }: { rates: any; guest: Guest | null; onClose: () => void; onDone: (m: string) => void }) {
-  const [c, setC] = useState<'USD' | 'EUR'>('USD');
+  const [c, setC] = useState<Cur>('USD');
   const [amount, setAmount] = useState('');
-  const today = Number(rates?.[c] ?? 0);
+  const today = rateOf(rates, c);
   const [rate, setRate] = useState('');
   const [who, setWho] = useState(guest?.full_name ?? '');
   const [err, setErr] = useState<string | null>(null);
@@ -1089,10 +1108,8 @@ function ExchangeModal({ rates, guest, onClose, onDone }: { rates: any; guest: G
   const give = Math.floor((minor * r) / 100) * 100;
   return (
     <Modal title="Money exchange" onClose={onClose}>
-      <p className="pos-fine">The guest gives you dollars or euros; you give pounds from the drawer. It is not a sale. Today&apos;s rate: USD {rates?.USD ?? '—'} · EUR {rates?.EUR ?? '—'}.</p>
-      <div className="pos-method" role="radiogroup" aria-label="Currency">
-        {(['USD', 'EUR'] as const).map((x) => <button key={x} type="button" role="radio" aria-checked={c === x} className={c === x ? 'on' : ''} onClick={() => { setC(x); setRate(''); }}>{x}</button>)}
-      </div>
+      <p className="pos-fine">The guest gives you foreign money; you give pounds from the drawer. It is not a sale. Today&apos;s rate: USD {rates?.USD ?? '—'} · EUR {rates?.EUR ?? '—'}.</p>
+      <CurSwitch value={c} onChange={(x) => { if (x !== 'EGP') { setC(x); setRate(''); } }} rates={rates} />
       <AmountPad label={`Guest gives (${c})`} value={amount} onChange={setAmount} unit={c} />
       <div className="pos-two">
         <div className="pos-field"><label htmlFor="ex-r">Rate (empty = today {today || '—'})</label><input id="ex-r" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))} placeholder={String(today || '')} /></div>
@@ -1113,7 +1130,7 @@ function ExchangeModal({ rates, guest, onClose, onDone }: { rates: any; guest: G
   );
 }
 
-function TakenModal({ takers, onClose, onDone }: { takers: { id: string; full_name: string }[]; onClose: () => void; onDone: (m: string) => void }) {
+function TakenModal({ takers, onClose, onDone, extra = [] }: { takers: { id: string; full_name: string }[]; onClose: () => void; onDone: (m: string) => void; extra?: string[] }) {
   const [who, setWho] = useState(takers[0]?.id ?? '');
   const [pin, setPin] = useState('');
   const [counts, setCounts] = useState<Record<Cur, string>>({ EGP: '', USD: '', EUR: '' });
@@ -1128,16 +1145,16 @@ function TakenModal({ takers, onClose, onDone }: { takers: { id: string; full_na
         <div className="pos-field"><label htmlFor="tk-who">Taken by</label><select id="tk-who" value={who} onChange={(e) => setWho(e.target.value)}>{takers.map((t) => <option key={t.id} value={t.id}>{t.full_name}</option>)}</select></div>
         <div className="pos-field"><label htmlFor="tk-pin">Their PIN</label><input id="tk-pin" type="password" inputMode="numeric" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} /></div>
       </div>
-      <CountGrid value={counts} onChange={setCounts} />
+      <CountGrid value={counts} onChange={setCounts} extra={extra} />
       <div className="pos-field"><label htmlFor="tk-note">Note (optional)</label><input id="tk-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} /></div>
       {err && <p className="pos-msg bad">{err}</p>}
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
-        <button className="pos-btn primary" disabled={busy || pin.length < 4 || !(a.EGP || a.USD || a.EUR)} onClick={async () => {
+        <button className="pos-btn primary" disabled={busy || pin.length < 4 || !Object.values(a).some((x) => x > 0)} onClick={async () => {
           setBusy(true); setErr(null);
           const r = await posTaken({ takerId: who, takerPin: pin, amounts: a, note });
           setBusy(false);
           if (!r.ok) { setErr(r.error); return; }
-          onDone(`Taken by ${r.data.by}: ${CURS.filter((c) => (a as any)[c]).map((c) => cur((a as any)[c], c)).join(' · ')}`);
+          onDone(`Taken by ${r.data.by}: ${Object.keys(a).filter((c) => (a as any)[c]).map((c) => cur((a as any)[c], c)).join(' · ')}`);
         }}><Icon name="check" /> Record taken</button>
       </div>
     </Modal>

@@ -6,8 +6,8 @@ import { PageHeader, Card, fmt, dt, BtnGhost, Input, Stat, Pill } from '@/compon
 import { Icon } from '@/components/icons';
 import { shiftTotals } from '@/services/pms/pos';
 import { cardPayersFor } from '@/services/pms/card-payers';
-import { getRates } from '@/services/pms/fx';
-import { shortageResolve, fxSave } from '../pms-actions';
+import { getRates, OTHER_CURRENCIES } from '@/services/pms/fx';
+import { shortageResolve, fxSave, fxOtherSave } from '../pms-actions';
 import { Lbl, Btn, Flash } from '@/components/dash';
 
 export const dynamic = 'force-dynamic';
@@ -83,6 +83,16 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
           <button className={Btn}>Save</button>
           <button name="refresh" value="1" className={BtnGhost}><Icon name="refresh" size={16} /> Get today’s rate</button>
         </form>
+        <details className="mt-3 border-t border-slate-100 pt-3">
+          <summary className="cursor-pointer text-sm font-semibold text-cocoa-800">Other currencies ({Object.keys(rates.others ?? {}).length} with a rate)</summary>
+          <p className="mt-1 text-xs text-slate-500">Rare cash (GBP, SAR, AED…) can be taken on the POS under “Other” at these rates. They follow the market; set one by hand only if it looks wrong.</p>
+          <div className="mt-2 flex flex-wrap gap-1.5 text-xs">{Object.entries(rates.others ?? {}).sort().map(([k, v]) => <span key={k} className="rounded-full bg-cocoa-50 px-2 py-0.5 tabular-nums">{k} {Number(v).toFixed(3)}</span>)}</div>
+          <form action={fxOtherSave} className="mt-2 flex flex-wrap items-end gap-2">
+            <div><Lbl htmlFor="fx-oc">Currency</Lbl><select id="fx-oc" name="code" className={Input + ' w-48'}>{Object.entries(OTHER_CURRENCIES).map(([k, n]) => <option key={k} value={k}>{k} · {n}</option>)}</select></div>
+            <div><Lbl htmlFor="fx-or">EGP for 1 unit</Lbl><input id="fx-or" name="rate" type="number" step="0.0001" min={0.0001} required className={Input + ' w-32'} /></div>
+            <button className={BtnGhost}>Save rate</button>
+          </form>
+        </details>
       </Card>
 
       <nav className="mb-4 flex flex-wrap gap-2">
@@ -106,13 +116,13 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
                 </div>
                 {z?.currencies ? (
                   <table className="w-full text-sm">
-                    <thead><tr className="text-xs text-slate-500"><th /><th className="text-right">EGP</th><th className="text-right">USD</th><th className="text-right">EUR</th></tr></thead>
+                    <thead><tr className="text-xs text-slate-500"><th />{Object.keys(z.currencies).map((c) => <th key={c} className="text-right">{c}</th>)}</tr></thead>
                     <tbody>
                       {([['opening', 'Start of shift'], ['sales', '+ Cash sales'], ['payments', '+ Room payments (cash)'], ['events', '+ Event tickets (cash)'], ['exchange', '± Money exchange'], ['expenses', '− Paid from drawer'], ['taken', '− Taken by owner'], ['expected', 'Should be in drawer'], ['counted', 'Counted']] as const).map(([k, l]) => (
                         <tr key={k} className={k === 'expected' || k === 'counted' ? 'border-t border-slate-200 font-bold' : ''}><td className="py-1">{l}</td>
-                          {['EGP', 'USD', 'EUR'].map((c) => <td key={c} className="text-right tabular-nums">{z.currencies[c]?.[k] != null ? (Number(z.currencies[c][k]) / 100).toLocaleString('en-US') : '—'}</td>)}</tr>
+                          {Object.keys(z.currencies).map((c) => <td key={c} className="text-right tabular-nums">{z.currencies[c]?.[k] != null ? (Number(z.currencies[c][k]) / 100).toLocaleString('en-US') : '—'}</td>)}</tr>
                       ))}
-                      {s.status !== 'open' && <tr className="font-bold"><td className="py-1">Difference</td>{['EGP', 'USD', 'EUR'].map((c) => { const v = Number(z.currencies[c]?.variance ?? 0); return <td key={c} className={`text-right tabular-nums ${v === 0 ? 'text-emerald-700' : 'text-red-700'}`}>{v > 0 ? '+' : ''}{(v / 100).toLocaleString('en-US')}</td>; })}</tr>}
+                      {s.status !== 'open' && <tr className="font-bold"><td className="py-1">Difference</td>{Object.keys(z.currencies).map((c) => { const v = Number(z.currencies[c]?.variance ?? 0); return <td key={c} className={`text-right tabular-nums ${v === 0 ? 'text-emerald-700' : 'text-red-700'}`}>{v > 0 ? '+' : ''}{(v / 100).toLocaleString('en-US')}</td>; })}</tr>}
                       <tr><td colSpan={4} className="pt-2 text-xs text-slate-500"><span className="block">Card machine: {fmt(Number(z.card_sales ?? 0) + Number(z.room_card_payments ?? 0))}</span><span className="block">Put on room bills (not paid yet): {fmt(Number(z.room_charges ?? 0))}</span><span className="block">Free (owner approved): {fmt(Number(z.owner_comps ?? 0))} · {z.sales_count ?? 0} sales</span></td></tr>
                     </tbody>
                   </table>

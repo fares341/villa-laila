@@ -13,7 +13,7 @@ import { saveEvent } from '@/services/events';
 import { audit } from '@/services/audit';
 import { setSetting } from '@/services/settings';
 import { redistribute, reassignTask } from '@/services/pms/tasks';
-import { refreshRates, setManualRates } from '@/services/pms/fx';
+import { refreshRates, setManualRates, setOtherRate } from '@/services/pms/fx';
 import { createTaxi, setTaxiStatus, setTaxiConfirmed, setTaxiPrices } from '@/services/pms/taxi';
 
 const msg = (e: unknown) => (e instanceof BookingError ? (e.message && e.message !== e.code ? e.message : e.code.replace(/_/g, ' ').toLowerCase()) : (console.error('[pms action]', e), 'Something went wrong'));
@@ -364,6 +364,14 @@ export async function fxSave(fd: FormData) {
   } catch (e) { go('/dashboard/shift-reports', 'err', msg(e)); }
   await audit(u.email, 'fx.update', 'settings', null, {});
   revalidatePath('/dashboard/shift-reports'); go('/dashboard/shift-reports', 'ok', 'Exchange rates saved');
+}
+
+/** Rate of a rare currency (GBP, SAR…) set by hand, when the market source has none or it looks wrong. */
+export async function fxOtherSave(fd: FormData) {
+  const u = await requireUser('staff.manage');
+  try { await setOtherRate(str(fd.get('code')), Number(str(fd.get('rate')))); } catch (e) { go('/dashboard/shift-reports', 'err', msg(e)); }
+  await audit(u.email, 'fx.other', 'settings', null, { code: str(fd.get('code')), rate: str(fd.get('rate')) });
+  revalidatePath('/dashboard/shift-reports'); go('/dashboard/shift-reports', 'ok', `Rate saved for ${str(fd.get('code'))}`);
 }
 
 /* ───────── Taxi ───────── */

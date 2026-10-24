@@ -12,7 +12,7 @@ import {
 } from '@/services/pms/pos';
 import { getFolio } from '@/services/pms/folio';
 import { channelEnabled } from '@/services/pms/channel';
-import { getRates, refreshRates, type Currency } from '@/services/pms/fx';
+import { getRates, refreshRates, OTHER_CURRENCIES, type Currency } from '@/services/pms/fx';
 import { taxiMessage, waLink, setTaxiConfirmed } from '@/services/pms/taxi';
 import { recordTaken, recordExchange, unpaidEventTickets, payEventTicket } from '@/services/pms/pos';
 import { runForStaff, runView, taxiLine, saveTask, finishWithNote, reassignTask, redistribute, setWashReady, setRunNotes, handoverText } from '@/services/pms/tasks';
@@ -61,6 +61,10 @@ export async function posState(): Promise<ActionResult<any>> {
         rates: me ? await refreshRates().catch(() => getRates()) : null,
         canTake: me ? !!(await q<any>(`SELECT can_take_cash FROM staff WHERE id=$1`, [me.id]))[0]?.can_take_cash : false,
         takers: me ? await q<any>(`SELECT id, full_name FROM staff WHERE active AND can_take_cash AND pin_hash IS NOT NULL ORDER BY full_name`) : [],
+        // Rare currencies the last shift left in the drawer: the next person counts them too.
+        handoverExtra: !shift ? await q<any>(`SELECT z_report->'currencies' c FROM cash_shifts WHERE status='closed' AND z_report IS NOT NULL ORDER BY closed_at DESC LIMIT 1`)
+          .then((r) => Object.entries((r[0]?.c ?? {}) as Record<string, any>).filter(([k, v]) => !['EGP', 'USD', 'EUR'].includes(k) && Number(v?.counted) > 0).map(([k]) => k)).catch(() => []) : [],
+        otherCurrencies: OTHER_CURRENCIES,
         currencies: totals ? Object.fromEntries(Object.entries(totals.currencies).map(([k, v]: any) => [k, me?.is_manager ? v.expected : null])) : null,
       },
     };
@@ -109,7 +113,7 @@ export async function posClock(staffId: string, pin: string, direction: 'in' | '
 }
 
 /** Receiving the drawer: the incoming person counts each currency. */
-export async function posOpenShift(counts: number | { EGP: number; USD: number; EUR: number }): Promise<ActionResult<any>> {
+export async function posOpenShift(counts: number | Record<string, number>): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
@@ -125,7 +129,7 @@ async function myShift(me: { id: string; is_manager: boolean }) {
   return s;
 }
 
-export async function posSale(input: { reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod; compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean; cashCurrency?: Currency; cardPayer?: CardPayer | null }): Promise<ActionResult<any>> {
+export async function posSale(input: { reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod; compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean; cashCurrency?: string; cardPayer?: CardPayer | null }): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
@@ -143,7 +147,7 @@ export async function posGuestFolio(reservationId: string): Promise<ActionResult
   } catch (e) { return fail(e); }
 }
 
-export async function posTakePayment(reservationId: string, amountCents: number, method: PayMethod, currency: Currency = 'EGP', cardPayer: CardPayer | null = null): Promise<ActionResult<any>> {
+export async function posTakePayment(reservationId: string, amountCents: number, method: PayMethod, currency: string = 'EGP', cardPayer: CardPayer | null = null): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
@@ -164,7 +168,7 @@ export async function posExpense(input: { amountCents: number; category: string;
 }
 
 /** Blind close: the cashier only types what they counted; the Z-report comes back after. */
-export async function posCloseShift(counted: number | { EGP: number; USD: number; EUR: number }, note: string): Promise<ActionResult<any>> {
+export async function posCloseShift(counted: number | Record<string, number>, note: string): Promise<ActionResult<any>> {
   try {
     await device();
     const me = await cashier();
@@ -258,7 +262,7 @@ async function myTaskCounts(staffId: string) {
 }
 
 /** Cash removed from the drawer by the owner (Taken). Their own PIN; only staff allowed to take cash. */
-export async function posTaken(input: { takerId: string; takerPin: string; amounts: { EGP: number; USD: number; EUR: number }; note?: string }): Promise<ActionResult<any>> {
+export async function posTaken(input: { takerId: string; takerPin: string; amounts: Record<string, number>; note?: string }): Promise<ActionResult<any>> {
   try {
     await device();
     const me = await cashier();
@@ -269,7 +273,7 @@ export async function posTaken(input: { takerId: string; takerPin: string; amoun
   } catch (e) { return fail(e); }
 }
 
-export async function posExchange(input: { currency: 'USD' | 'EUR'; foreignMinor: number; rate?: number | null; guest?: string | null; reservationId?: string | null }): Promise<ActionResult<any>> {
+export async function posExchange(input: { currency: string; foreignMinor: number; rate?: number | null; guest?: string | null; reservationId?: string | null }): Promise<ActionResult<any>> {
   try {
     await device();
     const me = await cashier();
