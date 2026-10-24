@@ -128,16 +128,20 @@ export async function shiftTotals(shiftId: string) {
   const tipsCur = await q<any>(`SELECT currency cur, COALESCE(sum(minor),0)::bigint n FROM cash_tips WHERE shift_id=$1 AND method='cash' GROUP BY currency`, [shiftId]);
   const tipsCard = (await q<any>(`SELECT COALESCE(sum(minor),0)::bigint n, COALESCE(sum(egp_cents) FILTER (WHERE method='cash'),0)::bigint cash_egp FROM cash_tips WHERE shift_id=$1 AND method='card'`, [shiftId]))[0];
   const tipsAll = (await q<any>(`SELECT COALESCE(sum(egp_cents),0)::bigint egp FROM cash_tips WHERE shift_id=$1`, [shiftId]))[0];
+  // Change owed to guests: in when it was kept for them (this shift), out when given back or turned into a tip (in whichever shift that happens).
+  const chgRows = await q<any>(`SELECT cur, sum(n)::bigint n FROM (
+      SELECT currency cur, minor n FROM cash_change_owed WHERE shift_id=$1
+      UNION ALL SELECT currency, -minor FROM cash_change_owed WHERE settled_shift_id=$1 AND status IN ('given','tip')) x GROUP BY cur`, [shiftId]);
   const pick = (rows: any[], cur: string) => Number(rows.find((r) => r.cur === cur)?.n ?? 0);
   const openOther = Object.fromEntries(Object.entries((s.open_count ?? {}) as Record<string, unknown>).filter(([k]) => !BASE.includes(k as any)));
   const openings: Counts = { ...cleanCounts(openOther), EGP: Number(s.drawer_egp_start), USD: Math.round(Number(s.drawer_usd_start) * 100), EUR: Math.round(Number(s.drawer_eur_start) * 100) };
   const takenBy: Counts = { EGP: Number(taken.egp), USD: Number(taken.usd), EUR: Number(taken.eur) };
   for (const r of takenOther) takenBy[r.cur] = Number(r.n);
-  const used = Object.fromEntries([...salesCur, ...paysCur, ...expCur, ...exchRows, ...takenOther, ...tipsCur].filter((r) => r.cur).map((r) => [r.cur, 1]));
-  const currencies: Record<string, { opening: number; sales: number; payments: number; events: number; exchange: number; tips: number; expenses: number; taken: number; expected: number }> = {};
+  const used = Object.fromEntries([...salesCur, ...paysCur, ...expCur, ...exchRows, ...takenOther, ...tipsCur, ...chgRows].filter((r) => r.cur).map((r) => [r.cur, 1]));
+  const currencies: Record<string, { opening: number; sales: number; payments: number; events: number; exchange: number; tips: number; change: number; expenses: number; taken: number; expected: number }> = {};
   for (const cur of keysOf(openings, used)) {
-    const row = { opening: openings[cur] ?? 0, sales: pick(salesCur, cur), payments: pick(paysCur, cur), events: cur === 'EGP' ? Number(ev.c) : 0, exchange: exchBy[cur] ?? 0, tips: pick(tipsCur, cur), expenses: pick(expCur, cur), taken: takenBy[cur] ?? 0, expected: 0 };
-    row.expected = row.opening + row.sales + row.payments + row.events + row.exchange + row.tips - row.expenses - row.taken;
+    const row = { opening: openings[cur] ?? 0, sales: pick(salesCur, cur), payments: pick(paysCur, cur), events: cur === 'EGP' ? Number(ev.c) : 0, exchange: exchBy[cur] ?? 0, tips: pick(tipsCur, cur), change: pick(chgRows, cur), expenses: pick(expCur, cur), taken: takenBy[cur] ?? 0, expected: 0 };
+    row.expected = row.opening + row.sales + row.payments + row.events + row.exchange + row.tips + row.change - row.expenses - row.taken;
     currencies[cur] = row;
   }
   const egp = currencies.EGP;
@@ -188,10 +192,12 @@ export async function moneyByCurrency(from: string, to: string) {
       UNION ALL SELECT 'USD', 'taken', -usd_cents, NULL FROM cash_taken WHERE ${day('created_at')}
       UNION ALL SELECT 'EUR', 'taken', -eur_cents, NULL FROM cash_taken WHERE ${day('created_at')}
       UNION ALL SELECT key, 'taken', -(value::bigint), NULL FROM cash_taken, jsonb_each_text(other) WHERE ${day('created_at')}
+      UNION ALL SELECT currency, 'change', minor, NULL FROM cash_change_owed WHERE ${day('created_at')}
+      UNION ALL SELECT currency, 'change', -minor, NULL FROM cash_change_owed WHERE status IN ('given','tip') AND ${day('settled_at')}
     ) x WHERE n <> 0 GROUP BY cur, kind`, [from, to]);
-  const cash: Record<string, { received: number; receivedEgp: number; tips: number; exchangeIn: number; exchangeOut: number; paidOut: number; taken: number; net: number }> = {};
+  const cash: Record<string, { received: number; receivedEgp: number; tips: number; exchangeIn: number; exchangeOut: number; paidOut: number; taken: number; change: number; net: number }> = {};
   for (const r of rows) {
-    const c = (cash[r.cur] ||= { received: 0, receivedEgp: 0, tips: 0, exchangeIn: 0, exchangeOut: 0, paidOut: 0, taken: 0, net: 0 });
+    const c = (cash[r.cur] ||= { received: 0, receivedEgp: 0, tips: 0, exchangeIn: 0, exchangeOut: 0, paidOut: 0, taken: 0, change: 0, net: 0 });
     const n = Number(r.n);
     if (['sales', 'payments', 'events'].includes(r.kind)) { c.received += n; c.receivedEgp += Number(r.egp ?? 0); }
     else if (r.kind === 'tips') c.tips += n;
@@ -199,7 +205,8 @@ export async function moneyByCurrency(from: string, to: string) {
     else if (r.kind === 'exchange_out') c.exchangeOut += n;
     else if (r.kind === 'expenses') c.paidOut += n;
     else if (r.kind === 'taken') c.taken += n;
-    c.net = c.received + c.tips + c.exchangeIn + c.exchangeOut + c.paidOut + c.taken;
+    else if (r.kind === 'change') c.change += n;
+    c.net = c.received + c.tips + c.exchangeIn + c.exchangeOut + c.paidOut + c.taken + c.change;
   }
   const other = (await q<any>(`
     SELECT
@@ -209,11 +216,14 @@ export async function moneyByCurrency(from: string, to: string) {
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method='instapay' AND status='verified' AND ${day('COALESCE(verified_at, created_at)')})
       + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND provider='instapay' AND status='verified' AND ${day('verified_at')})
       + (SELECT COALESCE(sum(amount_cents),0) FROM service_orders WHERE payment_method='instapay' AND payment_status='paid' AND ${day('created_at')})
-      + (SELECT COALESCE(sum(pos_cents),0) FROM event_bookings WHERE pos_method='instapay' AND pos_cents > 0 AND ${day('pos_paid_at')}) instapay,
+      + (SELECT COALESCE(sum(pos_cents),0) FROM event_bookings WHERE pos_method='instapay' AND pos_cents > 0 AND ${day('pos_paid_at')})
+      + (SELECT COALESCE(sum(minor),0) FROM cash_tips WHERE method='instapay' AND ${day('created_at')}) instapay,
+      (SELECT COALESCE(sum(minor),0) FROM cash_tips WHERE method IN ('instapay','vodafone_cash') AND ${day('created_at')}) wallet_tips,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method='vodafone_cash' AND status='verified' AND ${day('COALESCE(verified_at, created_at)')})
       + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND provider='vodafone_cash' AND status='verified' AND ${day('verified_at')})
       + (SELECT COALESCE(sum(amount_cents),0) FROM service_orders WHERE payment_method='vodafone_cash' AND payment_status='paid' AND ${day('created_at')})
-      + (SELECT COALESCE(sum(pos_cents),0) FROM event_bookings WHERE pos_method='vodafone_cash' AND pos_cents > 0 AND ${day('pos_paid_at')}) vodafone,
+      + (SELECT COALESCE(sum(pos_cents),0) FROM event_bookings WHERE pos_method='vodafone_cash' AND pos_cents > 0 AND ${day('pos_paid_at')})
+      + (SELECT COALESCE(sum(minor),0) FROM cash_tips WHERE method='vodafone_cash' AND ${day('created_at')}) vodafone,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method IN ('paymob','online_provider') AND status='verified' AND ${day('COALESCE(verified_at, created_at)')})
       + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND provider='paymob' AND status='paid' AND ${day('updated_at')}) online,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method='channel_prepaid' AND status='verified' AND ${day('created_at')}) sites,
@@ -222,7 +232,7 @@ export async function moneyByCurrency(from: string, to: string) {
   const order = ['EGP', 'USD', 'EUR', ...Object.keys(cash).filter((k) => !['EGP', 'USD', 'EUR'].includes(k)).sort()];
   return {
     cash: order.filter((k) => cash[k]).map((k) => ({ currency: k, ...cash[k] })),
-    card: Number(other.card), cardTips: Number(other.card_tips), tipsEgp: Number(other.tips_egp), instapay: Number(other.instapay), vodafone: Number(other.vodafone), online: Number(other.online), sites: Number(other.sites),
+    card: Number(other.card), cardTips: Number(other.card_tips), tipsEgp: Number(other.tips_egp), instapay: Number(other.instapay), vodafone: Number(other.vodafone), walletTips: Number(other.wallet_tips), online: Number(other.online), sites: Number(other.sites),
   };
 }
 
@@ -238,7 +248,7 @@ export async function closePosShiftBlind(shiftId: string, counted: Partial<Count
   const hours = (closedAt.getTime() - new Date(t.shift.opened_at ?? t.shift.created_at).getTime()) / 3600000;
   const currencies: Record<string, any> = {};
   for (const cur of keysOf(t.currencies, c)) {
-    const row = t.currencies[cur] ?? { opening: 0, sales: 0, payments: 0, events: 0, exchange: 0, tips: 0, expenses: 0, taken: 0, expected: 0 };
+    const row = t.currencies[cur] ?? { opening: 0, sales: 0, payments: 0, events: 0, exchange: 0, tips: 0, change: 0, expenses: 0, taken: 0, expected: 0 };
     currencies[cur] = { ...row, counted: c[cur] ?? 0, variance: (c[cur] ?? 0) - row.expected };
   }
   const variance = currencies.EGP.variance;
@@ -288,7 +298,7 @@ export async function recordExchange(shiftId: string, staffId: string, input: { 
   if (egp <= 0) throw new BookingError('INVALID_INPUT', 'Amount too small');
   const t = await shiftTotals(shiftId);
   if (t.shift.status !== 'open') throw new BookingError('BAD_STATE', 'The shift is closed');
-  if (egp > t.currencies.EGP.expected) throw new BookingError('INVALID_INPUT', `Only EGP ${(Math.max(0, t.currencies.EGP.expected) / 100).toLocaleString('en-US')} is in the drawer`);
+  if (egp > t.currencies.EGP.expected) throw new BookingError('INVALID_INPUT', 'Not enough pounds in the drawer for this exchange. Exchange a smaller amount.');
   const row = (await q<any>(`INSERT INTO cash_exchanges(shift_id,staff_id,currency,foreign_minor,rate,egp_cents,guest,reservation_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
     [shiftId, staffId, input.currency, input.foreignMinor, rate, egp, input.guest?.trim() || null, input.reservationId || null]))[0];
   await audit('pos', 'shift.exchange', 'cash_shift', shiftId, { currency: input.currency, foreign: input.foreignMinor, rate, egp });
@@ -331,7 +341,7 @@ export async function posEvents() {
 }
 
 /** A ticket bought at the hostel on the POS (not booked online): created already paid, cash or card. */
-export async function sellEventTicket(shiftId: string, input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: PayMethod; walletRef?: string | null; cardPayer?: CardPayer | null; tipMinor?: number; staffName: string; staffId?: string | null }) {
+export async function sellEventTicket(shiftId: string, input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: PayMethod; walletRef?: string | null; cardPayer?: CardPayer | null; tipMinor?: number; staffName: string; staffId?: string | null; change?: ChangeInput | null }) {
   const { EVENT_COLS, seatsTaken, makeTicketCode } = await import('../events');
   const { isBookableDate } = await import('@/lib/event-dates');
   const qty = Math.trunc(input.quantity);
@@ -370,12 +380,13 @@ export async function sellEventTicket(shiftId: string, input: { eventId: string;
     if (payer) await recordCardPayer(c as unknown as Q, payer, { amountCents: total, source: 'event', shiftId, staffName: input.staffName, paidFor: `Event ticket ${b.ticket_code}` });
     await addTip(c, { shiftId, staffId: input.staffId ?? null, method: input.method, currency: 'EGP', minor: input.tipMinor, rate: 1, eventBookingId: b.id, guest: input.fullName });
     await audit('pos:' + input.staffName, 'event_booking.pos_sale', 'event_booking', b.id, { qty, total, method: input.method, shift: sh.shift_no }, c as unknown as Q);
-    return { ticket: b.ticket_code, cents: total, method: input.method, guestPrice: !!stayRef };
+    const chg = await handleChange(c, input.change, { method: input.method, currency: 'EGP', paidMinor: total, tipMinor: input.tipMinor, shiftId, staffId: input.staffId ?? null, guest: input.fullName, what: `Event ticket ${b.ticket_code}` });
+    return { ...chg, ticket: b.ticket_code, cents: total, method: input.method, guestPrice: !!stayRef };
   });
 }
 
 /** Event ticket paid on the POS: cash into the drawer or card on the machine (foreign card payers on the daily list). */
-export async function payEventTicket(shiftId: string, input: { bookingId: string; method: PayMethod; walletRef?: string | null; staffName: string; staffId?: string | null; cardPayer?: CardPayer | null; tipMinor?: number }) {
+export async function payEventTicket(shiftId: string, input: { bookingId: string; method: PayMethod; walletRef?: string | null; staffName: string; staffId?: string | null; cardPayer?: CardPayer | null; tipMinor?: number; change?: ChangeInput | null }) {
   const payer = input.method === 'card' ? cleanPayer(input.cardPayer) : null;
   const walletRef = walletRefOf(payMethodOf(input.method), input.walletRef);
   const sh = (await q<any>(`SELECT shift_no FROM cash_shifts WHERE id=$1 AND status='open'`, [shiftId]))[0];
@@ -392,7 +403,9 @@ export async function payEventTicket(shiftId: string, input: { bookingId: string
     if (payer) await recordCardPayer(c as unknown as Q, payer, { amountCents: Number(b.total_cents), source: 'event', shiftId, staffName: input.staffName, paidFor: `Event ticket ${b.ticket_code}` });
     await audit('pos:' + input.staffName, 'event_booking.paid', 'event_booking', b.id, { method: input.method, shift: sh.shift_no }, c as unknown as Q);
     await addTip(c, { shiftId, staffId: input.staffId ?? null, method: input.method, currency: 'EGP', minor: input.tipMinor, rate: 1, eventBookingId: b.id });
-    return { ticket: b.ticket_code, cents: Number(b.total_cents), method: input.method, tip: Math.round(Number(input.tipMinor ?? 0)) };
+    const g = (await c.query(`SELECT full_name FROM event_bookings WHERE id=$1`, [b.id])).rows[0]?.full_name ?? null;
+    const chg = await handleChange(c, input.change, { method: input.method, currency: 'EGP', paidMinor: Number(b.total_cents), tipMinor: input.tipMinor, shiftId, staffId: input.staffId ?? null, guest: g, what: `Event ticket ${b.ticket_code}` });
+    return { ...chg, ticket: b.ticket_code, cents: Number(b.total_cents), method: input.method, tip: Math.round(Number(input.tipMinor ?? 0)) };
   });
 }
 
@@ -497,6 +510,7 @@ export type SaleInput = {
   reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod;
   compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean;
   cashCurrency?: string;     // cash only: EGP, USD, EUR or a rare currency (GBP, SAR…) physically received
+  change?: ChangeInput | null; // cash only: what the guest handed over, and whether the change is kept for later
   walletRef?: string | null; // InstaPay / Vodafone Cash: transaction number
   cardPayer?: CardPayer | null; // card only: foreign guest's passport details (daily Excel)
   tipMinor?: number;         // tip on top, in the same currency as the payment (EGP for card)
@@ -512,6 +526,49 @@ async function addTip(c: { query: (s: string, a?: any[]) => Promise<any> }, v: {
   await c.query(`INSERT INTO cash_tips(shift_id,staff_id,method,currency,minor,egp_cents,sale_id,payment_id,event_booking_id,guest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
     [v.shiftId, v.staffId, v.method, currency, minor, egp, v.saleId ?? null, v.paymentId ?? null, v.eventBookingId ?? null, v.guest ?? null]);
   return egp;
+}
+
+/** Cash handed over by the guest. Change = gave − amount − tip. `later`: the guest comes back for it (kept in the drawer). */
+export type ChangeInput = { gaveMinor: number; later?: boolean; guest?: string | null };
+
+/** Works out the change in the cash currency and, if the guest will come back for it, records it as owed (it stays in the drawer). */
+async function handleChange(c: { query: (s: string, a?: any[]) => Promise<any> }, ch: ChangeInput | null | undefined, v: { method: PayMethod; currency: string; paidMinor: number; tipMinor?: number | null; shiftId: string; staffId: string | null; guest: string | null; what: string; saleId?: string | null; paymentId?: string | null; reservationId?: string | null }) {
+  if (!ch || v.method !== 'cash' || !(Number(ch.gaveMinor) > 0)) return { changeMinor: 0, changeHeld: false };
+  const gave = Math.round(Number(ch.gaveMinor));
+  const change = gave - v.paidMinor - Math.max(0, Math.round(Number(v.tipMinor ?? 0)));
+  if (change < 0) throw new BookingError('INVALID_INPUT', 'The guest gave less than the amount to pay (with the tip)');
+  if (change === 0 || !ch.later) return { changeMinor: change, changeHeld: false };
+  const who = (v.guest || ch.guest || '').trim();
+  if (who.length < 2) throw new BookingError('INVALID_INPUT', 'Write the guest name (or how you will know them) so the change can be given back');
+  await c.query(`INSERT INTO cash_change_owed(shift_id,staff_id,sale_id,payment_id,reservation_id,guest,what,currency,minor,gave_minor) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    [v.shiftId, v.staffId, v.saleId ?? null, v.paymentId ?? null, v.reservationId ?? null, who.slice(0, 80), v.what.slice(0, 200), v.currency, change, gave]);
+  return { changeMinor: change, changeHeld: true };
+}
+
+/** Change guests will come back for (all shifts). */
+export async function openChange() {
+  return q<any>(`SELECT o.id, o.created_at, o.guest, o.what, o.currency, o.minor, o.gave_minor, cs.shift_no, st.full_name staff
+                 FROM cash_change_owed o LEFT JOIN cash_shifts cs ON cs.id=o.shift_id LEFT JOIN staff st ON st.id=o.staff_id
+                 WHERE o.status='open' ORDER BY o.created_at`);
+}
+
+/** The guest came back (given: the money leaves the drawer now) or said keep it (tip: it stays in the drawer as a tip). */
+export async function settleChange(id: string, action: 'given' | 'tip', shiftId: string, staffId: string | null, staffName: string) {
+  if (!['given', 'tip'].includes(action)) throw new BookingError('INVALID_INPUT', 'action');
+  const sh = (await q<any>(`SELECT shift_no FROM cash_shifts WHERE id=$1 AND status='open'`, [shiftId]))[0];
+  if (!sh) throw new BookingError('BAD_STATE', 'The shift is closed');
+  const rate = await (async (cur: string) => (cur === 'EGP' ? 1 : rateFor(cur).catch(() => 0)));
+  return tx(async (c) => {
+    const o = (await c.query(`UPDATE cash_change_owed SET status=$2, settled_at=now(), settled_shift_id=$3, settled_staff_id=$4 WHERE id=$1 AND status='open' RETURNING *`, [id, action, shiftId, staffId])).rows[0];
+    if (!o) throw new BookingError('BAD_STATE', 'This change was already given back or kept as a tip');
+    if (action === 'tip') {
+      const r = await rate(o.currency);
+      await c.query(`INSERT INTO cash_tips(shift_id,staff_id,method,currency,minor,egp_cents,sale_id,payment_id,guest,change_id) VALUES($1,$2,'cash',$3,$4,$5,$6,$7,$8,$9)`,
+        [shiftId, staffId, o.currency, o.minor, o.currency === 'EGP' ? o.minor : Math.round(Number(o.minor) * Number(r)), o.sale_id, o.payment_id, o.guest, o.id]);
+    }
+    await audit('pos:' + staffName, action === 'tip' ? 'change.kept_as_tip' : 'change.given', 'change', o.id, { guest: o.guest, currency: o.currency, minor: Number(o.minor), shift: sh.shift_no }, c as unknown as Q);
+    return { guest: o.guest, currency: o.currency, minor: Number(o.minor), action };
+  });
 }
 
 export async function processSale(input: SaleInput) {
@@ -614,7 +671,9 @@ export async function processSale(input: SaleInput) {
     }
     await audit('pos:' + input.staffName, 'pos.sale', 'sale', saleId, { mode: input.mode, method, cartTotal, paidCents, compCents, reservation: res?.reference ?? null }, cq);
     const tipEgp = paidCents > 0 ? await addTip(c, { shiftId: input.shiftId, staffId: input.staffId, method, currency: cashCur, minor: input.tipMinor, rate, saleId, guest: res?.full_name ?? null }) : 0;
-    return { saleId, cartTotal, paidCents, compCents, mode: input.mode, method, tipMinor: tipEgp ? Math.round(Number(input.tipMinor)) : 0, tipEgp, guest: res?.full_name ?? null, reference: res?.reference ?? null, lines: lines.map((l) => ({ name: l.name, qty: l.qty, unit: l.unit })),
+    const chg = paidCents > 0 ? await handleChange(c, input.change, { method, currency: cashCur, paidMinor: cashCur === 'EGP' ? paidCents : foreign(paidCents)!, tipMinor: tipEgp ? input.tipMinor : 0, shiftId: input.shiftId, staffId: input.staffId,
+      guest: res?.full_name ?? null, what: lines.map((l) => `${l.name} ×${l.qty}`).join(', ') || 'Bill', saleId, reservationId: res?.id ?? null }) : { changeMinor: 0, changeHeld: false };
+    return { ...chg, saleId, cartTotal, paidCents, compCents, mode: input.mode, method, tipMinor: tipEgp ? Math.round(Number(input.tipMinor)) : 0, tipEgp, guest: res?.full_name ?? null, reference: res?.reference ?? null, lines: lines.map((l) => ({ name: l.name, qty: l.qty, unit: l.unit })),
       cashCurrency: cashCur, cashForeign: cashCur === 'EGP' ? null : foreign(paidCents), rate: cashCur === 'EGP' ? null : rate, tourLines, guestName: res?.full_name ?? 'Walk-in', room };
   });
   // Whoever takes the money for a tour books the car in the same shift.
@@ -623,7 +682,7 @@ export async function processSale(input: SaleInput) {
 }
 
 /** Partial / full payment on a guest account (front desk or POS). Cash may be EGP, USD or EUR; card is always EGP. */
-export async function takeFolioPayment(input: { reservationId: string; amountCents: number; method: PayMethod; shiftId: string | null; staffId: string | null; userId: string; note?: string; actor: string; currency?: string; cardPayer?: CardPayer | null; staffName?: string | null; tipMinor?: number; walletRef?: string | null }) {
+export async function takeFolioPayment(input: { reservationId: string; amountCents: number; method: PayMethod; shiftId: string | null; staffId: string | null; userId: string; note?: string; actor: string; currency?: string; cardPayer?: CardPayer | null; staffName?: string | null; tipMinor?: number; walletRef?: string | null; change?: ChangeInput | null }) {
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new BookingError('INVALID_INPUT', 'Enter an amount');
   const payer = input.method === 'card' ? cleanPayer(input.cardPayer) : null;
   const st = (await q<any>(`SELECT status FROM reservations WHERE id=$1`, [input.reservationId]))[0]?.status;
@@ -641,7 +700,7 @@ export async function takeFolioPayment(input: { reservationId: string; amountCen
   // (USD / EUR notes may come to a little more than the balance; the extra stays as credit on the guest's account.)
   const owed = (await getFolio(input.reservationId)).balance;
   if (cur === 'EGP' && egp > owed) throw new BookingError('INVALID_INPUT', owed > 0 ? `That is more than the balance due (EGP ${(owed / 100).toLocaleString('en-US')})` : 'Nothing is due on this booking');
-  await tx(async (c) => {
+  const chg = await tx(async (c) => {
   const pay = (await c.query(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at,shift_id,staff_id,cash_currency,cash_amount_minor,fx_rate)
            VALUES($1,$2,$3,$4,'verified',$5,$6,$6,now(),$7,$8,$9,$10,$11) RETURNING id`,
     [input.reservationId, egp, storedMethod(payMethodOf(input.method)), walletRef ?? (sh ? `Shift #${sh.shift_no}` : 'Front desk'),
@@ -652,9 +711,12 @@ export async function takeFolioPayment(input: { reservationId: string; amountCen
     await recordCardPayer(c as unknown as Q, payer, { amountCents: egp, source: 'folio_payment', paymentId: pay.id, reservationId: input.reservationId, shiftId: input.shiftId, staffName: input.staffName ?? input.actor, paidFor: `Payment on account ${ref}`.trim() });
   }
   if (input.tipMinor && input.shiftId) await addTip(c, { shiftId: input.shiftId, staffId: input.staffId, method: payMethodOf(input.method), currency: cur, minor: input.tipMinor, rate, paymentId: pay.id });
+  if (!input.shiftId) return { changeMinor: 0, changeHeld: false };
+  const g = (await c.query(`SELECT g.full_name FROM reservations r JOIN guests g ON g.id=r.guest_id WHERE r.id=$1`, [input.reservationId])).rows[0]?.full_name ?? null;
+  return handleChange(c, input.change, { method: payMethodOf(input.method), currency: cur, paidMinor: input.amountCents, tipMinor: input.tipMinor, shiftId: input.shiftId, staffId: input.staffId, guest: g, what: 'Payment on the bill', paymentId: pay.id, reservationId: input.reservationId });
   });
   await audit(input.actor, 'folio.payment', 'reservation', input.reservationId, { amount: input.amountCents, currency: cur, egp, method: input.method });
-  return { egp, currency: cur, rate };
+  return { egp, currency: cur, rate, ...chg };
 }
 
 export async function recentSales(shiftId: string, limit = 12) {

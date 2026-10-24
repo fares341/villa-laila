@@ -14,7 +14,7 @@ import { getFolio } from '@/services/pms/folio';
 import { channelEnabled } from '@/services/pms/channel';
 import { getRates, refreshRates, OTHER_CURRENCIES, type Currency } from '@/services/pms/fx';
 import { taxiMessage, waLink, setTaxiConfirmed } from '@/services/pms/taxi';
-import { recordTaken, recordExchange, unpaidEventTickets, payEventTicket, posEvents, sellEventTicket, checkInEventTicket } from '@/services/pms/pos';
+import { recordTaken, recordExchange, unpaidEventTickets, payEventTicket, posEvents, sellEventTicket, checkInEventTicket, openChange, settleChange, type ChangeInput } from '@/services/pms/pos';
 import { runForStaff, runView, taxiLine, saveTask, finishWithNote, reassignTask, redistribute, setWashReady, setRunNotes, handoverText } from '@/services/pms/tasks';
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
@@ -65,6 +65,7 @@ export async function posState(): Promise<ActionResult<any>> {
         handoverExtra: !shift ? await q<any>(`SELECT z_report->'currencies' c FROM cash_shifts WHERE status='closed' AND z_report IS NOT NULL ORDER BY closed_at DESC LIMIT 1`)
           .then((r) => Object.entries((r[0]?.c ?? {}) as Record<string, any>).filter(([k, v]) => !['EGP', 'USD', 'EUR'].includes(k) && Number(v?.counted) > 0).map(([k]) => k)).catch(() => []) : [],
         otherCurrencies: OTHER_CURRENCIES,
+        changeOwed: me ? await openChange().catch(() => []) : [],
         currencies: totals ? Object.fromEntries(Object.entries(totals.currencies).map(([k, v]: any) => [k, me?.is_manager ? v.expected : null])) : null,
       },
     };
@@ -129,7 +130,7 @@ async function myShift(me: { id: string; is_manager: boolean }) {
   return s;
 }
 
-export async function posSale(input: { reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod; compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean; cashCurrency?: string; cardPayer?: CardPayer | null; tipMinor?: number; walletRef?: string | null }): Promise<ActionResult<any>> {
+export async function posSale(input: { reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod; compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean; cashCurrency?: string; cardPayer?: CardPayer | null; tipMinor?: number; walletRef?: string | null; change?: ChangeInput | null }): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
@@ -147,12 +148,12 @@ export async function posGuestFolio(reservationId: string): Promise<ActionResult
   } catch (e) { return fail(e); }
 }
 
-export async function posTakePayment(reservationId: string, amountCents: number, method: PayMethod, currency: string = 'EGP', cardPayer: CardPayer | null = null, tipMinor = 0, walletRef: string | null = null): Promise<ActionResult<any>> {
+export async function posTakePayment(reservationId: string, amountCents: number, method: PayMethod, currency: string = 'EGP', cardPayer: CardPayer | null = null, tipMinor = 0, walletRef: string | null = null, change: ChangeInput | null = null): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
     const s = await myShift(me);
-    const r = await takeFolioPayment({ reservationId, amountCents: Math.round(amountCents), method, currency, shiftId: s.id, staffId: me.id, userId: u.id, note: `Received at POS by ${me.full_name}`, actor: 'pos:' + me.full_name, cardPayer, staffName: me.full_name, tipMinor: Math.round(tipMinor) || 0, walletRef });
+    const r = await takeFolioPayment({ reservationId, amountCents: Math.round(amountCents), method, currency, shiftId: s.id, staffId: me.id, userId: u.id, note: `Received at POS by ${me.full_name}`, actor: 'pos:' + me.full_name, cardPayer, staffName: me.full_name, tipMinor: Math.round(tipMinor) || 0, walletRef, change });
     return { ok: true, data: r };
   } catch (e) { return fail(e); }
 }
@@ -287,7 +288,7 @@ export async function posEventTickets(): Promise<ActionResult<any[]>> {
   try { await device(); await cashier(); return { ok: true, data: await unpaidEventTickets() }; } catch (e) { return fail(e); }
 }
 
-export async function posPayEvent(input: { bookingId: string; method: PayMethod; walletRef?: string | null; cardPayer?: { name: string; nationality: string; passport: string } | null; tipMinor?: number }): Promise<ActionResult<any>> {
+export async function posPayEvent(input: { bookingId: string; method: PayMethod; walletRef?: string | null; cardPayer?: { name: string; nationality: string; passport: string } | null; tipMinor?: number; change?: ChangeInput | null }): Promise<ActionResult<any>> {
   try {
     await device();
     const me = await cashier();
@@ -323,7 +324,7 @@ export async function posEventList(): Promise<ActionResult<any[]>> {
   try { await device(); await cashier(); return { ok: true, data: await posEvents() }; } catch (e) { return fail(e); }
 }
 
-export async function posSellEvent(input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: PayMethod; walletRef?: string | null; cardPayer?: { name: string; nationality: string; passport: string } | null; tipMinor?: number }): Promise<ActionResult<any>> {
+export async function posSellEvent(input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: PayMethod; walletRef?: string | null; cardPayer?: { name: string; nationality: string; passport: string } | null; tipMinor?: number; change?: ChangeInput | null }): Promise<ActionResult<any>> {
   try {
     await device();
     const me = await cashier();
@@ -335,4 +336,19 @@ export async function posSellEvent(input: { eventId: string; date: string; quant
 
 export async function posTaxiConfirmed(taxiId: string, confirmed: boolean): Promise<ActionResult<null>> {
   try { await device(); const me = await cashier(); await setTaxiConfirmed(taxiId, confirmed, me.id); return { ok: true, data: null }; } catch (e) { return fail(e); }
+}
+
+/** Change guests will come back for (from any shift). */
+export async function posChangeList(): Promise<ActionResult<any[]>> {
+  try { await device(); await cashier(); return { ok: true, data: await openChange() }; } catch (e) { return fail(e); }
+}
+
+/** The guest took their change (it leaves the drawer now) or said keep it (it becomes a tip). */
+export async function posChangeSettle(id: string, action: 'given' | 'tip'): Promise<ActionResult<any>> {
+  try {
+    await device();
+    const me = await cashier();
+    const s = await myShift(me);
+    return { ok: true, data: await settleChange(id, action, s.id, me.id, me.full_name) };
+  } catch (e) { return fail(e); }
 }

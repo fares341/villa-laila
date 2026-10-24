@@ -43,11 +43,11 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
       </div>
       <form className="mb-5 flex flex-wrap items-end gap-3"><div><Lbl>From</Lbl><input type="date" name="from" defaultValue={from} className={Input} /></div><div><Lbl>Until (day before)</Lbl><input type="date" name="to" defaultValue={to} className={Input} /></div><button className={Btn}>Show</button></form>
       <Card title="Money received, by currency" className="mb-5">
-        <p className="-mt-1 mb-3 text-xs text-slate-500">Cash exactly as it came in, in its own currency: POS sales, room payments, event tickets, tips and money exchange; then what left the drawer. “EGP value” is the cash received at the rate used that day.</p>
+        <p className="-mt-1 mb-3 text-xs text-slate-500">Cash exactly as it came in, in its own currency: POS sales, guest bill payments, event tickets, tips and money exchange; then what left the drawer, and change kept for guests. “EGP value” is the cash received at the rate used that day.</p>
         {m.cash.length === 0 ? <p className="text-sm text-slate-500">No cash in this period.</p> : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase tracking-wide text-slate-500"><tr><th className="py-2">Currency</th><th className="text-right">Cash received</th><th className="text-right">EGP value</th><th className="text-right">Tips</th><th className="text-right">Money exchange</th><th className="text-right">Paid from drawer</th><th className="text-right">Taken by owner</th><th className="text-right">Net cash</th></tr></thead>
+              <thead className="text-left text-xs uppercase tracking-wide text-slate-500"><tr><th className="py-2">Currency</th><th className="text-right">Cash received</th><th className="text-right">EGP value</th><th className="text-right">Tips</th><th className="text-right">Money exchange</th><th className="text-right">Paid from drawer</th><th className="text-right">Taken by owner</th><th className="text-right" title="Change kept in the drawer for guests who will come back for it">Change owed</th><th className="text-right">Net cash</th></tr></thead>
               <tbody>{m.cash.map((c) => (
                 <tr key={c.currency} className="border-t border-cocoa-100">
                   <td className="py-2 font-semibold">{c.currency}</td>
@@ -57,6 +57,7 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
                   <td className="text-right tabular-nums">{c.exchangeIn || c.exchangeOut ? money(c.exchangeIn + c.exchangeOut, c.currency) : '—'}</td>
                   <td className="text-right tabular-nums">{c.paidOut ? money(c.paidOut, c.currency) : '—'}</td>
                   <td className="text-right tabular-nums">{c.taken ? money(c.taken, c.currency) : '—'}</td>
+                  <td className="text-right tabular-nums">{c.change ? money(c.change, c.currency) : '—'}</td>
                   <td className="text-right font-semibold tabular-nums">{money(c.net, c.currency)}</td>
                 </tr>))}
               </tbody>
@@ -66,7 +67,7 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
         {m.tipsEgp > 0 && <p className="mt-3 text-sm">All tips (cash + card): <b className="tabular-nums">{fmt(m.tipsEgp)}</b> <span className="text-xs text-slate-500">not hostel income</span></p>}
         <div className="mt-4 grid gap-3 border-t border-cocoa-100 pt-4 text-sm sm:grid-cols-3 lg:grid-cols-5">
           <div><p className="text-xs uppercase text-slate-500">Card machine</p><p className="font-semibold tabular-nums">{fmt(m.card + m.cardTips)}</p>{m.cardTips > 0 && <p className="text-[11px] text-slate-500">incl. tips {fmt(m.cardTips)}</p>}</div>
-          <div><p className="text-xs uppercase text-slate-500">InstaPay</p><p className="font-semibold tabular-nums">{fmt(m.instapay)}</p></div>
+          <div><p className="text-xs uppercase text-slate-500">InstaPay</p><p className="font-semibold tabular-nums">{fmt(m.instapay)}</p>{m.walletTips > 0 && <p className="text-[11px] text-slate-500">incl. any tips</p>}</div>
           <div><p className="text-xs uppercase text-slate-500">Vodafone Cash</p><p className="font-semibold tabular-nums">{fmt(m.vodafone)}</p></div>
           {m.online > 0 && <div><p className="text-xs uppercase text-slate-500">Online card</p><p className="font-semibold tabular-nums">{fmt(m.online)}</p></div>}
           <div><p className="text-xs uppercase text-slate-500">Paid to booking sites</p><p className="font-semibold tabular-nums">{fmt(m.sites)}</p><p className="text-[11px] text-slate-500">the site pays us later</p></div>

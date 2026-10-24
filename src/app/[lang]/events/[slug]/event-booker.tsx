@@ -46,7 +46,7 @@ export function EventBooker(props: {
   const M: Record<Method, { t: string; d: string; icon: React.ReactNode }> = {
     paymob: {
       t: ar ? 'بطاقة أو محفظة إلكترونية' : 'Card or mobile wallet',
-      d: ar ? 'فيزا، ماستركارد، ميزة، فودافون كاش… دفع آمن عبر Paymob والتذكرة تصلك فورًا.' : 'Visa, Mastercard, Meeza, Vodafone Cash… secure checkout by Paymob, ticket instantly.',
+      d: ar ? 'فيزا، ماستركارد أو ميزة. دفع آمن عبر Paymob والتذكرة تصلك فورًا.' : 'Visa, Mastercard or Meeza. Secure checkout by Paymob, ticket instantly.',
       icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 10h19M6 15h4" /></svg>,
     },
     instapay: {
@@ -144,6 +144,9 @@ export function EventBooker(props: {
 
       <fieldset className="evb-step">
         <legend><span className="evb-n">4</span>{ar ? 'الدفع' : 'Payment'}</legend>
+        {depositCents != null && depositCents > 0 && (methods.includes('instapay') || methods.includes('vodafone_cash')) && (
+          <p className="evb-fine">{ar ? `مع InstaPay أو فودافون كاش تدفع عربون ${fmt(depositCents, currency, ar)} للتذكرة الآن، والباقي في الفيلا يوم الإيفنت.` : `With InstaPay or Vodafone Cash you send a deposit of ${fmt(depositCents, currency, ar)} per ticket now, and pay the rest at the villa on the day.`}</p>
+        )}
         <div className="evb-pay" role="radiogroup">
           {methods.map((m) => (
             <label key={m} className={`evb-method ${method === m ? 'on' : ''}`}>
@@ -181,6 +184,7 @@ export function EventBooker(props: {
         <div>
           <small>{chosen ? `${chosen.label} · ${Math.min(qty, maxQty)} × ${fmt(unit, currency, ar)}` : ''}</small>
           <b className="num" dir="ltr">{fmt(total, currency, ar)}</b>
+          {deposit != null && deposit < total && <small>{ar ? `الآن ${fmt(deposit, currency, ar)} · في الفيلا ${fmt(total - deposit, currency, ar)}` : `Now ${fmt(deposit, currency, ar)} · at the villa ${fmt(total - deposit, currency, ar)}`}</small>}
         </div>
         <Submit
           label={method === 'paymob' ? (ar ? 'ادفع واحصل على التذكرة' : 'Pay & get ticket') : method === 'instapay' || method === 'vodafone_cash' ? (ar ? 'ابعت الحجز والإيصال' : 'Send booking & receipt') : (ar ? 'احجز مكاني' : 'Reserve my place')}

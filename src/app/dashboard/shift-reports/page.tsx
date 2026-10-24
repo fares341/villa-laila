@@ -13,7 +13,7 @@ import { Lbl, Btn, Flash } from '@/components/dash';
 export const dynamic = 'force-dynamic';
 
 const Z_ROWS: [string, string, string?][] = [
-  ['opening_float', 'Start of shift'], ['cash_sales', '+ Cash sales'], ['room_cash_payments', '+ Room payments (cash)'], ['event_cash', '+ Event tickets (cash)'],
+  ['opening_float', 'Start of shift'], ['cash_sales', '+ Cash sales'], ['room_cash_payments', '+ Guest bill payments (cash)'], ['event_cash', '+ Event tickets (cash)'],
   ['approved_expenses', '− Paid from drawer'], ['expected_cash', 'Should be in drawer', 'b'], ['counted_cash', 'Counted', 'b'],
 ];
 
@@ -23,7 +23,7 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
   const today = todayLocal();
   const from = sp.from && /^\d{4}-\d{2}-\d{2}$/.test(sp.from) ? sp.from : addDays(today, -13);
   const to = sp.to && /^\d{4}-\d{2}-\d{2}$/.test(sp.to) ? sp.to : today;
-  const tab = (['comps', 'expenses', 'shortages', 'taken', 'foreign', 'exchange', 'tips'] as const).find((t) => t === sp.tab) ?? 'shifts';
+  const tab = (['comps', 'expenses', 'shortages', 'taken', 'foreign', 'exchange', 'tips', 'change'] as const).find((t) => t === sp.tab) ?? 'shifts';
   const [shifts, comps, expenses] = await Promise.all([
     q<any>(`SELECT cs.*, s1.full_name cashier, s2.full_name closer FROM cash_shifts cs LEFT JOIN staff s1 ON s1.id=cs.staff_id LEFT JOIN staff s2 ON s2.id=cs.closed_by_staff
             WHERE cs.shift_no IS NOT NULL AND (COALESCE(cs.opened_at, cs.created_at) AT TIME ZONE 'Africa/Cairo')::date BETWEEN $1 AND $2
@@ -36,6 +36,10 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
     q<any>(`SELECT e.*, s.full_name staff, cs.shift_no FROM cash_expenses e LEFT JOIN staff s ON s.id=e.staff_id LEFT JOIN cash_shifts cs ON cs.id=e.shift_id
             WHERE e.date BETWEEN $1 AND $2 ORDER BY e.created_at DESC`, [from, to]),
   ]);
+  const changes = await q<any>(`SELECT o.*, s.full_name staff, sh.shift_no, s2.full_name settled_by, sh2.shift_no settled_shift_no FROM cash_change_owed o LEFT JOIN staff s ON s.id=o.staff_id LEFT JOIN cash_shifts sh ON sh.id=o.shift_id
+            LEFT JOIN staff s2 ON s2.id=o.settled_staff_id LEFT JOIN cash_shifts sh2 ON sh2.id=o.settled_shift_id
+            WHERE o.status='open' OR (o.created_at AT TIME ZONE 'Africa/Cairo')::date BETWEEN $1 AND $2 ORDER BY o.status <> 'open', o.created_at DESC`, [from, to]).catch(() => []);
+  const openChange = changes.filter((c: any) => c.status === 'open');
   const [shortages, taken, rates, exchanges, tips] = await Promise.all([
     q<any>(`SELECT cs.*, s.full_name staff, sh.shift_no, sh.closed_at, u.name resolved_name FROM cash_shortages cs LEFT JOIN staff s ON s.id=cs.staff_id
             LEFT JOIN cash_shifts sh ON sh.id=cs.shift_id LEFT JOIN users u ON u.id=cs.resolved_by
@@ -98,7 +102,7 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
       </Card>
 
       <nav className="mb-4 flex flex-wrap gap-2">
-        {[['shifts', 'Shift reports', 'receipt'], ['shortages', `Shortages${openShort.length ? ` (${openShort.length})` : ''}`, 'alert-triangle'], ['taken', 'Taken by owner', 'wallet'], ['exchange', 'Money exchange', 'arrow-left-right'], ['tips', 'Tips', 'gift'], ['expenses', 'Paid from drawer', 'banknote'], ['comps', 'Free (owner approved)', 'gift'], ['foreign', 'Card payments: foreign guests', 'credit-card']].map(([k, l, i]) => (
+        {[['shifts', 'Shift reports', 'receipt'], ['shortages', `Shortages${openShort.length ? ` (${openShort.length})` : ''}`, 'alert-triangle'], ['taken', 'Taken by owner', 'wallet'], ['exchange', 'Money exchange', 'arrow-left-right'], ['tips', 'Tips', 'gift'], ['change', `Change owed${openChange.length ? ` (${openChange.length})` : ''}`, 'clock'], ['expenses', 'Paid from drawer', 'banknote'], ['comps', 'Free (owner approved)', 'gift'], ['foreign', 'Card payments: foreign guests', 'credit-card']].map(([k, l, i]) => (
           <Link key={k} href={`?tab=${k}&${range}`} aria-current={tab === k ? 'page' : undefined}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${tab === k ? 'border-cocoa-800 bg-cocoa-800 text-white' : 'border-cocoa-200 bg-white text-cocoa-800 hover:border-cocoa-600'}`}><Icon name={i} size={15} /> {l}</Link>
         ))}
@@ -120,7 +124,7 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
                   <table className="w-full text-sm">
                     <thead><tr className="text-xs text-slate-500"><th />{Object.keys(z.currencies).map((c) => <th key={c} className="text-right">{c}</th>)}</tr></thead>
                     <tbody>
-                      {([['opening', 'Start of shift'], ['sales', '+ Cash sales'], ['payments', '+ Room payments (cash)'], ['events', '+ Event tickets (cash)'], ['exchange', '± Money exchange'], ['tips', '+ Tips (cash)'], ['expenses', '− Paid from drawer'], ['taken', '− Taken by owner'], ['expected', 'Should be in drawer'], ['counted', 'Counted']] as const).map(([k, l]) => (
+                      {([['opening', 'Start of shift'], ['sales', '+ Cash sales'], ['payments', '+ Guest bill payments (cash)'], ['events', '+ Event tickets (cash)'], ['exchange', '± Money exchange'], ['tips', '+ Tips (cash)'], ['change', '± Change for guests (kept − given back)'], ['expenses', '− Paid from drawer'], ['taken', '− Taken by owner'], ['expected', 'Should be in drawer'], ['counted', 'Counted']] as const).filter(([k]) => ['opening', 'expected', 'counted'].includes(k) || Object.keys(z.currencies).some((c) => Number(z.currencies[c]?.[k] ?? 0) !== 0)).map(([k, l]) => (
                         <tr key={k} className={k === 'expected' || k === 'counted' ? 'border-t border-slate-200 font-bold' : ''}><td className="py-1">{l}</td>
                           {Object.keys(z.currencies).map((c) => <td key={c} className="text-right tabular-nums">{z.currencies[c]?.[k] != null ? (Number(z.currencies[c][k]) / 100).toLocaleString('en-US') : '—'}</td>)}</tr>
                       ))}
@@ -207,12 +211,12 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
       {tab === 'taken' && (
         <Card title="Cash taken by the owner">
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-500"><tr><th className="py-2">When</th><th>By</th><th>Shift</th><th className="text-right">EGP</th><th className="text-right">USD</th><th className="text-right">EUR</th><th>Note</th></tr></thead>
+            <thead className="text-left text-slate-500"><tr><th className="py-2">When</th><th>By</th><th>Shift</th><th className="text-right">EGP</th><th className="text-right">USD</th><th className="text-right">EUR</th><th className="text-right">Other</th><th>Note</th></tr></thead>
             <tbody>{taken.map((t) => (
               <tr key={t.id} className="border-t border-slate-100"><td className="py-2">{dt(t.created_at)}</td><td>{t.full_name}</td><td>#{t.shift_no}</td>
                 <td className="text-right tabular-nums">{(Number(t.egp_cents) / 100).toLocaleString('en-US')}</td><td className="text-right tabular-nums">{(Number(t.usd_cents) / 100).toLocaleString('en-US')}</td>
-                <td className="text-right tabular-nums">{(Number(t.eur_cents) / 100).toLocaleString('en-US')}</td><td className="text-xs text-slate-500">{t.note}</td></tr>))}
-              {taken.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-slate-500">Nothing taken in this period.</td></tr>}
+                <td className="text-right tabular-nums">{(Number(t.eur_cents) / 100).toLocaleString('en-US')}</td><td className="text-right text-xs tabular-nums">{Object.entries((t.other ?? {}) as Record<string, number>).filter(([, v]) => Number(v) > 0).map(([k, v]) => `${k} ${(Number(v) / 100).toLocaleString('en-US')}`).join(' · ') || '—'}</td><td className="text-xs text-slate-500">{t.note}</td></tr>))}
+              {taken.length === 0 && <tr><td colSpan={8} className="py-6 text-center text-slate-500">Nothing taken in this period.</td></tr>}
             </tbody>
           </table>
         </Card>
@@ -237,15 +241,33 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
         <Card title="Tips">
           <p className="-mt-1 mb-3 text-xs text-slate-500">Tips guests added on top of what they paid on the POS. Not hostel income. Cash tips are in the drawer until shared.</p>
           <div className="mb-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-            {Object.entries(tips.reduce((a: Record<string, number>, t: any) => { const k = t.method === 'card' ? 'Card (EGP)' : t.currency; a[k] = (a[k] ?? 0) + Number(t.minor); return a; }, {})).map(([k, v]) => <span key={k}>{k}: <b className="tabular-nums">{(Number(v) / 100).toLocaleString('en-US')}</b></span>)}
+            {Object.entries(tips.reduce((a: Record<string, number>, t: any) => { const k = t.method === 'card' ? 'Card (EGP)' : t.method === 'instapay' ? 'InstaPay (EGP)' : t.method === 'vodafone_cash' ? 'Vodafone Cash (EGP)' : t.currency; a[k] = (a[k] ?? 0) + Number(t.minor); return a; }, {})).map(([k, v]) => <span key={k}>{k}: <b className="tabular-nums">{(Number(v) / 100).toLocaleString('en-US')}</b></span>)}
             {Object.entries(tips.reduce((a: Record<string, number>, t: any) => { a[t.staff ?? '—'] = (a[t.staff ?? '—'] ?? 0) + Number(t.egp_cents); return a; }, {})).map(([k, v]) => <span key={k} className="text-slate-600">{k}: {fmt(Number(v))}</span>)}
           </div>
           <table className="w-full text-sm">
             <thead className="text-left text-slate-500"><tr><th className="py-2">When</th><th>Guest</th><th>Received by</th><th>Shift</th><th>How</th><th className="text-right">Tip</th><th className="text-right">EGP value</th></tr></thead>
             <tbody>{tips.map((t: any) => (
-              <tr key={t.id} className="border-t border-slate-100"><td className="py-2">{dt(t.created_at)}</td><td>{t.guest ?? '—'}</td><td>{t.staff ?? '—'}</td><td>#{t.shift_no}</td><td>{t.method === 'card' ? 'Card' : 'Cash'}</td>
+              <tr key={t.id} className="border-t border-slate-100"><td className="py-2">{dt(t.created_at)}</td><td>{t.guest ?? '—'}</td><td>{t.staff ?? '—'}</td><td>#{t.shift_no}</td><td>{({ card: 'Card', cash: 'Cash', instapay: 'InstaPay', vodafone_cash: 'Vodafone Cash' } as Record<string, string>)[t.method] ?? t.method}{t.change_id ? ' (change left)' : ''}</td>
                 <td className="text-right tabular-nums">{t.currency} {(Number(t.minor) / 100).toLocaleString('en-US')}</td><td className="text-right tabular-nums">{fmt(Number(t.egp_cents))}</td></tr>))}
               {tips.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-slate-500">No tips in this period.</td></tr>}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {tab === 'change' && (
+        <Card title="Change owed to guests">
+          <p className="-mt-1 mb-3 text-xs text-slate-500">A guest paid with a bigger note and will come back for the change. The money stays in the drawer until reception marks it on the POS: given back, or kept as a tip.</p>
+          <table className="w-full text-sm">
+            <thead className="text-left text-slate-500"><tr><th className="py-2">When</th><th>Guest</th><th>For</th><th className="text-right">Guest gave</th><th className="text-right">Change</th><th>Taken by</th><th>Status</th></tr></thead>
+            <tbody>{changes.map((o: any) => (
+              <tr key={o.id} className="border-t border-slate-100 align-top"><td className="py-2">{dt(o.created_at)}</td><td>{o.guest}</td><td className="text-xs">{o.what}</td>
+                <td className="text-right tabular-nums">{o.gave_minor ? `${o.currency} ${(Number(o.gave_minor) / 100).toLocaleString('en-US')}` : '—'}</td>
+                <td className="text-right font-semibold tabular-nums">{o.currency} {(Number(o.minor) / 100).toLocaleString('en-US')}</td>
+                <td className="text-xs">{o.staff ?? '—'} · #{o.shift_no}</td>
+                <td>{o.status === 'open' ? <Pill tone="red">Waiting in the drawer</Pill> : <Pill tone={o.status === 'tip' ? 'slate' : 'green'}>{o.status === 'tip' ? 'Kept as tip' : 'Given back'}</Pill>}
+                  {o.settled_at && <div className="text-xs text-slate-500">{dt(o.settled_at)} · {o.settled_by ?? '—'} · #{o.settled_shift_no}</div>}</td></tr>))}
+              {changes.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-slate-500">No change owed in this period.</td></tr>}
             </tbody>
           </table>
         </Card>
