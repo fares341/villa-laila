@@ -3,13 +3,14 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { can } from '@/lib/permissions';
-import { todayLocal } from '@/lib/dates';
+import { todayLocal, addDays } from '@/lib/dates';
 import { Badge, PageHeader, Card, Flash, fmt, dt, Input, Lbl, Btn, BtnGhost, BtnDanger, Pill, HK_LABEL, sourceLabel, STATUS_LABEL } from '@/components/dash';
 import { Icon } from '@/components/icons';
 import { ConfirmButton } from '@/components/ConfirmButton';
 import { BookingError } from '@/services/errors';
 import { getFolio } from '@/services/pms/folio';
 import { moveOptions } from '@/services/pms/frontdesk';
+import { freeNightsAfter } from '@/services/pms/extend';
 import { confirmAction, rejectAction, cancelAction, noShowAction, changeDatesAction, addNoteAction, recordPaymentAction, verifyPaymentAction, createExtensionAction } from '../../actions';
 import { fdCheckIn, fdCheckOut, fdMoveRoom, folioCharge, folioVoid, folioRateOverride } from '../../pms-actions';
 
@@ -43,6 +44,8 @@ export default async function StayPage({ params, searchParams }: { params: Promi
     q<any>(`SELECT * FROM extension_requests WHERE reservation_id=$1 AND status IN ('pending','conflict') ORDER BY created_at DESC`, [id]),
     live ? moveOptions(id) : Promise.resolve({ from: '', options: [] as any[] }),
   ]);
+  const canExtend = ['confirmed', 'checked_in'].includes(res.status) && can(u.role, 'reservation.edit');
+  const freeAfter = canExtend ? await freeNightsAfter(id) : 0;
   const cur = f.currency;
   const today = todayLocal();
   const back = `/dashboard/reservations/${id}`;
@@ -79,6 +82,20 @@ export default async function StayPage({ params, searchParams }: { params: Promi
         <div className="rounded-xl border border-cocoa-200 bg-white p-4"><p className="text-xs uppercase tracking-wide text-cocoa-500">{balance > 0 ? 'Still to pay' : balance < 0 ? 'Guest credit' : 'Fully paid'}</p><p className={`text-2xl font-bold tabular-nums ${balance > 0 ? 'text-red-800' : balance < 0 ? 'text-sky-700' : 'text-emerald-700'}`}>{fmt(Math.abs(balance), cur)}</p></div>
         {balance > 0 && <a href={pos} target="_blank" rel="noopener" className={Btn + ' self-stretch px-6 text-base'}><Icon name="wallet" size={18} /> Take payment on POS</a>}
       </div>
+
+      {canExtend && (
+        <section id="extend" className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-cocoa-200 bg-white px-4 py-3">
+          <span className="me-1 text-sm font-semibold text-cocoa-800"><Icon name="calendar-days" size={16} className="me-1 inline-block align-[-3px]" />Extend stay</span>
+          {[1, 2, 3, 7].map((n) => (
+            <form key={n} action={createExtensionAction}><input type="hidden" name="id" value={id} /><input type="hidden" name="nights" value={n} />
+              <button disabled={n > freeAfter} title={n > freeAfter ? 'The same bed is taken then' : `New check-out ${addDays(res.check_out, n)}`} className={BtnGhost + ' disabled:opacity-40'}>+{n} night{n === 1 ? '' : 's'}</button></form>
+          ))}
+          <form action={createExtensionAction} className="flex items-center gap-2"><input type="hidden" name="id" value={id} />
+            <input type="date" name="newCheckOut" required min={addDays(res.check_out, 1)} aria-label="Extend until" className={Input + ' w-40'} />
+            <button className={BtnGhost + ' whitespace-nowrap'}>Extend until</button></form>
+          <span className="ms-auto text-xs text-slate-500">{freeAfter > 0 ? `Same bed free for ${freeAfter >= 30 ? '30+' : freeAfter} more night${freeAfter === 1 ? '' : 's'}. Extra nights go on the bill; take the money on the POS.` : 'The same bed is taken from check-out: move the guest to a free bed first (Dates & beds).'}</span>
+        </section>
+      )}
 
       <div className="grid gap-5 xl:grid-cols-3">
         <div className="space-y-5 xl:col-span-2">
@@ -203,13 +220,6 @@ export default async function StayPage({ params, searchParams }: { params: Promi
                   </form>
                 )}
               </div>
-              {['confirmed', 'checked_in'].includes(res.status) && can(u.role, 'extension.decide') && (
-                <form action={createExtensionAction} className="mt-5 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4"><input type="hidden" name="id" value={id} />
-                  <div><Lbl htmlFor="ne">Extend stay until</Lbl><input id="ne" type="date" name="newCheckOut" required min={res.check_out} className={Input} /></div>
-                  <button className={BtnGhost}>Extend stay</button>
-                  <p className="w-full text-xs text-slate-500">Keeps the same bed if it is free; the extra nights go on the bill.</p>
-                </form>
-              )}
               {ext.length > 0 && <p className="mt-3 text-sm text-amber-900">The guest asked to extend: {ext.map((e) => `until ${e.new_check_out}`).join(', ')}. <Link className="underline" href="/dashboard/extensions">Decide</Link></p>}
             </Card>
           )}

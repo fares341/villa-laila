@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '@/components/icons';
 import {
   posState, posStaffList, posUnlock, posLock, posClock, posOpenShift, posSale, posGuestFolio, posTakePayment, posExpense, posCloseShift, posManagers,
-  posTasks, posTaskSave, posTaskReassign, posTasksShare, posWashReady, posRunNotes, posHandover, posTaken, posExchange, posEventTickets, posPayEvent, posEventList, posSellEvent, posCheckInEvent, posTaxiConfirmed,
+  posTasks, posTaskSave, posTaskReassign, posTasksShare, posWashReady, posRunNotes, posHandover, posTaken, posExchange, posEventTickets, posPayEvent, posEventList, posSellEvent, posCheckInEvent, posExtend, posExtendInfo, posTaxiConfirmed,
 } from './actions';
 
 /* ───────── helpers ───────── */
@@ -366,11 +366,11 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
   const [events, setEvents] = useState<any[] | null>(null);
   const [guestQuery, setGuestQuery] = useState('');
   const [guestOpen, setGuestOpen] = useState(false);
-  const [method, setMethod] = useState<'cash' | 'card'>('cash');
+  const [method, setMethod] = useState<PM>('cash');
   const [cashCur, setCashCur] = useState<Cur>('EGP');
   const [catalog, setCatalog] = useState<Tour | null>(null);
   const curNow: Cur = method === 'cash' ? cashCur : 'EGP';
-  const [modal, setModal] = useState<null | 'custom' | 'comp' | 'pay' | 'close' | 'folio' | 'payment' | 'expense' | 'menu' | 'tasks' | 'taken' | 'exchange' | 'event'>(null);
+  const [modal, setModal] = useState<null | 'custom' | 'comp' | 'pay' | 'close' | 'folio' | 'payment' | 'expense' | 'menu' | 'tasks' | 'taken' | 'exchange' | 'event' | 'extend'>(null);
   const [busy, setBusy] = useState(false);
   const [payMode, setPayMode] = useState<'pay_now' | 'settle_all' | 'walk_in'>('pay_now');
   const guest = guests.find((g) => g.id === guestId) ?? null;
@@ -504,6 +504,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
                   {guest.state === 'credit' && <span className="pos-badge blue">Credit Balance: {egp(-guest.balance)}</span>}
                   <button className="pos-link" onClick={() => setModal('folio')}><Icon name="file-text" size={15} /> Bill</button>
                   <button className="pos-link" onClick={() => setModal('payment')}><Icon name="banknote" size={15} /> Receive payment</button>
+                  {['confirmed', 'checked_in'].includes(guest.status) && <button className="pos-link" onClick={() => setModal('extend')}><Icon name="calendar-days" size={15} /> Extend stay</button>}
                 </div>
               </div>
             ) : (
@@ -547,15 +548,12 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
             <span>Cart total</span><b className="num">{egp(total)}</b>
           </div>
 
-          <div className="pos-method" role="radiogroup" aria-label="Payment method">
-            <button role="radio" aria-checked={method === 'cash'} className={method === 'cash' ? 'on' : ''} onClick={() => setMethod('cash')}><Icon name="banknote" /> Cash</button>
-            <button role="radio" aria-checked={method === 'card'} className={method === 'card' ? 'on' : ''} onClick={() => setMethod('card')}><Icon name="credit-card" /> Card</button>
-          </div>
+          <MethodPicker value={method} onChange={setMethod} />
           {method === 'cash' && <CurSwitch value={cashCur} onChange={setCashCur} rates={st.rates} />}
 
           <div className="pos-actions">
             <button className="pos-btn primary" disabled={busy || !guest || !cart.length} onClick={() => run('charge_room')}><Icon name="bed" /> Charge to Room</button>
-            <button className="pos-btn accent" disabled={busy || !cart.length} onClick={() => setModal('pay')}><Icon name={method === 'cash' ? 'banknote' : 'credit-card'} /> Pay Now ({method === 'cash' ? 'Cash' : 'Card'})</button>
+            <button className="pos-btn accent" disabled={busy || !cart.length} onClick={() => setModal('pay')}><Icon name={method === 'cash' ? 'banknote' : method === 'card' ? 'credit-card' : 'wallet'} /> Pay Now ({PM_LABEL[method]})</button>
             <button className="pos-btn" disabled={busy || !guest || (guest.balance <= 0 && !cart.length)} onClick={() => cardOr('settle_all')}><Icon name="wallet" /> Settle Outstanding{guest && guest.balance + total > 0 ? ` · ${curNow === 'EGP' ? egp(guest.balance + total) : cur(inCur(guest.balance + total, curNow, st.rates), curNow)}` : ''}</button>
             <button className="pos-btn" disabled={busy || !cart.length} onClick={() => cardOr('walk_in')}><Icon name="user" /> Walk-in Direct Cashier</button>
             <button className="pos-btn" onClick={() => setModal('custom')}><Icon name="plus" /> Add Custom Charge</button>
@@ -630,7 +628,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
 
       {modal === 'custom' && <CustomCharge onClose={() => setModal(null)} onAdd={(name, cents, qty) => { add({ type: 'custom', name, unit: cents, qty }); setModal(null); }} />}
       {modal === 'pay' && <PayModal total={payMode === 'settle_all' && guest ? guest.balance + total : total} method={method} cashCur={curNow} rates={st.rates} guest={payMode === 'walk_in' ? null : guest} busy={busy}
-        onClose={() => { setModal(null); setPayMode('pay_now'); }} onConfirm={async (payer, tipMinor) => { const m = payMode; setPayMode('pay_now'); await run(m, { ...(payer ? { cardPayer: payerOut(payer) } : {}), ...(tipMinor > 0 ? { tipMinor } : {}) }); }} />}
+        onClose={() => { setModal(null); setPayMode('pay_now'); }} onConfirm={async (payer, tipMinor, walletRef) => { const m = payMode; setPayMode('pay_now'); await run(m, { ...(payer ? { cardPayer: payerOut(payer) } : {}), ...(tipMinor > 0 ? { tipMinor } : {}), ...(walletRef ? { walletRef } : {}) }); }} />}
       {modal === 'comp' && <CompModal cartTotal={total} guest={guest} onClose={() => setModal(null)} onDone={async (extra) => { const ok = await (async () => {
         setBusy(true);
         const r = await posSale({ reservationId: guestId, mode: 'comp', method, items: cart.map((l) => ({ type: l.type, id: l.id, name: l.name, qty: l.qty, unitCents: l.unit })), ...extra });
@@ -655,6 +653,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
         </Modal>
       )}
       {catalog && <TourCatalog t={catalog} onClose={() => setCatalog(null)} notify={notify} />}
+      {modal === 'extend' && guest && <ExtendModal guest={guest} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'event' && <EventPayModal guest={guest} initialEvent={evSell} onClose={() => { setModal(null); setEvSell(null); }} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'exchange' && <ExchangeModal rates={st.rates} guest={guest} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'taken' && <TakenModal extra={Object.keys(st.currencies ?? {}).filter((c) => !CURS.includes(c))} takers={st.takers} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
@@ -683,19 +682,21 @@ function CustomCharge({ onClose, onAdd }: { onClose: () => void; onAdd: (name: s
   );
 }
 
-function PayModal({ total, method, cashCur, rates, guest, busy, onClose, onConfirm }: { total: number; method: 'cash' | 'card'; cashCur: Cur; rates: any; guest: Guest | null; busy: boolean; onClose: () => void; onConfirm: (payer: Payer | null, tipMinor: number) => void }) {
+function PayModal({ total, method, cashCur, rates, guest, busy, onClose, onConfirm }: { total: number; method: PM; cashCur: Cur; rates: any; guest: Guest | null; busy: boolean; onClose: () => void; onConfirm: (payer: Payer | null, tipMinor: number, walletRef: string | null) => void }) {
   const [tip, setTip] = useState('');
+  const [ref, setRef] = useState('');
   const [payer, setPayer] = useState<Payer>(() => newPayer(guest));
   const unit = method === 'cash' ? cashCur : 'EGP';
   const due = inCur(total, unit, rates);
   return (
-    <Modal title={`Pay now · ${method === 'cash' ? `Cash ${cashCur}` : 'Card'}`} onClose={onClose}>
+    <Modal title={`Pay now · ${method === 'cash' ? `Cash ${cashCur}` : PM_LABEL[method]}`} onClose={onClose}>
       <div className="pos-big-total"><small>{guest ? `${guest.full_name} · this cart only` : 'This cart'}</small><b className="num">{cur(due, cashCur)}</b>
         {cashCur !== 'EGP' && <small>{egp(total)} at {rateOf(rates, cashCur).toFixed(2)} EGP per {cashCur}</small>}</div>
       {method === 'card' && <><p className="pos-fine">Run {egp(total + toCents(tip))} on the card terminal{toCents(tip) > 0 ? ' (with the tip)' : ''}, then confirm.</p><CardPayerFields value={payer} onChange={setPayer} /></>}
+      <WalletRef method={method} value={ref} onChange={setRef} />
       <TipField value={tip} onChange={setTip} unit={unit} />
       {toCents(tip) > 0 && <p className="pos-total"><span>Guest pays in total</span><b className="num">{cur(due + toCents(tip), unit)}</b></p>}
-      <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button><button className="pos-btn primary big" disabled={busy || (method === 'card' && !payerReady(payer))} onClick={() => onConfirm(method === 'card' ? payer : null, toCents(tip))}><Icon name="check" /> Confirm payment</button></div>
+      <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button><button className="pos-btn primary big" disabled={busy || (method === 'card' && !payerReady(payer)) || (isWal(method) && ref.trim().length < 4)} onClick={() => onConfirm(method === 'card' ? payer : null, toCents(tip), isWal(method) ? ref.trim() : null)}><Icon name="check" /> Confirm payment</button></div>
     </Modal>
   );
 }
@@ -764,10 +765,11 @@ function FolioModal({ guest, onClose }: { guest: Guest; onClose: () => void }) {
   );
 }
 
-function PaymentModal({ guest, method, rates, onClose, onDone }: { guest: Guest; method: 'cash' | 'card'; rates: any; onClose: () => void; onDone: (msg: string) => void }) {
+function PaymentModal({ guest, method, rates, onClose, onDone }: { guest: Guest; method: PM; rates: any; onClose: () => void; onDone: (msg: string) => void }) {
   const [c, setC] = useState<Cur>('EGP');
   const [amount, setAmount] = useState(guest.balance > 0 ? String(guest.balance / 100) : '');
-  const [m, setM] = useState<'cash' | 'card'>(method);
+  const [m, setM] = useState<PM>(method);
+  const [ref, setRef] = useState('');
   const [payer, setPayer] = useState<Payer>(() => newPayer(guest));
   const curPay: Cur = m === 'cash' ? c : 'EGP';
   const pick = (x: Cur) => { setC(x); if (guest.balance > 0) setAmount(String(inCur(guest.balance, x, rates) / 100)); };
@@ -777,17 +779,18 @@ function PaymentModal({ guest, method, rates, onClose, onDone }: { guest: Guest;
   return (
     <Modal title={`Receive payment · ${guest.full_name}`} onClose={onClose}>
       <p className="pos-fine">Balance due {egp(guest.balance)}. Part payments are fine; the rest stays on the guest’s account.</p>
-      <div className="pos-method"><button className={m === 'cash' ? 'on' : ''} onClick={() => setM('cash')}><Icon name="banknote" /> Cash</button><button className={m === 'card' ? 'on' : ''} onClick={() => { setM('card'); pick('EGP'); }}><Icon name="credit-card" /> Card (EGP)</button></div>
+      <MethodPicker value={m} onChange={(x) => { setM(x); if (x !== 'cash') pick('EGP'); }} />
       {m === 'cash' && <CurSwitch value={c} onChange={pick} rates={rates} />}
       <AmountPad label={`Amount received in ${curPay}`} value={amount} onChange={setAmount} unit={curPay} />
       {m === 'card' && <CardPayerFields value={payer} onChange={setPayer} />}
+      <WalletRef method={m} value={ref} onChange={setRef} />
       {curPay !== 'EGP' && toCents(amount) > 0 && <p className="pos-fine">Credited to the guest as {egp(Math.round(toCents(amount) * rateOf(rates, curPay)))} at {rateOf(rates, curPay).toFixed(2)}.</p>}
       <TipField value={tip} onChange={setTip} unit={curPay} />
       {err && <p className="pos-msg bad">{err}</p>}
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
-        <button className="pos-btn primary" disabled={busy || toCents(amount) <= 0 || (m === 'card' && !payerReady(payer))} onClick={async () => {
+        <button className="pos-btn primary" disabled={busy || toCents(amount) <= 0 || (m === 'card' && !payerReady(payer)) || (isWal(m) && ref.trim().length < 4)} onClick={async () => {
           setBusy(true); setErr(null);
-          const r = await posTakePayment(guest.id, toCents(amount), m, curPay, m === 'card' ? payerOut(payer) : null, toCents(tip));
+          const r = await posTakePayment(guest.id, toCents(amount), m, curPay, m === 'card' ? payerOut(payer) : null, toCents(tip), isWal(m) ? ref.trim() : null);
           setBusy(false);
           if (!r.ok) { setErr(r.error); return; }
           const left = guest.balance - r.data.egp;
@@ -1064,6 +1067,66 @@ function TaskCard({ t, d, onSave, onWash, onTaxi }: { t: TaskRow; d: any; onSave
   );
 }
 
+/** Extend the selected guest's stay by some nights (same bed); the new balance can be paid straight away. */
+function ExtendModal({ guest, onClose, onDone }: { guest: Guest; onClose: () => void; onDone: (m: string) => void }) {
+  const [n, setN] = useState(1);
+  const [info, setInfo] = useState<{ freeNights: number; checkOut: string } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { posExtendInfo(guest.id).then((r) => (r.ok ? setInfo(r.data) : setErr(r.error))); }, [guest.id]);
+  const max = info?.freeNights ?? 0;
+  const newOut = info ? new Date(Date.parse(info.checkOut + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10) : '';
+  return (
+    <Modal title={`Extend stay · ${guest.full_name}`} onClose={onClose}>
+      {!info ? <p className="pos-fine">{err ?? 'Checking the bed…'}</p> : max === 0 ? (
+        <p className="pos-msg bad">The same bed is taken from {info.checkOut}. Move the guest to a free bed on the dashboard first, then extend.</p>
+      ) : (
+        <>
+          <p className="pos-fine">Check-out now {info.checkOut}. Same bed free for {max >= 30 ? '30+' : max} more night{max === 1 ? '' : 's'}.</p>
+          <div className="pos-field"><label>Extra nights</label>
+            <div className="pos-qty big"><button onClick={() => setN((x) => Math.max(1, x - 1))} aria-label="Less"><Icon name="minus" /></button><span className="num">{n}</span><button onClick={() => setN((x) => Math.min(max, x + 1))} aria-label="More"><Icon name="plus" /></button></div></div>
+          <p className="pos-total"><span>New check-out</span><b className="num">{newOut}</b></p>
+          <p className="pos-fine">The nights are priced per date and added to the bill. Then use Receive payment or Settle.</p>
+        </>
+      )}
+      {err && info && <p className="pos-msg bad">{err}</p>}
+      <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
+        <button className="pos-btn primary" disabled={busy || !info || max === 0} onClick={async () => {
+          setBusy(true); setErr(null);
+          const r = await posExtend(guest.id, n);
+          setBusy(false);
+          if (!r.ok) { setErr(r.error); return; }
+          onDone(`Extended to ${r.data.newCheckOut} (+${r.data.nights} night${r.data.nights === 1 ? '' : 's'}, ${egp(r.data.extraCents)}) · to pay ${egp(Math.max(0, r.data.balance))}`);
+        }}><Icon name="check" /> Extend</button>
+      </div>
+    </Modal>
+  );
+}
+
+type PM = 'cash' | 'card' | 'instapay' | 'vodafone_cash';
+const PM_LABEL: Record<PM, string> = { cash: 'Cash', card: 'Card', instapay: 'InstaPay', vodafone_cash: 'Vodafone Cash' };
+const isWal = (m: PM) => m === 'instapay' || m === 'vodafone_cash';
+/** Cash / Card / InstaPay / Vodafone Cash. InstaPay and Vodafone Cash are EGP and need the transaction number. */
+function MethodPicker({ value, onChange }: { value: PM; onChange: (m: PM) => void }) {
+  const icon: Record<PM, string> = { cash: 'banknote', card: 'credit-card', instapay: 'wallet', vodafone_cash: 'wallet' };
+  return (
+    <div className="pos-method four" role="radiogroup" aria-label="Payment method">
+      {(['cash', 'card', 'instapay', 'vodafone_cash'] as PM[]).map((m) => (
+        <button key={m} type="button" role="radio" aria-checked={value === m} className={value === m ? 'on' : ''} onClick={() => onChange(m)}><Icon name={icon[m]} /> {PM_LABEL[m]}</button>
+      ))}
+    </div>
+  );
+}
+/** Transaction number shown on the guest's phone after an InstaPay / Vodafone Cash transfer. */
+function WalletRef({ method, value, onChange }: { method: PM; value: string; onChange: (v: string) => void }) {
+  if (!isWal(method)) return null;
+  return (
+    <div className="pos-field"><label htmlFor="w-ref">{PM_LABEL[method]} transaction number</label>
+      <input id="w-ref" value={value} onChange={(e) => onChange(e.target.value)} maxLength={60} autoComplete="off" placeholder="From the guest's phone after the transfer" />
+      <p className="pos-fine">Check the transfer arrived ({method === 'instapay' ? 'InstaPay' : 'Vodafone Cash'} account of the hostel), then confirm. Not counted in the cash drawer.</p></div>
+  );
+}
+
 /** Optional tip on top of a payment, in the same currency. Recorded apart from the price (it is not hostel income). */
 function TipField({ value, onChange, unit }: { value: string; onChange: (v: string) => void; unit: string }) {
   const steps = unit === 'EGP' ? ['20', '50', '100'] : ['1', '2', '5'];
@@ -1093,7 +1156,8 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
   const [opt, setOpt] = useState('');
   const [name, setName] = useState(guest?.full_name ?? '');
   const [phone, setPhone] = useState('');
-  const [m, setM] = useState<'cash' | 'card'>('cash');
+  const [m, setM] = useState<PM>('cash');
+  const [ref, setRef] = useState('');
   const [payer, setPayer] = useState<Payer>(newPayer(guest));
   const [tip, setTip] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -1171,26 +1235,24 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
       )}
       {ready && (
         <>
-          <div className="pos-method" role="radiogroup" aria-label="Payment method">
-            <button type="button" role="radio" aria-checked={m === 'cash'} className={m === 'cash' ? 'on' : ''} onClick={() => setM('cash')}><Icon name="banknote" /> Cash</button>
-            <button type="button" role="radio" aria-checked={m === 'card'} className={m === 'card' ? 'on' : ''} onClick={() => setM('card')}><Icon name="credit-card" /> Card</button>
-          </div>
+          <MethodPicker value={m} onChange={setM} />
           {m === 'card' && <CardPayerFields value={payer} onChange={setPayer} />}
+          <WalletRef method={m} value={ref} onChange={setRef} />
           <TipField value={tip} onChange={setTip} unit="EGP" />
           <p className="pos-total"><span>To pay{toCents(tip) > 0 ? ` (+ tip ${egp(toCents(tip))})` : ''}</span><b className="num">{egp(total + toCents(tip))}</b></p>
         </>
       )}
       {err && <p className="pos-msg bad">{err}</p>}
       <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
-        <button className="pos-btn primary" disabled={busy || !ready || (m === 'card' && !payerReady(payer))} onClick={async () => {
+        <button className="pos-btn primary" disabled={busy || !ready || (m === 'card' && !payerReady(payer)) || (isWal(m) && ref.trim().length < 4)} onClick={async () => {
           setBusy(true); setErr(null);
-          const common = { method: m, cardPayer: m === 'card' ? payerOut(payer) : null, tipMinor: toCents(tip) };
+          const common = { method: m, cardPayer: m === 'card' ? payerOut(payer) : null, tipMinor: toCents(tip), walletRef: isWal(m) ? ref.trim() : null };
           const r = mode === 'sell'
             ? await posSellEvent({ eventId: evId!, date, quantity: qty, optionKey: opt || null, fullName: name, phone: phone || null, reservationId: guest?.id ?? null, ...common })
             : await posPayEvent({ bookingId: pick.id, ...common });
           setBusy(false);
           if (!r.ok) { setErr(r.error); return; }
-          onDone(`Ticket ${r.data.ticket} paid · ${egp(r.data.cents)} ${m === 'cash' ? 'cash' : 'by card'}${toCents(tip) > 0 ? ` · tip ${egp(toCents(tip))}` : ''}`);
+          onDone(`Ticket ${r.data.ticket} paid · ${egp(r.data.cents)} ${m === 'cash' ? 'cash' : 'by ' + PM_LABEL[m]}${toCents(tip) > 0 ? ` · tip ${egp(toCents(tip))}` : ''}`);
         }}><Icon name="check" /> {mode === 'sell' ? 'Sell & take payment' : 'Take payment'}</button>
       </div>
     </Modal>

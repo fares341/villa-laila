@@ -128,16 +128,12 @@ export async function verifyPaymentAction(f: FormData) {
 
 /* ───── extensions ───── */
 export async function createExtensionAction(f: FormData) {
-  const u = await requireUser('extension.decide'); const id = S(f, 'id');
+  const u = await requireUser('reservation.edit'); const id = S(f, 'id');
   return run(`/dashboard/reservations/${id}`, async () => {
-    const e = await requestExtension(id, S(f, 'newCheckOut'), 'staff:' + u.email);
-    if (e.status !== 'pending') return `Cannot extend: ${e.conflict_detail}. Nothing was changed.`;
-    // Staff extending at the desk: applied straight away (guest requests still wait in Stay extensions).
-    const before = await snapshotStay(id);
-    const r = await decideExtension((e as any).id, 'approve', u.email, u.id);
-    if (r.status === 'conflict') return `Cannot extend: ${r.detail}. Nothing was changed.`;
-    await afterStayChange(id, before, u.id, 'extension.apply');
-    return `Stay extended to ${e.new_check_out} (+${e.extra_nights} night(s), EGP ${(e.extra_cents / 100).toLocaleString('en-US')} added to the bill).`;
+    const { extendStay } = await import('@/services/pms/extend');
+    const nights = parseInt(S(f, 'nights'), 10);
+    const r = await extendStay(id, nights > 0 ? { nights } : { newCheckOut: S(f, 'newCheckOut') }, u.email, u.id);
+    return `Stay extended to ${r.newCheckOut} (+${r.nights} night${r.nights === 1 ? '' : 's'}, EGP ${(r.extraCents / 100).toLocaleString('en-US')} added to the bill).${r.balance > 0 ? ` Still to pay: EGP ${(r.balance / 100).toLocaleString('en-US')} on the POS.` : ''}`;
   });
 }
 export async function decideExtensionAction(f: FormData) {

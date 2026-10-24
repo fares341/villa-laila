@@ -12,7 +12,18 @@ import { onDrawerReceived, onTourSold } from './tasks';
 
 export type PosItemInput = { type: 'product' | 'tour' | 'custom'; id?: string; name?: string; qty: number; unitCents?: number };
 export type SettleMode = 'charge_room' | 'pay_now' | 'settle_all' | 'walk_in' | 'comp';
-export type PayMethod = 'cash' | 'card';
+export type PayMethod = 'cash' | 'card' | 'instapay' | 'vodafone_cash';
+/** InstaPay / Vodafone Cash at the desk: EGP only, the transaction number is kept so the owner can match it in the app. */
+export const isWalletMethod = (m: unknown): m is 'instapay' | 'vodafone_cash' => m === 'instapay' || m === 'vodafone_cash';
+const payMethodOf = (m: unknown): PayMethod => (m === 'card' || isWalletMethod(m) ? m : 'cash');
+const walletRefOf = (m: PayMethod, ref: unknown) => {
+  if (!isWalletMethod(m)) return null;
+  const r = String(ref ?? '').trim().replace(/\s+/g, ' ');
+  if (r.length < 4) throw new BookingError('INVALID_INPUT', `${m === 'instapay' ? 'InstaPay' : 'Vodafone Cash'}: write the transaction number from the guest's phone`);
+  return r.slice(0, 60);
+};
+/** How a payment method is stored in service_orders / payments. */
+const storedMethod = (m: PayMethod) => (m === 'card' ? 'card_terminal' : m);
 
 /* ───────── Shift ───────── */
 
@@ -98,6 +109,16 @@ export async function shiftTotals(shiftId: string) {
   // Event tickets: only the part taken on the POS (a deposit paid online is not in this drawer).
   const ev = (await q<any>(`SELECT COALESCE(sum(pos_cents),0)::bigint c FROM event_bookings WHERE shift_id=$1 AND status <> 'cancelled' AND pos_method='cash'`, [shiftId]))[0];
   const evCard = (await q<any>(`SELECT COALESCE(sum(pos_cents),0)::bigint c FROM event_bookings WHERE shift_id=$1 AND status <> 'cancelled' AND pos_method='card'`, [shiftId]))[0];
+  // InstaPay / Vodafone Cash taken on the POS this shift (not in the drawer; the owner matches them in the app).
+  const wal = (await q<any>(`SELECT
+      COALESCE((SELECT sum(amount_cents) FROM service_orders WHERE shift_id=$1 AND payment_status='paid' AND payment_method='instapay'),0)
+      + COALESCE((SELECT sum(amount_cents) FROM payments WHERE shift_id=$1 AND status='verified' AND method='instapay'),0)
+      + COALESCE((SELECT sum(pos_cents) FROM event_bookings WHERE shift_id=$1 AND status <> 'cancelled' AND pos_method='instapay'),0)
+      + COALESCE((SELECT sum(minor) FROM cash_tips WHERE shift_id=$1 AND method='instapay'),0) AS instapay,
+      COALESCE((SELECT sum(amount_cents) FROM service_orders WHERE shift_id=$1 AND payment_status='paid' AND payment_method='vodafone_cash'),0)
+      + COALESCE((SELECT sum(amount_cents) FROM payments WHERE shift_id=$1 AND status='verified' AND method='vodafone_cash'),0)
+      + COALESCE((SELECT sum(pos_cents) FROM event_bookings WHERE shift_id=$1 AND status <> 'cancelled' AND pos_method='vodafone_cash'),0)
+      + COALESCE((SELECT sum(minor) FROM cash_tips WHERE shift_id=$1 AND method='vodafone_cash'),0) AS vodafone`, [shiftId]))[0];
   // Money exchange: foreign notes come in, EGP goes out (not a sale).
   const exchRows = await q<any>(`SELECT currency cur, COALESCE(sum(foreign_minor),0)::bigint n, COALESCE(sum(egp_cents),0)::bigint egp FROM cash_exchanges WHERE shift_id=$1 GROUP BY currency`, [shiftId]);
   const exchBy: Record<string, number> = { EGP: -exchRows.reduce((a, r) => a + Number(r.egp), 0) };
@@ -121,7 +142,7 @@ export async function shiftTotals(shiftId: string) {
   }
   const egp = currencies.EGP;
   return {
-    shift: s, opening: egp.opening, cashSales: egp.sales, cardSales: Number(sales.card_sales) + Number(evCard.c), eventCard: Number(evCard.c), cardTips: Number(tipsCard.n), tipsEgp: Number(tipsAll.egp), roomCharges: Number(sales.room_charges),
+    shift: s, opening: egp.opening, cashSales: egp.sales, cardSales: Number(sales.card_sales) + Number(evCard.c), eventCard: Number(evCard.c), cardTips: Number(tipsCard.n), tipsEgp: Number(tipsAll.egp), instapay: Number(wal.instapay), vodafone: Number(wal.vodafone), roomCharges: Number(sales.room_charges),
     roomCashPayments: egp.payments, eventCash: egp.events, roomCardPayments: Number(pays.card), expenses: egp.expenses, taken: egp.taken, comps: Number(comps.c),
     tourProfit: Number(sales.tour_profit), salesCount: sales.sales_count, expectedCash: egp.expected, currencies,
     allCashEgp: Number(sales.cash_sales) + Number(pays.cash),
@@ -186,9 +207,13 @@ export async function moneyByCurrency(from: string, to: string) {
       + (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method='card_terminal' AND status='verified' AND ${day('COALESCE(verified_at, created_at)')})
       + (SELECT COALESCE(sum(pos_cents),0) FROM event_bookings WHERE pos_method='card' AND pos_cents > 0 AND ${day('pos_paid_at')}) card,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method='instapay' AND status='verified' AND ${day('COALESCE(verified_at, created_at)')})
-      + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND provider='instapay' AND status='verified' AND ${day('verified_at')}) instapay,
+      + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND provider='instapay' AND status='verified' AND ${day('verified_at')})
+      + (SELECT COALESCE(sum(amount_cents),0) FROM service_orders WHERE payment_method='instapay' AND payment_status='paid' AND ${day('created_at')})
+      + (SELECT COALESCE(sum(pos_cents),0) FROM event_bookings WHERE pos_method='instapay' AND pos_cents > 0 AND ${day('pos_paid_at')}) instapay,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method='vodafone_cash' AND status='verified' AND ${day('COALESCE(verified_at, created_at)')})
-      + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND provider='vodafone_cash' AND status='verified' AND ${day('verified_at')}) vodafone,
+      + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND provider='vodafone_cash' AND status='verified' AND ${day('verified_at')})
+      + (SELECT COALESCE(sum(amount_cents),0) FROM service_orders WHERE payment_method='vodafone_cash' AND payment_status='paid' AND ${day('created_at')})
+      + (SELECT COALESCE(sum(pos_cents),0) FROM event_bookings WHERE pos_method='vodafone_cash' AND pos_cents > 0 AND ${day('pos_paid_at')}) vodafone,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method IN ('paymob','online_provider') AND status='verified' AND ${day('COALESCE(verified_at, created_at)')})
       + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND provider='paymob' AND status='paid' AND ${day('updated_at')}) online,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method='channel_prepaid' AND status='verified' AND ${day('created_at')}) sites,
@@ -221,7 +246,7 @@ export async function closePosShiftBlind(shiftId: string, counted: Partial<Count
     shift_no: t.shift.shift_no, opened_at: t.shift.opened_at, closed_at: closedAt.toISOString(),
     opening_float: t.opening, cash_sales: t.cashSales, room_cash_payments: t.roomCashPayments, event_cash: t.eventCash, approved_expenses: t.expenses, taken: t.taken,
     expected_cash: t.expectedCash, counted_cash: c.EGP, variance, card_sales: t.cardSales, room_card_payments: t.roomCardPayments,
-    card_tips: t.cardTips, tips_egp: t.tipsEgp,
+    card_tips: t.cardTips, tips_egp: t.tipsEgp, instapay: t.instapay, vodafone: t.vodafone,
     room_charges: t.roomCharges, owner_comps: t.comps, tour_profit: t.tourProfit, sales_count: t.salesCount, hours_worked: Math.round(hours * 100) / 100,
     currencies,
   };
@@ -306,13 +331,14 @@ export async function posEvents() {
 }
 
 /** A ticket bought at the hostel on the POS (not booked online): created already paid, cash or card. */
-export async function sellEventTicket(shiftId: string, input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: 'cash' | 'card'; cardPayer?: CardPayer | null; tipMinor?: number; staffName: string; staffId?: string | null }) {
+export async function sellEventTicket(shiftId: string, input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: PayMethod; walletRef?: string | null; cardPayer?: CardPayer | null; tipMinor?: number; staffName: string; staffId?: string | null }) {
   const { EVENT_COLS, seatsTaken, makeTicketCode } = await import('../events');
   const { isBookableDate } = await import('@/lib/event-dates');
   const qty = Math.trunc(input.quantity);
   if (!(qty >= 1 && qty <= 20)) throw new BookingError('INVALID_INPUT', 'Number of tickets: 1 to 20');
   if (!input.fullName?.trim() || input.fullName.trim().length < 2) throw new BookingError('INVALID_INPUT', 'Write the guest name');
   const payer = input.method === 'card' ? cleanPayer(input.cardPayer) : null;
+  const walletRef = walletRefOf(payMethodOf(input.method), input.walletRef);
   const sh = (await q<any>(`SELECT shift_no FROM cash_shifts WHERE id=$1 AND status='open'`, [shiftId]))[0];
   if (!sh) throw new BookingError('BAD_STATE', 'The shift is closed');
   return tx(async (c) => {
@@ -337,10 +363,10 @@ export async function sellEventTicket(shiftId: string, input: { eventId: string;
     for (let i = 0; i < 5 && (await c.query('SELECT 1 FROM event_bookings WHERE ticket_code=$1', [code])).rows[0]; i++) code = makeTicketCode();
     const total = unit * qty;
     const b = (await c.query(`INSERT INTO event_bookings(ticket_code,event_id,event_date,quantity,option_key,is_hotel_guest,stay_reference,full_name,email,phone,language,
-        unit_price_cents,total_cents,currency,pay_method,status,paid_at,shift_id,staff_note,confirmed_at,paid_cents,pos_cents,pos_method,pos_paid_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'',$9,'en',$10,$11,$12,$13,'paid',now(),$14,$15,now(),$11,$11,$13,now()) RETURNING id, ticket_code, total_cents`,
-      [code, ev.id, input.date, qty, optionKey, !!stayRef, stayRef, input.fullName.trim(), input.phone?.trim() || null, unit, total, ev.currency ?? 'EGP', input.method, shiftId,
-        `Sold on the POS · shift #${sh.shift_no} · ${input.staffName}`])).rows[0];
+        unit_price_cents,total_cents,currency,pay_method,status,paid_at,shift_id,staff_note,confirmed_at,paid_cents,pos_cents,pos_method,pos_paid_at,pos_ref)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'',$9,'en',$10,$11,$12,$13,'paid',now(),$14,$15,now(),$11,$11,$13,now(),$16) RETURNING id, ticket_code, total_cents`,
+      [code, ev.id, input.date, qty, optionKey, !!stayRef, stayRef, input.fullName.trim(), input.phone?.trim() || null, unit, total, ev.currency ?? 'EGP', payMethodOf(input.method), shiftId,
+        `Sold on the POS · shift #${sh.shift_no} · ${input.staffName}`, walletRef])).rows[0];
     if (payer) await recordCardPayer(c as unknown as Q, payer, { amountCents: total, source: 'event', shiftId, staffName: input.staffName, paidFor: `Event ticket ${b.ticket_code}` });
     await addTip(c, { shiftId, staffId: input.staffId ?? null, method: input.method, currency: 'EGP', minor: input.tipMinor, rate: 1, eventBookingId: b.id, guest: input.fullName });
     await audit('pos:' + input.staffName, 'event_booking.pos_sale', 'event_booking', b.id, { qty, total, method: input.method, shift: sh.shift_no }, c as unknown as Q);
@@ -349,18 +375,19 @@ export async function sellEventTicket(shiftId: string, input: { eventId: string;
 }
 
 /** Event ticket paid on the POS: cash into the drawer or card on the machine (foreign card payers on the daily list). */
-export async function payEventTicket(shiftId: string, input: { bookingId: string; method: 'cash' | 'card'; staffName: string; staffId?: string | null; cardPayer?: CardPayer | null; tipMinor?: number }) {
+export async function payEventTicket(shiftId: string, input: { bookingId: string; method: PayMethod; walletRef?: string | null; staffName: string; staffId?: string | null; cardPayer?: CardPayer | null; tipMinor?: number }) {
   const payer = input.method === 'card' ? cleanPayer(input.cardPayer) : null;
+  const walletRef = walletRefOf(payMethodOf(input.method), input.walletRef);
   const sh = (await q<any>(`SELECT shift_no FROM cash_shifts WHERE id=$1 AND status='open'`, [shiftId]))[0];
   if (!sh) throw new BookingError('BAD_STATE', 'The shift is closed');
   return tx(async (c) => {
     // Only what is left (a deposit paid online stays paid online).
     const b = (await c.query(`UPDATE event_bookings SET status='paid', paid_at=now(), hold_expires_at=NULL, shift_id=$2,
                                 pay_method=CASE WHEN paid_cents > 0 THEN pay_method ELSE $3 END,
-                                pos_cents=total_cents - paid_cents, pos_method=$3, pos_paid_at=now(), paid_cents=total_cents,
+                                pos_cents=total_cents - paid_cents, pos_method=$3, pos_paid_at=now(), paid_cents=total_cents, pos_ref=$5,
                                 staff_note=COALESCE(staff_note || ' · ', '') || $4, updated_at=now()
                               WHERE id=$1 AND status IN ('pay_on_site','awaiting_payment','expired') AND total_cents > paid_cents RETURNING id, pos_cents total_cents, ticket_code`,
-      [input.bookingId, shiftId, input.method, `Rest paid ${input.method} on the POS · shift #${sh.shift_no} · ${input.staffName}`])).rows[0];
+      [input.bookingId, shiftId, payMethodOf(input.method), `Rest paid ${input.method} on the POS · shift #${sh.shift_no} · ${input.staffName}`, walletRef])).rows[0];
     if (!b) throw new BookingError('BAD_STATE', 'This ticket is already paid, its receipt is being checked, or it was cancelled');
     if (payer) await recordCardPayer(c as unknown as Q, payer, { amountCents: Number(b.total_cents), source: 'event', shiftId, staffName: input.staffName, paidFor: `Event ticket ${b.ticket_code}` });
     await audit('pos:' + input.staffName, 'event_booking.paid', 'event_booking', b.id, { method: input.method, shift: sh.shift_no }, c as unknown as Q);
@@ -470,16 +497,17 @@ export type SaleInput = {
   reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod;
   compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean;
   cashCurrency?: string;     // cash only: EGP, USD, EUR or a rare currency (GBP, SAR…) physically received
+  walletRef?: string | null; // InstaPay / Vodafone Cash: transaction number
   cardPayer?: CardPayer | null; // card only: foreign guest's passport details (daily Excel)
   tipMinor?: number;         // tip on top, in the same currency as the payment (EGP for card)
 };
 
 /** A tip on top of a payment: cash goes into the drawer in its own currency, card tips are on the card machine. */
-async function addTip(c: { query: (s: string, a?: any[]) => Promise<any> }, v: { shiftId: string; staffId: string | null; method: 'cash' | 'card'; currency: string; minor?: number | null; rate: number; saleId?: string | null; paymentId?: string | null; eventBookingId?: string | null; guest?: string | null }) {
+async function addTip(c: { query: (s: string, a?: any[]) => Promise<any> }, v: { shiftId: string; staffId: string | null; method: PayMethod; currency: string; minor?: number | null; rate: number; saleId?: string | null; paymentId?: string | null; eventBookingId?: string | null; guest?: string | null }) {
   const minor = Math.round(Number(v.minor ?? 0));
   if (!(minor > 0)) return 0;
   if (minor > 100000000) throw new BookingError('INVALID_INPUT', 'Tip too large');
-  const currency = v.method === 'card' ? 'EGP' : v.currency;
+  const currency = v.method === 'cash' ? v.currency : 'EGP';
   const egp = currency === 'EGP' ? minor : Math.round(minor * v.rate);
   await c.query(`INSERT INTO cash_tips(shift_id,staff_id,method,currency,minor,egp_cents,sale_id,payment_id,event_booking_id,guest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
     [v.shiftId, v.staffId, v.method, currency, minor, egp, v.saleId ?? null, v.paymentId ?? null, v.eventBookingId ?? null, v.guest ?? null]);
@@ -493,7 +521,8 @@ export async function processSale(input: SaleInput) {
   const guestModes: SettleMode[] = ['charge_room', 'settle_all'];
   if (guestModes.includes(input.mode) && !input.reservationId) throw new BookingError('INVALID_INPUT', 'Select an in-house guest first');
   if (input.mode === 'walk_in' && input.reservationId) input.reservationId = null;
-  const method: PayMethod = input.method === 'card' ? 'card' : 'cash';
+  const method: PayMethod = payMethodOf(input.method);
+  const walletRef = input.mode === 'charge_room' || input.mode === 'comp' ? null : walletRefOf(method, input.walletRef);
   let approver: Awaited<ReturnType<typeof verifyPin>> = null;
   if (input.mode === 'comp') {
     if (!input.compNote?.trim()) throw new BookingError('INVALID_INPUT', 'An approval note is required for an owner comp');
@@ -519,7 +548,7 @@ export async function processSale(input: SaleInput) {
 
     // How each line is recorded
     const toRoom = input.mode === 'charge_room' || input.mode === 'settle_all' || (input.mode === 'comp' && !!res);
-    const pmethod = input.mode === 'comp' && !res ? 'comp' : toRoom ? 'room_charge' : method === 'card' ? 'card_terminal' : 'cash';
+    const pmethod = input.mode === 'comp' && !res ? 'comp' : toRoom ? 'room_charge' : storedMethod(method);
     const pstatus = input.mode === 'comp' && !res ? 'comp' : toRoom ? 'charged_to_room' : 'paid';
 
     const tourLines: { id: string; name: string; qty: number }[] = [];
@@ -528,11 +557,11 @@ export async function processSale(input: SaleInput) {
       const orderNo = `SO-${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 1000)}`;
       const so = (await c.query(
         `INSERT INTO service_orders(order_number,order_date,reservation_id,guest_name,room_number,service_type,product_id,quantity,amount_cents,currency,payment_method,payment_status,staff_name,comment,
-           sale_id,shift_id,pos_staff_id,unit_cost_cents,unit_price_cents,item_name,tour_id,comp_note,comp_approved_by,paid_currency,paid_amount_minor,fx_rate)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'EGP',$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25) RETURNING id`,
+           sale_id,shift_id,pos_staff_id,unit_cost_cents,unit_price_cents,item_name,tour_id,comp_note,comp_approved_by,paid_currency,paid_amount_minor,fx_rate,wallet_ref)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'EGP',$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26) RETURNING id`,
         [orderNo, todayLocal(), res?.id ?? null, res?.full_name ?? 'Walk-in', room, l.serviceType, l.productId, l.qty, amount, pmethod, pstatus, input.staffName, null,
           saleId, input.shiftId, input.staffId, l.cost, l.unit, l.name, l.tourId, input.mode === 'comp' ? input.compNote : null, approver?.id ?? null,
-          pmethod === 'cash' ? cashCur : 'EGP', pmethod === 'cash' ? foreign(amount) : null, pmethod === 'cash' && cashCur !== 'EGP' ? rate : null])).rows[0];
+          pmethod === 'cash' ? cashCur : 'EGP', pmethod === 'cash' ? foreign(amount) : null, pmethod === 'cash' && cashCur !== 'EGP' ? rate : null, pmethod === storedMethod(method) ? walletRef : null])).rows[0];
       if (l.kind === 'tour') tourLines.push({ id: so.id, name: l.name, qty: l.qty });
       if (l.trackStock && l.productId) {
         const p = (await c.query(`UPDATE products SET stock_quantity = stock_quantity - $2 WHERE id=$1 RETURNING stock_quantity`, [l.productId, l.qty])).rows[0];
@@ -559,7 +588,7 @@ export async function processSale(input: SaleInput) {
         paidCents = balance;
         await c.query(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at,shift_id,staff_id,cash_currency,cash_amount_minor,fx_rate)
                        VALUES($1,$2,$3,$4,'verified',$5,$6,$6,now(),$7,$8,$9,$10,$11)`,
-          [res.id, balance, method === 'card' ? 'card_terminal' : 'cash', `POS shift #${shift.shift_no}`, `Settled at POS by ${input.staffName}`, input.deviceUserId, input.shiftId, input.staffId,
+          [res.id, balance, storedMethod(method), walletRef ?? `POS shift #${shift.shift_no}`, `Settled at POS by ${input.staffName}${walletRef ? ` · shift #${shift.shift_no}` : ''}`, input.deviceUserId, input.shiftId, input.staffId,
             method === 'cash' ? cashCur : 'EGP', method === 'cash' ? foreign(balance) : null, method === 'cash' && cashCur !== 'EGP' ? rate : null]);
       }
       if (input.mode === 'comp') {
@@ -584,7 +613,7 @@ export async function processSale(input: SaleInput) {
         [res?.id ?? null, saleId, compCents, input.compNote, approver!.id, input.staffId, input.shiftId]);
     }
     await audit('pos:' + input.staffName, 'pos.sale', 'sale', saleId, { mode: input.mode, method, cartTotal, paidCents, compCents, reservation: res?.reference ?? null }, cq);
-    const tipEgp = paidCents > 0 ? await addTip(c, { shiftId: input.shiftId, staffId: input.staffId, method: method === 'card' ? 'card' : 'cash', currency: cashCur, minor: input.tipMinor, rate, saleId, guest: res?.full_name ?? null }) : 0;
+    const tipEgp = paidCents > 0 ? await addTip(c, { shiftId: input.shiftId, staffId: input.staffId, method, currency: cashCur, minor: input.tipMinor, rate, saleId, guest: res?.full_name ?? null }) : 0;
     return { saleId, cartTotal, paidCents, compCents, mode: input.mode, method, tipMinor: tipEgp ? Math.round(Number(input.tipMinor)) : 0, tipEgp, guest: res?.full_name ?? null, reference: res?.reference ?? null, lines: lines.map((l) => ({ name: l.name, qty: l.qty, unit: l.unit })),
       cashCurrency: cashCur, cashForeign: cashCur === 'EGP' ? null : foreign(paidCents), rate: cashCur === 'EGP' ? null : rate, tourLines, guestName: res?.full_name ?? 'Walk-in', room };
   });
@@ -594,13 +623,14 @@ export async function processSale(input: SaleInput) {
 }
 
 /** Partial / full payment on a guest account (front desk or POS). Cash may be EGP, USD or EUR; card is always EGP. */
-export async function takeFolioPayment(input: { reservationId: string; amountCents: number; method: PayMethod; shiftId: string | null; staffId: string | null; userId: string; note?: string; actor: string; currency?: string; cardPayer?: CardPayer | null; staffName?: string | null; tipMinor?: number }) {
+export async function takeFolioPayment(input: { reservationId: string; amountCents: number; method: PayMethod; shiftId: string | null; staffId: string | null; userId: string; note?: string; actor: string; currency?: string; cardPayer?: CardPayer | null; staffName?: string | null; tipMinor?: number; walletRef?: string | null }) {
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new BookingError('INVALID_INPUT', 'Enter an amount');
   const payer = input.method === 'card' ? cleanPayer(input.cardPayer) : null;
   const st = (await q<any>(`SELECT status FROM reservations WHERE id=$1`, [input.reservationId]))[0]?.status;
   if (!st) throw new BookingError('NOT_FOUND', 'Booking not found');
   if (['cancelled', 'no_show'].includes(st)) throw new BookingError('BAD_STATE', 'This booking is cancelled, no payment can be taken on it');
   if (input.method === 'cash' && !input.shiftId) throw new BookingError('BAD_STATE', 'Open a POS shift to take cash, so it is counted in the drawer');
+  const walletRef = walletRefOf(payMethodOf(input.method), input.walletRef);
   const sh = input.shiftId ? (await q<any>(`SELECT shift_no FROM cash_shifts WHERE id=$1 AND status='open'`, [input.shiftId]))[0] : null;
   if (input.shiftId && !sh) throw new BookingError('BAD_STATE', 'The shift is closed');
   const cur: string = input.method === 'cash' && input.currency && input.currency !== 'EGP' && isCashCurrency(input.currency) ? input.currency : 'EGP';
@@ -614,14 +644,14 @@ export async function takeFolioPayment(input: { reservationId: string; amountCen
   await tx(async (c) => {
   const pay = (await c.query(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at,shift_id,staff_id,cash_currency,cash_amount_minor,fx_rate)
            VALUES($1,$2,$3,$4,'verified',$5,$6,$6,now(),$7,$8,$9,$10,$11) RETURNING id`,
-    [input.reservationId, egp, input.method === 'card' ? 'card_terminal' : 'cash', sh ? `Shift #${sh.shift_no}` : 'Front desk',
+    [input.reservationId, egp, storedMethod(payMethodOf(input.method)), walletRef ?? (sh ? `Shift #${sh.shift_no}` : 'Front desk'),
       cur === 'EGP' ? input.note ?? null : [`${cur} ${input.amountCents / 100} @ ${rate}`, input.note].filter(Boolean).join(' · '),
       input.userId, input.shiftId, input.staffId, cur, cur === 'EGP' ? null : input.amountCents, cur === 'EGP' ? null : rate])).rows[0];
   if (payer) {
     const ref = (await c.query(`SELECT reference FROM reservations WHERE id=$1`, [input.reservationId])).rows[0]?.reference ?? '';
     await recordCardPayer(c as unknown as Q, payer, { amountCents: egp, source: 'folio_payment', paymentId: pay.id, reservationId: input.reservationId, shiftId: input.shiftId, staffName: input.staffName ?? input.actor, paidFor: `Payment on account ${ref}`.trim() });
   }
-  if (input.tipMinor && input.shiftId) await addTip(c, { shiftId: input.shiftId, staffId: input.staffId, method: input.method === 'card' ? 'card' : 'cash', currency: cur, minor: input.tipMinor, rate, paymentId: pay.id });
+  if (input.tipMinor && input.shiftId) await addTip(c, { shiftId: input.shiftId, staffId: input.staffId, method: payMethodOf(input.method), currency: cur, minor: input.tipMinor, rate, paymentId: pay.id });
   });
   await audit(input.actor, 'folio.payment', 'reservation', input.reservationId, { amount: input.amountCents, currency: cur, egp, method: input.method });
   return { egp, currency: cur, rate };

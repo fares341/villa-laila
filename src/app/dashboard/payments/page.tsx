@@ -22,12 +22,23 @@ export default async function Payments({ searchParams }: { searchParams: Promise
   const u = await requireUser('payment.record');
   const sp = await searchParams;
   const canVerify = can(u.role, 'payment.verify');
-  const [online, staffAdded, owing] = await Promise.all([
+  const [online, staffAdded, owing, posWallet] = await Promise.all([
     listInstapaySubmissions(),
     q<any>(`SELECT p.*, r.reference res_ref, r.currency, g.full_name FROM payments p JOIN reservations r ON r.id=p.reservation_id JOIN guests g ON g.id=r.guest_id WHERE p.status='recorded' ORDER BY p.created_at`),
     q<any>(`SELECT r.id, r.reference, r.status, r.check_in, folio_charges(r.id)::bigint charges_cents, r.currency, g.full_name, g.phone, p.paid FROM reservations r JOIN guests g ON g.id=r.guest_id
        LEFT JOIN LATERAL (SELECT COALESCE(SUM(amount_cents) FILTER (WHERE status='verified'),0)::bigint paid FROM payments WHERE reservation_id=r.id) p ON true
        WHERE r.status IN ('checked_in','checked_out') AND folio_charges(r.id) - p.paid > 0 ORDER BY r.check_in LIMIT 100`),
+    // InstaPay / Vodafone Cash taken at the desk on the POS (last 7 days), to match against the hostel's app.
+    q<any>(`SELECT * FROM (
+        SELECT s.created_at, s.payment_method method, sum(s.amount_cents)::bigint amount, min(s.wallet_ref) ref, min(s.guest_name) guest, min(st.full_name) staff, min(cs.shift_no) shift_no, 'POS sale' what
+          FROM service_orders s LEFT JOIN staff st ON st.id=s.pos_staff_id LEFT JOIN cash_shifts cs ON cs.id=s.shift_id
+          WHERE s.payment_method IN ('instapay','vodafone_cash') AND s.payment_status='paid' AND s.created_at > now() - interval '7 days' GROUP BY s.sale_id, s.created_at, s.payment_method
+        UNION ALL SELECT p.created_at, p.method, p.amount_cents, p.reference, g.full_name, st.full_name, cs.shift_no, 'Room ' || r.reference
+          FROM payments p JOIN reservations r ON r.id=p.reservation_id JOIN guests g ON g.id=r.guest_id LEFT JOIN staff st ON st.id=p.staff_id LEFT JOIN cash_shifts cs ON cs.id=p.shift_id
+          WHERE p.method IN ('instapay','vodafone_cash') AND p.status='verified' AND p.shift_id IS NOT NULL AND p.created_at > now() - interval '7 days'
+        UNION ALL SELECT b.pos_paid_at, b.pos_method, b.pos_cents, b.pos_ref, b.full_name, NULL, cs.shift_no, 'Event ticket ' || b.ticket_code
+          FROM event_bookings b LEFT JOIN cash_shifts cs ON cs.id=b.shift_id WHERE b.pos_method IN ('instapay','vodafone_cash') AND b.pos_paid_at > now() - interval '7 days'
+      ) x ORDER BY created_at DESC LIMIT 100`).catch(() => []),
   ]);
   const total = owing.reduce((s, r) => s + (Number(r.charges_cents) - Number(r.paid)), 0);
   const n = online.length + staffAdded.length;
@@ -84,6 +95,14 @@ export default async function Payments({ searchParams }: { searchParams: Promise
               </tbody>
             </table>
           </div>
+        )}
+      </Card>
+      <Card title="InstaPay / Vodafone Cash taken at the desk (last 7 days)" className="mt-6">
+        <p className="-mt-1 mb-3 text-xs text-slate-500">Taken on the POS by reception with the transaction number. Match each line in the InstaPay / Vodafone Cash app.</p>
+        {posWallet.length === 0 ? <p className="text-sm text-slate-500">None in the last 7 days.</p> : (
+          <table className="w-full text-sm"><thead className="text-left text-xs uppercase text-slate-500"><tr><th className="py-1">When</th><th>Wallet</th><th>Transaction no.</th><th>For</th><th>Guest</th><th>Cashier</th><th className="text-right">Amount</th></tr></thead>
+            <tbody className="divide-y">{posWallet.map((w: any, i: number) => (
+              <tr key={i}><td className="py-2 text-xs">{dt(w.created_at)}</td><td>{WALLET[w.method] ?? w.method}</td><td className="font-mono text-xs">{w.ref ?? '—'}</td><td className="text-xs">{w.what}</td><td>{w.guest ?? '—'}</td><td className="text-xs">{w.staff ?? '—'}{w.shift_no ? ` · #${w.shift_no}` : ''}</td><td className="text-right font-semibold tabular-nums">{fmt(Number(w.amount))}</td></tr>))}</tbody></table>
         )}
       </Card>
       <Card title={`Guests who still owe money: ${fmt(total)}`} className="mt-6">

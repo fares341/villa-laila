@@ -48,6 +48,7 @@ function GuestRow({ r, kind, canForce, back }: { r: any; kind: 'arrival' | 'depa
           <form action={fdCheckOut}><input type="hidden" name="id" value={r.id} /><input type="hidden" name="back" value={back} />
             <button className={kind === 'departure' ? SB : SG}><Icon name="log-out" size={15} /> Check out{kind === 'inhouse' ? ' early' : ''}</button></form>
         ))}
+        {kind !== 'arrival' && <Link href={`/dashboard/reservations/${r.id}#extend`} className={SG}><Icon name="calendar-days" size={15} /> Extend</Link>}
         <Link href={`/dashboard/reservations/${r.id}`} className={SG}><Icon name="receipt" size={15} /> Open</Link>
       </div>
     </li>
