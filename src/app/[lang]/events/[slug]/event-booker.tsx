@@ -24,9 +24,9 @@ function Submit({ label, busy }: { label: string; busy: string }) {
 
 export function EventBooker(props: {
   lang: string; slug: string; dates: DateChip[]; initialDate: string;
-  options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; currency: string; methods: Method[]; wallets?: WalletInfo;
+  options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; depositCents?: number | null; currency: string; methods: Method[]; wallets?: WalletInfo;
 }) {
-  const { lang, slug, dates, options, priceCents, guestPriceCents, currency, methods, wallets } = props;
+  const { lang, slug, dates, options, priceCents, guestPriceCents, depositCents = null, currency, methods, wallets } = props;
   const ar = lang === 'ar';
   const [date, setDate] = useState(props.initialDate);
   const [showAll, setShowAll] = useState(() => dates.findIndex((d) => d.date === props.initialDate) >= 6);
@@ -39,6 +39,8 @@ export function EventBooker(props: {
   const maxQty = Math.max(1, Math.min(20, left ?? 20));
   const unit = hotelGuest && guestPriceCents != null ? guestPriceCents : priceCents;
   const total = unit * Math.min(qty, maxQty);
+  // Deposit events: only the deposit is sent now by InstaPay / Vodafone Cash; the rest is paid at the villa.
+  const deposit = depositCents && (method === 'instapay' || method === 'vodafone_cash') ? Math.min(total, depositCents * Math.min(qty, maxQty)) : null;
   const chosen = useMemo(() => dates.find((d) => d.date === date), [dates, date]);
 
   const M: Record<Method, { t: string; d: string; icon: React.ReactNode }> = {
@@ -153,7 +155,8 @@ export function EventBooker(props: {
         </div>
         {(method === 'instapay' || method === 'vodafone_cash') && wallets && (
           <div className="evb-wallet">
-            <p className="evb-wallet-h">{ar ? 'حوّل' : 'Send'} <b dir="ltr">{fmt(total, currency, ar)}</b> {method === 'instapay' ? (ar ? 'على InstaPay:' : 'by InstaPay to:') : (ar ? 'على فودافون كاش:' : 'by Vodafone Cash to:')}</p>
+            {deposit != null && deposit < total && <p className="evb-fine"><b>{ar ? 'عربون فقط الآن' : 'Deposit only now'}</b>: {fmt(deposit, currency, ar)} · {ar ? 'الباقي' : 'the rest'} {fmt(total - deposit, currency, ar)} {ar ? 'تدفعه في الفيلا' : 'is paid at the villa'}.</p>}
+            <p className="evb-wallet-h">{ar ? 'حوّل' : 'Send'} <b dir="ltr">{fmt(deposit ?? total, currency, ar)}</b> {method === 'instapay' ? (ar ? 'على InstaPay:' : 'by InstaPay to:') : (ar ? 'على فودافون كاش:' : 'by Vodafone Cash to:')}</p>
             <dl>
               {method === 'instapay' && wallets.instapay.address && <div><dt>{ar ? 'العنوان' : 'Address'}</dt><dd dir="ltr" className="sel">{wallets.instapay.address}</dd></div>}
               {method === 'instapay' && wallets.instapay.phone && <div><dt>{ar ? 'الرقم' : 'Number'}</dt><dd dir="ltr" className="sel">{wallets.instapay.phone}</dd></div>}

@@ -103,7 +103,7 @@ export async function applyPaymobTxn(t: PaymobTxn, raw: unknown): Promise<any | 
     await c.query(`UPDATE online_payments SET status='paid', provider_txn_id=$2, provider_order_id=COALESCE(provider_order_id,$3), raw=$4, updated_at=now() WHERE id=$1`,
       [op.id, t.txnId, t.orderId, JSON.stringify(raw)]);
     if (op.kind === 'event') {
-      await c.query(`UPDATE event_bookings SET status='paid', paid_at=now(), hold_expires_at=NULL, pay_method='paymob', updated_at=now() WHERE id=$1 AND status <> 'cancelled'`, [op.event_booking_id]);
+      await c.query(`UPDATE event_bookings SET status='paid', paid_at=now(), paid_cents=total_cents, hold_expires_at=NULL, pay_method='paymob', updated_at=now() WHERE id=$1 AND status <> 'cancelled'`, [op.event_booking_id]);
     } else {
       // Paid by card/wallet through Paymob: the provider confirmed it (HMAC-verified), so it counts as verified.
       const dup = (await c.query(`SELECT 1 FROM payments WHERE reservation_id=$1 AND method='online_provider' AND reference=$2`, [op.reservation_id, 'paymob:' + t.txnId])).rows[0];
@@ -140,7 +140,7 @@ export async function submitEventWalletProof(ticketCode: string, method: WalletM
   const id = await tx(async (c) => {
     await c.query(`UPDATE online_payments SET status='rejected', updated_at=now() WHERE event_booking_id=$1 AND provider IN ('instapay','vodafone_cash') AND status='submitted'`, [b.id]);
     const op = (await c.query(`INSERT INTO online_payments(merchant_ref,kind,event_booking_id,provider,amount_cents,currency,status,payer_name,payer_reference,proof,proof_mime)
-                   VALUES($1,'event',$2,$3,$4,$5,'submitted',$6,$7,$8,$9) RETURNING id`, [newRef(method === 'instapay' ? 'IPE' : 'VFE'), b.id, method, b.total_cents, b.currency, payerName, payerRef || null, proof!.bytes, proof!.mime])).rows[0];
+                   VALUES($1,'event',$2,$3,$4,$5,'submitted',$6,$7,$8,$9) RETURNING id`, [newRef(method === 'instapay' ? 'IPE' : 'VFE'), b.id, method, Number(b.deposit_cents ?? b.total_cents) - Number(b.paid_cents ?? 0), b.currency, payerName, payerRef || null, proof!.bytes, proof!.mime])).rows[0];
     await c.query(`UPDATE event_bookings SET status='pending_verification', pay_method=$2, hold_expires_at=NULL, updated_at=now() WHERE id=$1`, [b.id, method]);
     return op.id as string;
   });
@@ -189,8 +189,10 @@ export async function decideInstapay(onlinePaymentId: string, ok: boolean, staff
     await c.query(`UPDATE online_payments SET status=$2, verified_by=$3, verified_at=now(), updated_at=now() WHERE id=$1`, [op.id, ok ? 'verified' : 'rejected', staffUserId]);
     if (op.kind === 'event') {
       await c.query(ok
-        ? `UPDATE event_bookings SET status='paid', paid_at=now(), confirmed_at=COALESCE(confirmed_at, now()), updated_at=now() WHERE id=$1`
-        : `UPDATE event_bookings SET status='awaiting_payment', hold_expires_at=now() + interval '12 hours', updated_at=now() WHERE id=$1`, [op.event_booking_id]);
+        // A deposit leaves the ticket valid with the rest to pay at the villa (status pay_on_site).
+        ? `UPDATE event_bookings SET paid_cents=paid_cents + $2, status=CASE WHEN paid_cents + $2 >= total_cents THEN 'paid' ELSE 'pay_on_site' END,
+             paid_at=CASE WHEN paid_cents + $2 >= total_cents THEN now() ELSE paid_at END, confirmed_at=COALESCE(confirmed_at, now()), updated_at=now() WHERE id=$1`
+        : `UPDATE event_bookings SET status='awaiting_payment', hold_expires_at=now() + interval '12 hours', updated_at=now() WHERE id=$1 AND $2::bigint IS NOT NULL`, [op.event_booking_id, Number(op.amount_cents)]);
     } else if (ok) {
       await c.query(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at) VALUES($1,$2,'instapay',$3,'verified',$4,$5,$5,now())`,
         [op.reservation_id, op.amount_cents, op.payer_reference, 'InstaPay transfer checked in the app (' + (op.payer_name || '') + ')', staffUserId]);

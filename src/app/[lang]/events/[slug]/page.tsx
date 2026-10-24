@@ -135,6 +135,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 options={ev.options.map((o) => ({ key: o.key, label: isAr ? o.ar : o.en }))}
                 priceCents={ev.price_cents}
                 guestPriceCents={ev.guest_price_cents}
+                depositCents={ev.deposit_cents ?? null}
                 currency={ev.currency}
                 methods={ev.methods}
                 wallets={{

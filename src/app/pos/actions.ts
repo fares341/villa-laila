@@ -14,7 +14,7 @@ import { getFolio } from '@/services/pms/folio';
 import { channelEnabled } from '@/services/pms/channel';
 import { getRates, refreshRates, OTHER_CURRENCIES, type Currency } from '@/services/pms/fx';
 import { taxiMessage, waLink, setTaxiConfirmed } from '@/services/pms/taxi';
-import { recordTaken, recordExchange, unpaidEventTickets, payEventTicket, posEvents, sellEventTicket } from '@/services/pms/pos';
+import { recordTaken, recordExchange, unpaidEventTickets, payEventTicket, posEvents, sellEventTicket, checkInEventTicket } from '@/services/pms/pos';
 import { runForStaff, runView, taxiLine, saveTask, finishWithNote, reassignTask, redistribute, setWashReady, setRunNotes, handoverText } from '@/services/pms/tasks';
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
@@ -295,6 +295,10 @@ export async function posPayEvent(input: { bookingId: string; method: 'cash' | '
     if (!s) throw new BookingError('BAD_STATE', 'No drawer is open');
     return { ok: true, data: await payEventTicket(s.id, { ...input, staffName: me.full_name, staffId: me.id }) };
   } catch (e) { return fail(e); }
+}
+
+export async function posCheckInEvent(bookingId: string): Promise<ActionResult<any>> {
+  try { await device(); const me = await cashier(); return { ok: true, data: await checkInEventTicket(bookingId, me.full_name) }; } catch (e) { return fail(e); }
 }
 
 export async function posEventList(): Promise<ActionResult<any[]>> {

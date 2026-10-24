@@ -13,7 +13,7 @@ export type PayMethod = 'paymob' | 'instapay' | 'vodafone_cash' | 'cash';
 
 export type EventRow = Schedule & {
   id: string; slug: string; title: Loc; summary: Loc; description: Loc; includes: Loc[]; image: string | null;
-  price_cents: number; guest_price_cents: number | null; currency: string;
+  price_cents: number; guest_price_cents: number | null; deposit_cents?: number | null; currency: string;
   capacity: number | null; options: EventOption[]; pay_methods: PayMethod[]; note: Loc; active: boolean; sort_order: number;
 };
 
@@ -74,7 +74,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEvent | null> 
 }
 
 /** Every column except the image bytes. */
-export const EVENT_COLS = `id, slug, title, summary, description, includes, image, price_cents, guest_price_cents, currency, start_time, end_time, recurrence, weekdays,
+export const EVENT_COLS = `id, slug, title, summary, description, includes, image, price_cents, guest_price_cents, deposit_cents, currency, start_time, end_time, recurrence, weekdays,
   once_date, ends_on, capacity, options, pay_methods, note, active, sort_order, cost_per_attendee_cents, kind, (image_bytes IS NOT NULL) has_upload`;
 
 const HELD = `(status IN ('paid','pending_verification','pay_on_site') OR (status='awaiting_payment' AND (hold_expires_at IS NULL OR hold_expires_at > now())))`;
@@ -146,6 +146,8 @@ export async function createEventBooking(input: EventBookingInput) {
 
     const total = unit * qty;
     const status = input.payMethod === 'cash' || total === 0 ? 'pay_on_site' : 'awaiting_payment';
+    // Deposit events: InstaPay / Vodafone Cash ask only the deposit now; the rest is paid at the villa (POS).
+    const deposit = ev.deposit_cents && (input.payMethod === 'instapay' || input.payMethod === 'vodafone_cash') ? Math.min(total, Number(ev.deposit_cents) * qty) : null;
     const holdMin = status === 'awaiting_payment' ? HOLD_MIN[input.payMethod] : null;
     let code = makeTicketCode();
     for (let i = 0; i < 5; i++) {
@@ -155,11 +157,11 @@ export async function createEventBooking(input: EventBookingInput) {
     }
     const row = (await c.query(
       `INSERT INTO event_bookings(ticket_code,event_id,event_date,quantity,option_key,is_hotel_guest,stay_reference,full_name,email,phone,language,
-         unit_price_cents,total_cents,currency,pay_method,status,hold_expires_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, CASE WHEN $17::int IS NULL THEN NULL ELSE now() + make_interval(mins => $17::int) END)
+         unit_price_cents,total_cents,currency,pay_method,status,hold_expires_at,deposit_cents)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, CASE WHEN $17::int IS NULL THEN NULL ELSE now() + make_interval(mins => $17::int) END, $18)
        RETURNING *`,
       [code, ev.id, input.date, qty, optionKey, isGuest, stayRef, input.fullName.trim(), input.email.trim(), input.phone?.trim() || null, input.language,
-        unit, total, ev.currency, input.payMethod, status, holdMin])).rows[0];
+        unit, total, ev.currency, input.payMethod, status, holdMin, deposit])).rows[0];
     await audit('website', 'event_booking.create', 'event_booking', row.id, { code, slug: ev.slug, date: input.date, qty, total, method: input.payMethod }, c as unknown as Q);
     return { booking: row, event: ev };
   });
@@ -190,7 +192,9 @@ export const ticketValid = (status: string) => status === 'paid' || status === '
 export async function markEventBookingPaid(bookingId: string, actor: string, note?: string, cash?: { shiftId: string | null }) {
   if (cash && !cash.shiftId) throw new BookingError('BAD_STATE', 'Open a POS shift first so this cash is counted in the drawer');
   const r = await q(`UPDATE event_bookings SET status='paid', paid_at=now(), hold_expires_at=NULL, staff_note=COALESCE($2,staff_note), updated_at=now(),
-                       shift_id=COALESCE($3, shift_id), pay_method=CASE WHEN $3::uuid IS NOT NULL THEN 'cash' ELSE pay_method END
+                       shift_id=COALESCE($3, shift_id), pay_method=CASE WHEN $3::uuid IS NOT NULL THEN 'cash' ELSE pay_method END,
+                       pos_cents=CASE WHEN $3::uuid IS NOT NULL THEN total_cents - paid_cents ELSE pos_cents END, pos_method=CASE WHEN $3::uuid IS NOT NULL THEN 'cash' ELSE pos_method END,
+                       pos_paid_at=CASE WHEN $3::uuid IS NOT NULL THEN now() ELSE pos_paid_at END, paid_cents=total_cents
                      WHERE id=$1 AND status IN ('awaiting_payment','pending_verification','pay_on_site','expired') RETURNING id`, [bookingId, note ?? null, cash?.shiftId ?? null]);
   if (!r.length) throw new BookingError('BAD_STATE');
   await audit(actor, 'event_booking.paid', 'event_booking', bookingId, { note });
@@ -265,4 +269,14 @@ export async function eventProfit(from: string, to: string) {
       COALESCE(sum(b.quantity) FILTER (WHERE b.status='pending_verification'),0)::int pending
     FROM events e LEFT JOIN event_bookings b ON b.event_id=e.id AND b.event_date BETWEEN $1 AND $2
     GROUP BY e.id ORDER BY revenue DESC, e.sort_order`, [from, to]);
+}
+
+/** Deposit per ticket asked online (InstaPay / Vodafone Cash); null = pay the full price online. */
+export async function setEventDeposit(eventId: string, depositCents: number | null, actor: string) {
+  if (depositCents != null && !(Number.isInteger(depositCents) && depositCents > 0)) throw new BookingError('INVALID_INPUT', 'Deposit must be more than 0');
+  const ev = (await q<any>(`SELECT price_cents FROM events WHERE id=$1`, [eventId]))[0];
+  if (!ev) throw new BookingError('NOT_FOUND');
+  if (depositCents != null && depositCents >= Number(ev.price_cents)) depositCents = null; // a deposit equal to the price is just the price
+  await q(`UPDATE events SET deposit_cents=$2, updated_at=now() WHERE id=$1`, [eventId, depositCents]);
+  await audit(actor, 'event.deposit', 'event', eventId, { depositCents });
 }

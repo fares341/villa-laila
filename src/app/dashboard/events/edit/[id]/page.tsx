@@ -87,6 +87,9 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
               <label className="flex items-center gap-2"><input type="checkbox" name="payMethods" value="instapay" defaultChecked={(e.pay_methods ?? []).includes('instapay')} /> InstaPay (receipt uploaded, you approve)</label>
               <label className="flex items-center gap-2"><input type="checkbox" name="payMethods" value="vodafone_cash" defaultChecked={(e.pay_methods ?? []).includes('vodafone_cash')} /> Vodafone Cash (receipt uploaded, you approve)</label>
               <label className="flex items-center gap-2"><input type="checkbox" name="payMethods" value="cash" defaultChecked={(e.pay_methods ?? []).includes('cash')} /> Pay cash at the villa</label>
+              <div className="pt-2"><Lbl htmlFor="e-dep">Deposit per ticket for InstaPay / Vodafone Cash (EGP)</Lbl>
+                <input id="e-dep" name="deposit" type="number" min={1} step="0.01" placeholder="Empty = pay the full price online" defaultValue={v(e.deposit_cents)} className={Input} />
+                <p className="mt-1 text-xs text-slate-500">The guest sends only the deposit online; the rest is taken at the villa on the POS (Events → Booked online).</p></div>
               <p className="text-xs text-slate-500">Accounts are set in <Link className="underline" href="/dashboard/events?tab=settings">Events → Payment accounts</Link>.</p>
             </div>
           </Card>

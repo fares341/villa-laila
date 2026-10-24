@@ -95,8 +95,9 @@ export async function shiftTotals(shiftId: string) {
   const expCur = await q<any>(`SELECT currency cur, COALESCE(sum(amount_cents),0)::bigint n FROM cash_expenses WHERE shift_id=$1 AND approved GROUP BY currency`, [shiftId]);
   const taken = (await q<any>(`SELECT COALESCE(sum(egp_cents),0)::bigint egp, COALESCE(sum(usd_cents),0)::bigint usd, COALESCE(sum(eur_cents),0)::bigint eur FROM cash_taken WHERE shift_id=$1`, [shiftId]))[0];
   const comps = (await q<any>(`SELECT COALESCE(sum(amount_cents),0)::bigint c FROM owner_comps WHERE shift_id=$1`, [shiftId]))[0];
-  const ev = (await q<any>(`SELECT COALESCE(sum(total_cents),0)::bigint c FROM event_bookings WHERE shift_id=$1 AND status='paid' AND pay_method='cash'`, [shiftId]))[0];
-  const evCard = (await q<any>(`SELECT COALESCE(sum(total_cents),0)::bigint c FROM event_bookings WHERE shift_id=$1 AND status='paid' AND pay_method='card'`, [shiftId]))[0];
+  // Event tickets: only the part taken on the POS (a deposit paid online is not in this drawer).
+  const ev = (await q<any>(`SELECT COALESCE(sum(pos_cents),0)::bigint c FROM event_bookings WHERE shift_id=$1 AND status <> 'cancelled' AND pos_method='cash'`, [shiftId]))[0];
+  const evCard = (await q<any>(`SELECT COALESCE(sum(pos_cents),0)::bigint c FROM event_bookings WHERE shift_id=$1 AND status <> 'cancelled' AND pos_method='card'`, [shiftId]))[0];
   // Money exchange: foreign notes come in, EGP goes out (not a sale).
   const exchRows = await q<any>(`SELECT currency cur, COALESCE(sum(foreign_minor),0)::bigint n, COALESCE(sum(egp_cents),0)::bigint egp FROM cash_exchanges WHERE shift_id=$1 GROUP BY currency`, [shiftId]);
   const exchBy: Record<string, number> = { EGP: -exchRows.reduce((a, r) => a + Number(r.egp), 0) };
@@ -138,7 +139,8 @@ export async function todaysRevenueBreakdown(day = todayLocal()) {
       (SELECT COALESCE(sum(amount_cents),0) FROM service_orders WHERE order_date=$1 AND payment_status='paid')::bigint pos,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE status='verified' AND amount_cents > 0
          AND (COALESCE(verified_at, created_at) AT TIME ZONE 'Africa/Cairo')::date=$1::date)::bigint folio,
-      (SELECT COALESCE(sum(total_cents),0) FROM event_bookings WHERE status='paid' AND (paid_at AT TIME ZONE 'Africa/Cairo')::date=$1::date)::bigint events`, [day]))[0];
+      ((SELECT COALESCE(sum(pos_cents),0) FROM event_bookings WHERE pos_cents > 0 AND (pos_paid_at AT TIME ZONE 'Africa/Cairo')::date=$1::date)
+       + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND status IN ('verified','paid') AND (COALESCE(verified_at, updated_at) AT TIME ZONE 'Africa/Cairo')::date=$1::date))::bigint events`, [day]))[0];
   const pos = Number(r.pos), folio = Number(r.folio), events = Number(r.events);
   return { day, pos, folio, events, total: pos + folio + events };
 }
@@ -156,7 +158,7 @@ export async function moneyByCurrency(from: string, to: string) {
         FROM service_orders WHERE payment_method='cash' AND payment_status='paid' AND ${day('created_at')}
       UNION ALL SELECT COALESCE(cash_currency,'EGP'), 'payments', COALESCE(cash_amount_minor, amount_cents), amount_cents
         FROM payments WHERE method='cash' AND status='verified' AND ${day('COALESCE(verified_at, created_at)')}
-      UNION ALL SELECT 'EGP', 'events', total_cents, total_cents FROM event_bookings WHERE status='paid' AND pay_method='cash' AND ${day('paid_at')}
+      UNION ALL SELECT 'EGP', 'events', pos_cents, pos_cents FROM event_bookings WHERE pos_method='cash' AND pos_cents > 0 AND ${day('pos_paid_at')}
       UNION ALL SELECT currency, 'tips', minor, egp_cents FROM cash_tips WHERE method='cash' AND ${day('created_at')}
       UNION ALL SELECT currency, 'exchange_in', foreign_minor, egp_cents FROM cash_exchanges WHERE ${day('created_at')}
       UNION ALL SELECT 'EGP', 'exchange_out', -egp_cents, -egp_cents FROM cash_exchanges WHERE ${day('created_at')}
@@ -182,13 +184,13 @@ export async function moneyByCurrency(from: string, to: string) {
     SELECT
       (SELECT COALESCE(sum(amount_cents),0) FROM service_orders WHERE payment_method='card_terminal' AND payment_status='paid' AND ${day('created_at')})
       + (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method='card_terminal' AND status='verified' AND ${day('COALESCE(verified_at, created_at)')})
-      + (SELECT COALESCE(sum(total_cents),0) FROM event_bookings WHERE status='paid' AND pay_method='card' AND ${day('paid_at')}) card,
+      + (SELECT COALESCE(sum(pos_cents),0) FROM event_bookings WHERE pos_method='card' AND pos_cents > 0 AND ${day('pos_paid_at')}) card,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method='instapay' AND status='verified' AND ${day('COALESCE(verified_at, created_at)')})
-      + (SELECT COALESCE(sum(total_cents),0) FROM event_bookings WHERE status='paid' AND pay_method='instapay' AND ${day('paid_at')}) instapay,
+      + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND provider='instapay' AND status='verified' AND ${day('verified_at')}) instapay,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method='vodafone_cash' AND status='verified' AND ${day('COALESCE(verified_at, created_at)')})
-      + (SELECT COALESCE(sum(total_cents),0) FROM event_bookings WHERE status='paid' AND pay_method='vodafone_cash' AND ${day('paid_at')}) vodafone,
+      + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND provider='vodafone_cash' AND status='verified' AND ${day('verified_at')}) vodafone,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method IN ('paymob','online_provider') AND status='verified' AND ${day('COALESCE(verified_at, created_at)')})
-      + (SELECT COALESCE(sum(total_cents),0) FROM event_bookings WHERE status='paid' AND pay_method='paymob' AND ${day('paid_at')}) online,
+      + (SELECT COALESCE(sum(amount_cents),0) FROM online_payments WHERE kind='event' AND provider='paymob' AND status='paid' AND ${day('updated_at')}) online,
       (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE method='channel_prepaid' AND status='verified' AND ${day('created_at')}) sites,
       (SELECT COALESCE(sum(minor),0) FROM cash_tips WHERE method='card' AND ${day('created_at')}) card_tips,
       (SELECT COALESCE(sum(egp_cents),0) FROM cash_tips WHERE ${day('created_at')}) tips_egp`, [from, to]))[0];
@@ -268,12 +270,25 @@ export async function recordExchange(shiftId: string, staffId: string, input: { 
   return { id: row.id, currency: input.currency, foreignMinor: input.foreignMinor, rate, egp };
 }
 
-/** Event tickets that still have to be paid (pay at the door / not paid yet), for the POS. */
+/**
+ * Bookings for the coming event days (made on the website, by the bot or on the POS), for the POS: what was paid
+ * already (deposit online) and what is left to pay at the villa. Paid tickets are listed too, to check guests in.
+ */
 export async function unpaidEventTickets() {
-  return q<any>(`SELECT b.id, b.ticket_code, b.full_name, b.phone, b.event_date, b.total_cents, b.status, e.title
+  return q<any>(`SELECT b.id, b.ticket_code, b.full_name, b.phone, b.event_date, b.quantity, b.total_cents, b.paid_cents, (b.total_cents - b.paid_cents) due_cents,
+                   b.status, b.pay_method, b.checked_in_at, e.title,
+                   EXISTS (SELECT 1 FROM online_payments o WHERE o.event_booking_id=b.id AND o.status='submitted') receipt_waiting
                  FROM event_bookings b JOIN events e ON e.id=b.event_id
-                 WHERE b.status IN ('pay_on_site','awaiting_payment') AND b.event_date >= (now() AT TIME ZONE 'Africa/Cairo')::date - 1
-                 ORDER BY b.event_date, b.full_name LIMIT 100`);
+                 WHERE b.status IN ('pay_on_site','awaiting_payment','pending_verification','paid') AND b.event_date >= (now() AT TIME ZONE 'Africa/Cairo')::date - 1
+                   AND b.event_date <= (now() AT TIME ZONE 'Africa/Cairo')::date + 30
+                 ORDER BY (b.total_cents - b.paid_cents > 0 AND b.status <> 'pending_verification') DESC, b.event_date, b.full_name LIMIT 150`);
+}
+
+export async function checkInEventTicket(bookingId: string, staffName: string) {
+  const r = await q<any>(`UPDATE event_bookings SET checked_in_at=now(), updated_at=now() WHERE id=$1 AND status='paid' AND checked_in_at IS NULL RETURNING ticket_code`, [bookingId]);
+  if (!r.length) throw new BookingError('BAD_STATE', 'Take the payment first, or the guest is already checked in');
+  await audit('pos:' + staffName, 'event_booking.checkin', 'event_booking', bookingId);
+  return { ticket: r[0].ticket_code };
 }
 
 /** Events the POS can sell now: the next dates with seats left, both prices (hotel guests may have a lower one). */
@@ -322,8 +337,8 @@ export async function sellEventTicket(shiftId: string, input: { eventId: string;
     for (let i = 0; i < 5 && (await c.query('SELECT 1 FROM event_bookings WHERE ticket_code=$1', [code])).rows[0]; i++) code = makeTicketCode();
     const total = unit * qty;
     const b = (await c.query(`INSERT INTO event_bookings(ticket_code,event_id,event_date,quantity,option_key,is_hotel_guest,stay_reference,full_name,email,phone,language,
-        unit_price_cents,total_cents,currency,pay_method,status,paid_at,shift_id,staff_note,confirmed_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'',$9,'en',$10,$11,$12,$13,'paid',now(),$14,$15,now()) RETURNING id, ticket_code, total_cents`,
+        unit_price_cents,total_cents,currency,pay_method,status,paid_at,shift_id,staff_note,confirmed_at,paid_cents,pos_cents,pos_method,pos_paid_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'',$9,'en',$10,$11,$12,$13,'paid',now(),$14,$15,now(),$11,$11,$13,now()) RETURNING id, ticket_code, total_cents`,
       [code, ev.id, input.date, qty, optionKey, !!stayRef, stayRef, input.fullName.trim(), input.phone?.trim() || null, unit, total, ev.currency ?? 'EGP', input.method, shiftId,
         `Sold on the POS · shift #${sh.shift_no} · ${input.staffName}`])).rows[0];
     if (payer) await recordCardPayer(c as unknown as Q, payer, { amountCents: total, source: 'event', shiftId, staffName: input.staffName, paidFor: `Event ticket ${b.ticket_code}` });
@@ -339,11 +354,14 @@ export async function payEventTicket(shiftId: string, input: { bookingId: string
   const sh = (await q<any>(`SELECT shift_no FROM cash_shifts WHERE id=$1 AND status='open'`, [shiftId]))[0];
   if (!sh) throw new BookingError('BAD_STATE', 'The shift is closed');
   return tx(async (c) => {
-    const b = (await c.query(`UPDATE event_bookings SET status='paid', paid_at=now(), hold_expires_at=NULL, shift_id=$2, pay_method=$3,
+    // Only what is left (a deposit paid online stays paid online).
+    const b = (await c.query(`UPDATE event_bookings SET status='paid', paid_at=now(), hold_expires_at=NULL, shift_id=$2,
+                                pay_method=CASE WHEN paid_cents > 0 THEN pay_method ELSE $3 END,
+                                pos_cents=total_cents - paid_cents, pos_method=$3, pos_paid_at=now(), paid_cents=total_cents,
                                 staff_note=COALESCE(staff_note || ' · ', '') || $4, updated_at=now()
-                              WHERE id=$1 AND status IN ('pay_on_site','awaiting_payment','expired') RETURNING id, total_cents, ticket_code`,
-      [input.bookingId, shiftId, input.method, `Paid ${input.method} on the POS · shift #${sh.shift_no} · ${input.staffName}`])).rows[0];
-    if (!b) throw new BookingError('BAD_STATE', 'This ticket is already paid or cancelled');
+                              WHERE id=$1 AND status IN ('pay_on_site','awaiting_payment','expired') AND total_cents > paid_cents RETURNING id, pos_cents total_cents, ticket_code`,
+      [input.bookingId, shiftId, input.method, `Rest paid ${input.method} on the POS · shift #${sh.shift_no} · ${input.staffName}`])).rows[0];
+    if (!b) throw new BookingError('BAD_STATE', 'This ticket is already paid, its receipt is being checked, or it was cancelled');
     if (payer) await recordCardPayer(c as unknown as Q, payer, { amountCents: Number(b.total_cents), source: 'event', shiftId, staffName: input.staffName, paidFor: `Event ticket ${b.ticket_code}` });
     await audit('pos:' + input.staffName, 'event_booking.paid', 'event_booking', b.id, { method: input.method, shift: sh.shift_no }, c as unknown as Q);
     await addTip(c, { shiftId, staffId: input.staffId ?? null, method: input.method, currency: 'EGP', minor: input.tipMinor, rate: 1, eventBookingId: b.id });

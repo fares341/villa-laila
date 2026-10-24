@@ -32,6 +32,10 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
   const url = `${base}/${lang}/tickets/${b.ticket_code}`;
   const qr = qrSvg(url, { dark: '#2F2925', light: '#FFFFFF', title: b.ticket_code });
   const total = priceLabel(b.total_cents, b.currency, lang);
+  // What is asked online now (a deposit for deposit events), and what is left for the villa.
+  const onlineDue = Number(b.deposit_cents ?? b.total_cents) - Number(b.paid_cents ?? 0);
+  const dueNow = priceLabel(Math.max(0, onlineDue), b.currency, lang);
+  const restAtVilla = Number(b.total_cents) - Number(b.paid_cents ?? 0);
   const option = b.option_key ? ev.options.find((o) => o.key === b.option_key) : null;
   const firstName = String(b.full_name).split(/\s+/)[0];
   const wallets = await getWallets();
@@ -80,6 +84,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
                   <div><dt>{L('Guests', 'الأشخاص')}</dt><dd className="num">{b.quantity}{option ? ` · ${ar ? option.ar : option.en}` : ''}</dd></div>
                   <div><dt>{L('Name', 'الاسم')}</dt><dd>{firstName}</dd></div>
                   <div><dt>{L('Total', 'الإجمالي')}</dt><dd dir="ltr">{total}</dd></div>
+                  {Number(b.paid_cents ?? 0) > 0 && restAtVilla > 0 && <div><dt>{L('Paid', 'المدفوع')}</dt><dd dir="ltr">{priceLabel(Number(b.paid_cents), b.currency, lang)} · {L('rest at the villa', 'الباقي في الفيلا')} {priceLabel(restAtVilla, b.currency, lang)}</dd></div>}
                   <div><dt>{L('Place', 'المكان')}</dt><dd>{L('Villa Layla, 20 Safiya Zaghloul St', 'فيلا ليلى، ٢٠ ش صفية زغلول')}</dd></div>
                 </dl>
               </div>
@@ -110,7 +115,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
           {b.status === 'awaiting_payment' && (
             <section className="tk-pay" id="pay" aria-labelledby="payH">
               <h2 id="payH">{L('Complete your payment', 'أكمل الدفع')}</h2>
-              <p className="tk-due">{L('Amount due', 'المبلغ المطلوب')}: <b dir="ltr">{total}</b></p>
+              <p className="tk-due">{L('Amount due now', 'المطلوب الآن')}: <b dir="ltr">{dueNow}</b>{b.deposit_cents != null && Number(b.deposit_cents) < Number(b.total_cents) && <> · {L('deposit; the rest is paid at the villa', 'عربون، والباقي يُدفع في الفيلا')}</>}</p>
               <div className="tk-pay-grid">
                 {paymobEnabled(b.currency) && (
                   <form action={retryEventPaymobAction} className="tk-pay-card">
@@ -125,7 +130,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
                     <input type="hidden" name="lang" value={lang} /><input type="hidden" name="code" value={b.ticket_code} /><input type="hidden" name="method" value={m} />
                     <h3>{m === 'instapay' ? 'InstaPay' : L('Vodafone Cash', 'فودافون كاش')}</h3>
                     <ol className="tk-steps">
-                      <li>{L('Send', 'حوّل')} <b dir="ltr">{total}</b></li>
+                      <li>{L('Send', 'حوّل')} <b dir="ltr">{dueNow}</b></li>
                       {m === 'instapay' && ip.address && <li>{L('To InstaPay address', 'على عنوان InstaPay')} <b dir="ltr" className="sel">{ip.address}</b></li>}
                       {m === 'instapay' && ip.phone && <li>{L('Or to mobile number', 'أو على رقم')} <b dir="ltr" className="sel">{ip.phone}</b></li>}
                       {m === 'vodafone_cash' && <li>{L('To Vodafone Cash number', 'على رقم فودافون كاش')} <b dir="ltr" className="sel">{wallets.vodafone_cash.number}</b></li>}
