@@ -58,7 +58,7 @@ export async function calendarData(from: string, days: number) {
   const to = addDays(from, days);
   const units = await q<any>(`SELECT u.id, u.label, u.capacity, rm.name room, t.name tname, t.kind FROM units u JOIN rooms rm ON rm.id=u.room_id JOIN room_types t ON t.id=rm.room_type_id WHERE u.active AND rm.active ORDER BY t.sort_order, rm.name, u.label`);
   const alloc = await q<any>(
-    `SELECT ru.unit_id, lower(ru.during) s, upper(ru.during) e, r.id rid, r.reference, r.status, g.full_name, r.guests_count, r.hold_expires_at
+    `SELECT ru.unit_id, lower(ru.during) s, upper(ru.during) e, r.id rid, r.reference, r.status, g.full_name, r.guests_count, r.hold_expires_at, r.source, r.channel_ref
      FROM reservation_units ru JOIN reservations r ON r.id=ru.reservation_id JOIN guests g ON g.id=r.guest_id
      WHERE ru.active AND ru.during && daterange($1::date,$2::date,'[)')`, [from, to]);
   const blocks = await q<any>(`SELECT unit_id, lower(during) s, upper(during) e, reason FROM unit_blocks WHERE during && daterange($1::date,$2::date,'[)')`, [from, to]);

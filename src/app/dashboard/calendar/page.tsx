@@ -7,6 +7,8 @@ import { PageHeader, STATUS_LABEL, BtnGhost, Btn } from '@/components/dash';
 import { Icon } from '@/components/icons';
 
 const COLORS: Record<string, string> = { hold: 'bg-purple-200 text-purple-950', pending: 'bg-amber-200 text-amber-950', confirmed: 'bg-emerald-300 text-emerald-950', checked_in: 'bg-sky-300 text-sky-950', checked_out: 'bg-slate-300 text-slate-800' };
+// Where the booking came from, shown at the start of each bar.
+const SRC: Record<string, string> = { booking_com: 'B.com', airbnb: 'Airbnb', hostelworld: 'HW', expedia: 'Expedia', agoda: 'Agoda', website: 'Web', walk_in: 'Walk-in', staff: 'Desk', telegram: 'Bot', import: 'Import', channel: 'LH' };
 const dow = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' });
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -58,7 +60,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                       const b = blk.find((x) => x.s <= day && day < x.e);
                       if (a) {
                         const span = Math.min(days - i, Math.round((Date.parse(a.e) - Date.parse(day)) / 86400000));
-                        cells.push(<td key={i} colSpan={span} className="border-l p-0.5"><Link href={`/dashboard/reservations/${a.rid}`} title={`${a.reference} · ${a.full_name} · ${STATUS_LABEL[a.status]}`} className={`block truncate rounded px-1.5 py-1.5 ${COLORS[a.status] ?? 'bg-slate-200'} hover:ring-2 hover:ring-lapis-600`}>{a.full_name} · {a.guests_count}</Link></td>);
+                        cells.push(<td key={i} colSpan={span} className="border-l p-0.5"><Link href={`/dashboard/reservations/${a.rid}`} title={`${a.reference}${a.channel_ref ? ` (${SRC[a.source] ?? a.source} ${a.channel_ref})` : ''} · ${a.full_name} · ${STATUS_LABEL[a.status]} · ${SRC[a.source] ?? a.source}`} className={`block truncate rounded px-1.5 py-1.5 ${COLORS[a.status] ?? 'bg-slate-200'} hover:ring-2 hover:ring-lapis-600`}><span className="me-1 rounded bg-white/60 px-1 text-[10px] font-semibold">{SRC[a.source] ?? a.source}</span>{a.full_name} · {a.guests_count}</Link></td>);
                         i += span;
                       } else if (b) {
                         const span = Math.min(days - i, Math.round((Date.parse(b.e) - Date.parse(day)) / 86400000));

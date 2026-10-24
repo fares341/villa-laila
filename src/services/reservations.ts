@@ -25,6 +25,7 @@ export type CreateInput = {
   facts?: Facts;            // policy facts, e.g. { nationality: 'EG' }
   skipPastCheck?: boolean;  // import of historic data only
   unitIds?: string[];       // front desk: put the guest in these exact beds/rooms (must be free and of this type)
+  staffEntered?: boolean;   // typed in by staff (e.g. a direct booking filed under "website"): house rules flag it for review instead of refusing
 };
 
 /** Release inventory of holds/pending requests whose time ran out. Safe to call repeatedly. */
@@ -78,7 +79,7 @@ async function createReservationCore(input: CreateInput) {
       const policy = evaluate(rules, { ...(input.facts ?? {}), nationality: input.facts?.nationality ?? input.guest.nationality ?? undefined, room_kind: t.kind, room_gender: t.gender });
       // Guest-facing channels are refused outright; staff-created bookings are allowed but flagged for review.
       if (policy.blocked) {
-        if (['website', 'telegram', 'whatsapp'].includes(input.source)) throw new BookingError('POLICY_BLOCKED', policy.blocked.name, policy.blocked.message);
+        if (['website', 'telegram', 'whatsapp'].includes(input.source) && !input.staffEntered) throw new BookingError('POLICY_BLOCKED', policy.blocked.name, policy.blocked.message);
         policy.needsReview = true; policy.reasons.push(`Blocked by rule "${policy.blocked.name}" (staff override)`);
       }
 

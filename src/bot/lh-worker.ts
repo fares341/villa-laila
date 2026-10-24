@@ -1,16 +1,37 @@
 // Little Hotelier reader (read-only). Run with `npm run lh:sync`; docker-compose runs it as the "lh-reader" service.
 // Signs in once (session kept on disk), then reads the bookings every LH_SYNC_EVERY_SEC seconds (default 60).
+// Also reads the current prices from the hostel's public listing pages (links saved in Bookings from sites), once an hour.
 import { env } from '@/lib/env';
 import { openBrowser, lhEnv } from '@/services/lh-reader/browser';
 import { readOnce, notifyOwner, writeMode } from '@/services/lh-reader/sync';
 import { q } from '@/lib/db';
+import { readSitePrices, getLinks } from '@/services/site-prices';
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), '[lh-reader]', ...a);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
   if (!env.databaseUrl) throw new Error('DATABASE_URL not set');
-  if (!lhEnv.email || !lhEnv.password) { log('LH_EMAIL / LH_PASSWORD not set: reader is off.'); for (;;) await sleep(3600_000); }
+  const priceEvery = Math.max(15, Number(process.env.SITE_PRICE_EVERY_MIN || 60)) * 60_000;
+  let lastPrices = 0;
+  const prices = async (page: any) => {
+    if (Date.now() - lastPrices < priceEvery) return;
+    lastPrices = Date.now();
+    if (!Object.keys(await getLinks()).length) return;
+    // A separate tab, so the Little Hotelier session page stays as it is.
+    const tab = await page.context().newPage();
+    try { await readSitePrices(tab, log); } catch (e) { log('site prices failed:', (e as Error).message); } finally { await tab.close().catch(() => {}); }
+  };
+  if (!lhEnv.email || !lhEnv.password) {
+    log('LH_EMAIL / LH_PASSWORD not set: Little Hotelier reading is off; only site prices are read.');
+    for (;;) {
+      if (Object.keys(await getLinks().catch(() => ({}))).length) {
+        const b = await openBrowser().catch((e) => { log('browser error:', e.message); return null; });
+        if (b) { lastPrices = 0; await prices(b.page); await b.ctx.close().catch(() => {}); }
+      }
+      await sleep(priceEvery);
+    }
+  }
   const every = Math.max(30, Number(process.env.LH_SYNC_EVERY_SEC || 60)) * 1000;
   log(`starting, every ${every / 1000}s, ${writeMode() ? 'WRITE mode' : 'TEST mode (nothing saved)'}`);
   let fails = 0;
@@ -27,6 +48,7 @@ async function main() {
           if (fails >= 3) await notifyOwner('Little Hotelier reader is working again.');
           fails = 0;
           if (n.imported || n.cancelled) log(`found ${n.found}, imported ${n.imported}, cancelled ${n.cancelled}`);
+          await prices(browser.page);
         } catch (e) {
           fails++;
           log('read failed:', (e as Error).message);

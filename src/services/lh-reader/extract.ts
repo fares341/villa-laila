@@ -105,10 +105,11 @@ export function dedupe(list: LhBooking[]): LhBooking[] {
 }
 
 /** Our section for a Little Hotelier channel name (null = not a site booking, e.g. made inside Little Hotelier). */
-export function channelKeyFor(b: LhBooking): 'booking_com' | 'airbnb' | 'hostelworld' | 'expedia_collect' | 'expedia_hotel' | null {
+export function channelKeyFor(b: LhBooking): 'booking_com' | 'airbnb' | 'hostelworld' | 'expedia_collect' | 'expedia_hotel' | 'agoda' | null {
   const c = b.channel.toLowerCase();
   if (/booking\.?com/.test(c)) return 'booking_com';
   if (/airbnb/.test(c)) return 'airbnb';
+  if (/agoda/.test(c)) return 'agoda';
   if (/hostelworld|hostelbookers|hostels\.com/.test(c)) return 'hostelworld';
   if (/expedia|hotels\.com|vrbo/.test(c)) return /hotel.?collect|pay.?at.?(the.?)?(hotel|property)/i.test(`${b.paymentNote ?? ''} ${JSON.stringify(b.raw).slice(0, 2000)}`) ? 'expedia_hotel' : 'expedia_collect';
   return null;
