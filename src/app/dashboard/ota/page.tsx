@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
+import { can } from '@/lib/permissions';
 import { q, pool } from '@/lib/db';
 import { todayLocal, addDays } from '@/lib/dates';
 import { PageHeader, Card, Flash, Input, Lbl, Btn, Badge, fmt, SubTabs, Stat } from '@/components/dash';
@@ -18,7 +19,8 @@ const COLLECT: Record<string, string> = { property: 'Pays at the hostel', channe
 
 /** One section per booking site. Reception types each booking in; the money left to pay is collected on the POS. */
 export default async function OtaBookings({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  await requireUser('reservation.view');
+  const me = await requireUser('reservation.view');
+  const isMgr = can(me.role, 'settings.manage') || can(me.role, 'reports.view');
   const sp = await searchParams;
   const ch: ChannelKey = ORDER.includes(sp.ch as ChannelKey) ? (sp.ch as ChannelKey) : 'booking_com';
   const c = CHANNELS[ch];
@@ -52,7 +54,7 @@ export default async function OtaBookings({ searchParams }: { searchParams: Prom
       <Flash sp={sp} />
       {lh && (
         <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${lh.ok && Date.now() - new Date(lh.at).getTime() < 15 * 60_000 ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
-          <b>Little Hotelier reader:</b>{' '}
+          <b>Automatic copy from Little Hotelier:</b>{' '}
           {lh.ok ? `last read ${new Date(lh.at).toLocaleString('en-GB', { timeZone: 'Africa/Cairo', dateStyle: 'short', timeStyle: 'short' })}, ${lh.found} bookings seen` : `last read failed: ${lh.message}`}
           {lh.message === 'test mode' && ' · test mode, nothing is saved yet'}
           {lhIssues.length > 0 && (
@@ -64,9 +66,9 @@ export default async function OtaBookings({ searchParams }: { searchParams: Prom
       )}
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Upcoming & in house" value={upcoming.length} />
-        <Stat label="Value" value={fmt(value)} />
+        <Stat label="Booked value" value={fmt(value)} />
         <Stat label="Still to collect at the hostel" value={fmt(dueTotal)} tone={dueTotal > 0 ? 'due' : 'ok'} />
-        <Stat label="Who takes the money" value={COLLECT[c.collect].split(',')[0]} />
+        <Stat label="Who takes the money" value={<span className="text-base">{COLLECT[c.collect]}</span>} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
@@ -78,7 +80,7 @@ export default async function OtaBookings({ searchParams }: { searchParams: Prom
                 <tbody>
                   {rows.map((r) => { const due = Number(r.charges) - Number(r.paid); return (
                     <tr key={r.id} className="border-t border-slate-100 align-top">
-                      <td className="py-2 font-mono"><Link className="underline" href={`/dashboard/reservations/${r.id}`}>{r.channel_ref || r.reference}</Link>{r.channel_ref && <div className="font-sans text-[11px] text-slate-400">{r.reference}</div>}<div className="font-sans text-[11px]"><Link className="text-lapis-700 underline" href={`/dashboard/folio/${r.id}`}>Account</Link></div></td>
+                      <td className="py-2 font-mono"><Link className="underline" href={`/dashboard/reservations/${r.id}`}>{r.channel_ref || r.reference}</Link>{r.channel_ref && <div className="font-sans text-[11px] text-slate-400">{r.reference}</div>}</td>
                       <td className="font-medium">{r.full_name}{r.nationality && <div className="text-xs font-normal text-slate-500">{r.nationality}</div>}</td>
                       <td className="whitespace-nowrap text-xs">{r.check_in}<div>→ {r.check_out}</div><div className="text-slate-500">{r.guests_count} guest(s)</div></td>
                       <td className="text-xs">{r.beds ?? r.tname?.en}</td>
@@ -94,21 +96,21 @@ export default async function OtaBookings({ searchParams }: { searchParams: Prom
         </Card>
 
         <div className="space-y-5">
-        {site && (
-          <Card title={`Price now on ${c.label.replace(/ (Hotel )?Collect$/, '')}`}>
+        {site && isMgr && (
+          <Card title={`Price now on ${c.label.replace(/ \(.*\)$/, '')}`}>
             {prices.length > 0 ? (
               <table className="mb-3 w-full text-sm">
                 <thead className="text-left text-xs text-slate-500"><tr><th className="py-1">Night</th><th>Room on the site</th><th className="text-right">Price</th></tr></thead>
                 <tbody>{prices.map((p: any, i: number) => <tr key={i} className="border-t border-slate-100"><td className="py-1 text-xs">{p.stay_date === t0 ? 'Tonight' : p.stay_date}</td><td className="text-xs">{p.room}</td><td className="whitespace-nowrap text-right tabular-nums">{fmt(Number(p.price_cents), p.currency)}</td></tr>)}</tbody>
               </table>
-            ) : <p className="mb-3 text-sm text-slate-500">{link ? 'Prices are read from the link once an hour by the reader service. None read yet.' : `Save the link of our ${c.label.replace(/ (Hotel )?Collect$/, '')} page to see its current price here.`}</p>}
+            ) : <p className="mb-3 text-sm text-slate-500">{link ? 'Prices are read from the link once an hour by the reader service. None read yet.' : `Save the link of our ${c.label.replace(/ \(.*\)$/, '')} page to see its current price here.`}</p>}
             {prices[0] && <p className="mb-3 text-[11px] text-slate-400">Read {new Date(prices[0].checked_at).toLocaleString('en-GB', { timeZone: 'Africa/Cairo', dateStyle: 'short', timeStyle: 'short' })}. Prices for 1 guest, 1 night.{priceStatus?.results?.some((r: string) => r.startsWith(ch === 'expedia_hotel' ? 'expedia_collect' : ch) && !/rooms$/.test(r)) ? ' The last read had a problem; open the link to check.' : ''}</p>}
             <details className="mb-3 text-sm"><summary className="cursor-pointer font-semibold text-slate-700">Our rates tonight</summary>
               <ul className="mt-1 space-y-0.5 text-xs">{ours.map((o, i) => <li key={i} className="flex justify-between"><span>{o.name} ({o.kind === 'dorm' ? 'per bed' : 'room'})</span><span className="tabular-nums">{o.cents == null ? '—' : fmt(o.cents)}</span></li>)}</ul>
             </details>
             <form action={siteLinkSave} className="grid gap-2">
               <input type="hidden" name="channel" value={ch} />
-              <Lbl htmlFor="o-link">Link to our page on {c.label.replace(/ (Hotel )?Collect$/, '')}</Lbl>
+              <Lbl htmlFor="o-link">Link to our page on {c.label.replace(/ \(.*\)$/, '')}</Lbl>
               <input id="o-link" name="url" type="url" dir="ltr" defaultValue={link ?? ''} placeholder="https://…" className={Input} />
               <div className="flex flex-wrap gap-2">
                 <button className={Btn}>Save link</button>
@@ -128,16 +130,16 @@ export default async function OtaBookings({ searchParams }: { searchParams: Prom
               <div><Lbl htmlFor="o-ph">Phone{c.direct ? ' *' : ''}</Lbl><input id="o-ph" name="phone" dir="ltr" required={c.direct} className={Input} /></div>
             </div>
             <div><Lbl htmlFor="o-em">Email</Lbl><input id="o-em" name="email" type="email" dir="ltr" className={Input} /></div>
-            <BookingFields types={types.map((t: any) => ({ id: t.id, name: t.name.en, kind: t.kind }))} units={units} busy={busy} today={t0}
-              siteLabel={site ? c.label.replace(/ (Hotel )?Collect$/, '') : undefined} siteLink={link ?? null} siteParams={PARAMS[ch] ?? null} />
+            <BookingFields initial={{ unit: sp.unit, checkIn: sp.checkIn, checkOut: sp.checkOut }} types={types.map((t: any) => ({ id: t.id, name: t.name.en, kind: t.kind }))} units={units} busy={busy} today={t0}
+              siteLabel={site ? c.label.replace(/ \(.*\)$/, '') : undefined} siteLink={link ?? null} siteParams={PARAMS[ch] ?? null} />
             <div className="grid grid-cols-[1fr_96px] gap-3">
               <div><Lbl htmlFor="o-tot">{c.direct ? 'Agreed price for the whole stay (empty = our rates)' : `Price of the stay on ${c.label} *`}</Lbl><input id="o-tot" name="total" required={!c.direct} inputMode="decimal" className={Input} /></div>
               <div><Lbl htmlFor="o-cur">Currency</Lbl><select id="o-cur" name="currency" className={Input}><option>EGP</option><option>USD</option><option>EUR</option></select></div>
             </div>
             {c.canPayAtHostel && <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="payAtHostel" /> Guest pays at the hostel (not paid to {c.label})</label>}
-            {c.canPrepay && <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="prepaid" /> Paid via {c.label} (the site already charged the guest)</label>}
-            {c.collect === 'deposit' && <div><Lbl htmlFor="o-dep">Deposit paid to {c.label} *</Lbl><input id="o-dep" name="deposit" required inputMode="decimal" className={Input} /></div>}
-            {!c.direct && <div><Lbl htmlFor="o-com">Commission to {c.label} (optional, for reports)</Lbl><input id="o-com" name="commission" inputMode="decimal" className={Input} /></div>}
+            {c.canPrepay && <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="prepaid" /> Already paid to {c.label} (not to us): nothing to collect here</label>}
+            {c.collect === 'deposit' && <div><Lbl htmlFor="o-dep">Deposit already paid to {c.label} (not to us) *</Lbl><input id="o-dep" name="deposit" required inputMode="decimal" className={Input} /></div>}
+            {!c.direct && isMgr && <div><Lbl htmlFor="o-com">Commission to {c.label} (optional, for reports)</Lbl><input id="o-com" name="commission" inputMode="decimal" className={Input} /></div>}
             <div><Lbl htmlFor="o-no">Notes</Lbl><textarea id="o-no" name="notes" rows={2} className={Input} /></div>
             <p className="text-xs text-slate-500">A USD / EUR price is converted to EGP at today&apos;s rate. What is left to pay shows on the guest&apos;s account and is taken on the POS.{ch === 'walk_in' ? ' Arriving today = checked in at once.' : ''}</p>
             <button className={Btn}><Icon name="plus" size={16} /> {ch === 'walk_in' ? 'Save and check in' : 'Save booking'}</button>

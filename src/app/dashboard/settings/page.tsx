@@ -24,6 +24,10 @@ export default async function Settings({ searchParams }: { searchParams: Promise
     <>
       <PageHeader title="Settings" sub="Owner only. Anything left empty is shown to guests as “to be confirmed” — nothing is invented." />
       <Flash sp={sp} />
+      <nav aria-label="Set-up pages" className="mb-6 grid gap-3 sm:grid-cols-2">
+        <a href="/dashboard/rooms" className="rounded-xl border border-cocoa-200 bg-white p-4 hover:border-cocoa-600"><b className="block">Rooms, beds & prices</b><span className="text-sm text-slate-600">Add or rename rooms and beds, set nightly prices.</span></a>
+        <a href="/dashboard/import" className="rounded-xl border border-cocoa-200 bg-white p-4 hover:border-cocoa-600"><b className="block">Import old bookings</b><span className="text-sm text-slate-600">One-time upload of reservations from an Excel / CSV file.</span></a>
+      </nav>
       <div className="space-y-6">
         <Card title="Hostel details">
           <form action={saveHostelAction} className="grid gap-3 sm:grid-cols-2">

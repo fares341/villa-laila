@@ -17,9 +17,9 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<Re
      ORDER BY (c.status='needs_staff') DESC, c.priority='high' DESC, c.last_guest_message_at DESC NULLS LAST LIMIT 100`, [show]);
   return (
     <>
-      <PageHeader title="Inbox" sub="Telegram conversations that need a person. While you own a conversation the bot stays silent." />
+      <PageHeader title="Guest messages" sub="Chats where a guest needs a person. While you are answering a chat, the bot stays quiet." />
       <Flash sp={sp} />
-      <div className="mb-4 flex gap-4 text-sm">{[['open', 'Needs reception'], ['mine', 'Taken over'], ['all', 'Everything']].map(([k, l]) => <Link key={k} href={`?show=${k}`} className={show === k ? 'font-bold underline' : 'text-slate-600 underline'}>{l}</Link>)}</div>
+      <div className="mb-4 flex gap-4 text-sm">{[['open', 'Needs reception'], ['mine', 'I am answering'], ['all', 'All']].map(([k, l]) => <Link key={k} href={`?show=${k}`} className={show === k ? 'font-bold underline' : 'text-slate-600 underline'}>{l}</Link>)}</div>
       {rows.length === 0 ? <Empty>No conversations here. When a guest asks for reception or the bot cannot help, it appears here.</Empty> : (
         <div className="divide-y rounded-xl border border-slate-200 bg-white">{rows.map((c) => (
           <Link key={c.id} href={`/dashboard/inbox/${c.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-slate-50">

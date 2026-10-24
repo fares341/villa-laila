@@ -457,9 +457,9 @@ export async function executeAgentTool(name: string, args: any, user: SessionUse
       // Cash / card at the desk go through the folio into the open POS drawer, exactly like the folio page.
       if (validMethod === 'cash' || validMethod === 'card_terminal') {
         const sh = await openShiftRow();
-        if (validMethod === 'cash' && !sh) return { error: 'No POS shift is open. Cash must go into a drawer: open the POS shift first, then take the payment on the folio.', link: `/dashboard/folio/${r.id}` };
+        if (validMethod === 'cash' && !sh) return { error: 'No POS shift is open. Cash must go into a drawer: open the POS shift first, then take the payment on the folio.', link: `/dashboard/reservations/${r.id}` };
         await takeFolioPayment({ reservationId: r.id, amountCents, method: validMethod === 'cash' ? 'cash' : 'card', shiftId: sh?.id ?? null, staffId: sh?.staff_id ?? null, userId, note: note || 'Recorded by Dashboard AI Agent', actor });
-        return { success: true, message: `Payment of ${amountEgp} EGP (${validMethod}) taken on the folio of ${r.reference}${sh ? ` and counted in shift #${sh.shift_no}` : ''}.`, link: `/dashboard/folio/${r.id}` };
+        return { success: true, message: `Payment of ${amountEgp} EGP (${validMethod}) taken on the folio of ${r.reference}${sh ? ` and counted in shift #${sh.shift_no}` : ''}.`, link: `/dashboard/reservations/${r.id}` };
       }
       // Transfers wait for a manager to see the money, like any other transfer.
       const p = await recordPayment(r.id, amountCents, validMethod, null, note || 'Recorded by Dashboard AI Agent', userId, actor);

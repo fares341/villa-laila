@@ -96,43 +96,7 @@ async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
         ))}
       </div>
 
-      <Card title={`Receipts to check (${receipts.length})`} className="mb-6">
-        {receipts.length === 0 ? <p className="text-sm text-slate-600">Nothing waiting. When a guest pays by InstaPay or Vodafone Cash, the receipt waits here (and on Telegram). Check the money in the app, then approve: the booking becomes confirmed and paid, and the guest gets the confirmation.</p> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-slate-600"><tr><th className="py-2">Receipt</th><th>For</th><th>Guest</th><th>Paid by</th><th>Amount</th><th>Sent</th><th /></tr></thead>
-              <tbody>
-                {receipts.map((p: any) => (
-                  <tr key={p.id} className="border-t border-slate-100 align-top">
-                    <td className="py-2">{p.has_proof ? (
-                      <a href={`/api/media/instapay/${p.id}`} target="_blank" rel="noopener" className="block w-20" title="Open full size">
-                        {String(p.proof_mime).startsWith('image/') ? <img src={`/api/media/instapay/${p.id}`} alt="Receipt" className="h-20 w-20 rounded-lg border border-slate-200 object-cover" />
-                          : <span className="inline-flex items-center gap-1 text-sm underline"><Icon name="file-text" size={16} /> PDF</span>}
-                      </a>) : <Pill tone="red">Missing</Pill>}</td>
-                    <td>{p.kind === 'event'
-                      ? <Link className="underline" href={`/en/tickets/${p.ticket_code}`}>{tr(p.event_title, 'en')} · {p.event_date} · {p.ticket_code}</Link>
-                      : <span>Room booking {p.res_ref}</span>}</td>
-                    <td>{p.event_guest || p.res_guest}</td>
-                    <td><b>{walletLabel(p.provider)}</b><div className="text-xs text-slate-600">{p.payer_name}{p.payer_reference ? ` · ref ${p.payer_reference}` : ''}</div></td>
-                    <td className="whitespace-nowrap font-semibold">{fmt(Number(p.amount_cents), p.currency)}</td>
-                    <td className="whitespace-nowrap">{dt(p.created_at)}</td>
-                    <td className="whitespace-nowrap">
-                      {canVerify ? (
-                        <form action={decideInstapayAction} className="flex gap-1">
-                          <input type="hidden" name="id" value={p.id} />
-                          <button name="decision" value="verify" className={Btn}><Icon name="check" size={16} /> Approve & confirm</button>
-                          <button name="decision" value="reject" className={BtnDanger}><Icon name="x" size={16} /> Reject</button>
-                        </form>
-                      ) : <span className="text-xs text-slate-500">Manager checks</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
+      {receipts.length > 0 && <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><b>{receipts.length}</b> InstaPay / Vodafone Cash receipt(s) waiting. <Link className="font-semibold underline" href="/dashboard/payments">Check them in Payments to check</Link>.</p>}
       <Card title="Event bookings">
         <form className="mb-4 flex flex-wrap items-end gap-2 text-sm">
           <label>From <input type="date" name="from" defaultValue={from} className={Input + ' w-40'} /></label>

@@ -11,7 +11,7 @@ import { createReservation, confirmReservation, cancelReservation, rejectReserva
 import { checkInGuest, checkOutGuest, moveRoom } from '@/services/pms/frontdesk';
 import { snapshotStay, afterStayChange } from '@/services/pms/sync';
 import { requestExtension, decideExtension } from '@/services/extensions';
-import { recordPayment, verifyPayment, type PaymentMethod } from '@/services/payments';
+import { recordPayment, verifyPayment, WALLET_METHODS, type PaymentMethod } from '@/services/payments';
 import { takeOver, staffSend, resolve, reopen, resumeBot, assign } from '@/services/conversations';
 import { setSetting } from '@/services/settings';
 import { audit } from '@/services/audit';
@@ -92,7 +92,7 @@ export async function cancelAction(f: FormData) {
   return run(`/dashboard/reservations/${id}`, async () => { await cancelReservation(id, S(f, 'reason') || null, u.email); const s = await notifyGuest(id, 'cancelled'); return s ? 'Cancelled and guest notified.' : 'Cancelled.'; });
 }
 // Check-in / out go through the front-desk service so the folio, housekeeping and Little Hotelier stay in step.
-export async function checkInAction(f: FormData) { const u = await requireUser('reservation.edit'); const id = S(f, 'id'); return run(`/dashboard/reservations/${id}`, async () => { await checkInGuest(id, u.email, u.id); return 'Checked in. Room nights are posted to the folio.'; }); }
+export async function checkInAction(f: FormData) { const u = await requireUser('reservation.edit'); const id = S(f, 'id'); return run(`/dashboard/reservations/${id}`, async () => { await checkInGuest(id, u.email, u.id); return 'Checked in. The nights are on the bill.'; }); }
 export async function checkOutAction(f: FormData) { const u = await requireUser('reservation.edit'); const id = S(f, 'id'); return run(`/dashboard/reservations/${id}`, async () => { await checkOutGuest(id, u.email); return 'Checked out. Room marked dirty.'; }); }
 export async function noShowAction(f: FormData) { const u = await requireUser('reservation.edit'); const id = S(f, 'id'); return run(`/dashboard/reservations/${id}`, async () => { await markNoShow(id, u.email); return 'Marked as no-show.'; }); }
 export async function changeDatesAction(f: FormData) {
@@ -114,9 +114,11 @@ export async function recordPaymentAction(f: FormData) {
   const u = await requireUser('payment.record'); const id = S(f, 'id');
   return run(`/dashboard/reservations/${id}`, async () => {
     // Cash and card taken at the desk go through the folio so they land in the open shift drawer.
-    if (['cash', 'card_terminal'].includes(S(f, 'method'))) throw new BookingError('INVALID_INPUT', 'Cash and card at the desk: use Take payment on the folio, so it goes into the shift drawer.');
-    await recordPayment(id, toCents(S(f, 'amount')), S(f, 'method') as PaymentMethod, S(f, 'reference') || null, S(f, 'note') || null, u.id, u.email);
-    return 'Payment recorded. It counts toward the balance only after a manager verifies it.';
+    // Cash and card are taken on the POS only. Here: an InstaPay / Vodafone Cash receipt, checked before it counts.
+    if (!WALLET_METHODS.includes(S(f, 'method') as PaymentMethod)) throw new BookingError('INVALID_INPUT', 'Cash or card: take it on the POS.');
+    if (S(f, 'reference').length < 4) throw new BookingError('INVALID_INPUT', 'Write the transaction number from the receipt');
+    await recordPayment(id, toCents(S(f, 'amount')), S(f, 'method') as PaymentMethod, S(f, 'reference'), S(f, 'note') || null, u.id, u.email);
+    return 'Receipt added. It counts as paid after a manager checks the money arrived.';
   });
 }
 export async function verifyPaymentAction(f: FormData) {
@@ -129,7 +131,13 @@ export async function createExtensionAction(f: FormData) {
   const u = await requireUser('extension.decide'); const id = S(f, 'id');
   return run(`/dashboard/reservations/${id}`, async () => {
     const e = await requestExtension(id, S(f, 'newCheckOut'), 'staff:' + u.email);
-    return e.status === 'pending' ? `Extension request created (+${e.extra_nights} night(s), ${(e.extra_cents / 100).toFixed(2)}). Approve it in Stay extensions.` : `Created, but it needs attention: ${e.conflict_detail}`;
+    if (e.status !== 'pending') return `Cannot extend: ${e.conflict_detail}. Nothing was changed.`;
+    // Staff extending at the desk: applied straight away (guest requests still wait in Stay extensions).
+    const before = await snapshotStay(id);
+    const r = await decideExtension((e as any).id, 'approve', u.email, u.id);
+    if (r.status === 'conflict') return `Cannot extend: ${r.detail}. Nothing was changed.`;
+    await afterStayChange(id, before, u.id, 'extension.apply');
+    return `Stay extended to ${e.new_check_out} (+${e.extra_nights} night(s), EGP ${(e.extra_cents / 100).toLocaleString('en-US')} added to the bill).`;
   });
 }
 export async function decideExtensionAction(f: FormData) {

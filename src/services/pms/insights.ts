@@ -72,7 +72,7 @@ export async function unpaidInHouse(minDays = 1) {
   for (const r of rows) {
     const f = await getFolio(r.id);
     const days = Math.round((Date.parse(today) - Date.parse(r.check_in)) / 864e5);
-    if (f.balance > 0 && days >= minDays) out.push({ guest: r.full_name, reference: r.reference, phone: r.phone, checkIn: r.check_in, checkOut: r.check_out, daysInHouse: days, balanceDue: egp(f.balance), link: `/dashboard/folio/${r.id}` });
+    if (f.balance > 0 && days >= minDays) out.push({ guest: r.full_name, reference: r.reference, phone: r.phone, checkIn: r.check_in, checkOut: r.check_out, daysInHouse: days, balanceDue: egp(f.balance), link: `/dashboard/reservations/${r.id}` });
   }
   return { minDays, count: out.length, totalDue: Math.round(out.reduce((s, x) => s + x.balanceDue, 0) * 100) / 100, guests: out };
 }

@@ -3,8 +3,10 @@ import type { Q } from '@/lib/db';
 import { BookingError } from './errors';
 import { audit } from './audit';
 
-export type PaymentMethod = 'cash' | 'bank_transfer' | 'instapay' | 'card_terminal' | 'online_provider' | 'other';
-export const METHODS: PaymentMethod[] = ['cash', 'bank_transfer', 'instapay', 'card_terminal', 'online_provider', 'other'];
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'instapay' | 'vodafone_cash' | 'card_terminal' | 'online_provider' | 'other';
+export const METHODS: PaymentMethod[] = ['cash', 'bank_transfer', 'instapay', 'vodafone_cash', 'card_terminal', 'online_provider', 'other'];
+/** The only money staff may record outside the POS: a receipt from a phone wallet, checked before it counts. */
+export const WALLET_METHODS: PaymentMethod[] = ['instapay', 'vodafone_cash'];
 
 /** Payments are only ever RECORDED by staff; they count toward the balance once VERIFIED by an authorised staff member.
  *  Guest messages/screenshots never create or verify a payment. There is no field for card numbers anywhere. */

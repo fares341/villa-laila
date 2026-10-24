@@ -13,17 +13,18 @@ const addDays = (d: string, n: number) => new Date(Date.parse(d + 'T12:00:00Z') 
  * Room type, dates, guests and the exact bed(s) / room for a booking. Beds already taken on those dates are shown and
  * can't be picked, so the booking lands on the calendar exactly where reception put it.
  */
-export function BookingFields({ types, units, busy, today, siteLabel, siteLink, siteParams }: {
-  types: RoomType[]; units: Unit[]; busy: Busy[]; today: string;
+export function BookingFields({ types, units, busy, today, siteLabel, siteLink, siteParams, initial }: {
+  types: RoomType[]; units: Unit[]; busy: Busy[]; today: string; initial?: { unit?: string; checkIn?: string; checkOut?: string };
   siteLabel?: string; siteLink?: string | null; siteParams?: 'booking_com' | 'airbnb' | 'hostelworld' | 'expedia' | 'agoda' | null;
 }) {
   // Start on the first room type that still has something free tonight.
   const firstFree = types.find((t) => units.some((u) => u.room_type_id === t.id && !busy.some((b) => b.unit_id === u.id && b.s < addDays(today, 1) && today < b.e)));
-  const [typeId, setTypeId] = useState(firstFree?.id ?? types[0]?.id ?? '');
-  const [checkIn, setCheckIn] = useState(today);
-  const [checkOut, setCheckOut] = useState(addDays(today, 1));
+  const startUnit = units.find((u) => u.id === initial?.unit);
+  const [typeId, setTypeId] = useState(startUnit?.room_type_id ?? firstFree?.id ?? types[0]?.id ?? '');
+  const [checkIn, setCheckIn] = useState(initial?.checkIn && initial.checkIn >= today ? initial.checkIn : today);
+  const [checkOut, setCheckOut] = useState(initial?.checkOut && initial.checkOut > (initial.checkIn ?? today) ? initial.checkOut : addDays(initial?.checkIn && initial.checkIn >= today ? initial.checkIn : today, 1));
   const [guests, setGuests] = useState(1);
-  const [picked, setPicked] = useState<string[]>([]);
+  const [picked, setPicked] = useState<string[]>(startUnit ? [startUnit.id] : []);
   const type = types.find((t) => t.id === typeId);
   const datesOk = checkOut > checkIn;
 

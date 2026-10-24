@@ -23,8 +23,9 @@ export async function decideInstapayAction(formData: FormData) {
   try {
     if (ok) { const r = await approveProofAdmin(id, u.email, u.id); note = r.b ? (r.wa.sent ? ' · confirmation sent to the guest on WhatsApp' : ' · send the guest the confirmation (WhatsApp button in the list)') : ''; }
     else await rejectProofAdmin(id, u.email, u.id);
-  } catch (e) { fail(e); }
-  done(ok ? 'Receipt approved · booking confirmed and paid' + note : 'Receipt rejected · the guest can send it again for 12 hours');
+  } catch (e) { fail(e, safeBack(formData.get('back'))); }
+  revalidatePath('/dashboard/payments');
+  done(ok ? 'Receipt approved · booking confirmed and paid' + note : 'Receipt rejected · the guest can send it again for 12 hours', safeBack(formData.get('back')));
 }
 
 export async function markEventPaidAction(formData: FormData) {

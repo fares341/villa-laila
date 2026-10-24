@@ -9,7 +9,7 @@ import { Icon } from '@/components/icons';
 import { cockpit } from '@/services/pms/frontdesk';
 import { freeUnits } from '@/services/availability';
 import { dayRate } from '@/services/pricing';
-import { fdCheckIn, fdCheckOut, fdWalkIn } from './pms-actions';
+import { fdCheckIn, fdCheckOut } from './pms-actions';
 
 const nameOf = (n: any, code: string) => (n && typeof n === 'object' ? n.en || n.ar : n) || code;
 
@@ -23,9 +23,9 @@ function GuestRow({ r, kind, canForce, back }: { r: any; kind: 'arrival' | 'depa
     <li className="rounded-xl border border-cocoa-200 bg-white p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <Link href={`/dashboard/folio/${r.id}`} className="block truncate font-bold text-cocoa-800 hover:underline">{r.full_name}</Link>
+          <Link href={`/dashboard/reservations/${r.id}`} className="block truncate font-bold text-cocoa-800 hover:underline">{r.full_name}</Link>
           <p className="text-xs text-slate-600">
-            <span className="font-mono">{r.reference}</span> · {r.rooms || nameOf(r.type_name, '')} · {r.guests_count} pax · {nights} night{nights === 1 ? '' : 's'}
+            <span className="font-mono">{r.reference}</span> · {r.rooms || nameOf(r.type_name, '')} · {r.guests_count} guest{r.guests_count === 1 ? '' : 's'} · {nights} night{nights === 1 ? '' : 's'}
           </p>
           <p className="text-xs text-slate-500">{r.check_in} → {r.check_out}{r.source === 'walk_in' && ' · walk-in'}{r.status === 'pending' && ' · not confirmed yet'}</p>
         </div>
@@ -38,7 +38,7 @@ function GuestRow({ r, kind, canForce, back }: { r: any; kind: 'arrival' | 'depa
         )}
         {kind !== 'arrival' && (r.balance > 0 ? (
           <>
-            <Link href={`/dashboard/folio/${r.id}#pay`} className={SB}><Icon name="wallet" size={15} /> Settle {fmt(r.balance, r.currency)}</Link>
+            <a href={`/pos?guest=${r.id}`} target="_blank" rel="noopener" className={SB}><Icon name="wallet" size={15} /> Pay on POS · {fmt(r.balance, r.currency)}</a>
             {kind === 'departure' && canForce && (
               <form action={fdCheckOut}><input type="hidden" name="id" value={r.id} /><input type="hidden" name="force" value="1" /><input type="hidden" name="back" value={back} />
                 <button className={SD} title="Manager: check out with an open balance">Check out unpaid</button></form>
@@ -48,8 +48,7 @@ function GuestRow({ r, kind, canForce, back }: { r: any; kind: 'arrival' | 'depa
           <form action={fdCheckOut}><input type="hidden" name="id" value={r.id} /><input type="hidden" name="back" value={back} />
             <button className={kind === 'departure' ? SB : SG}><Icon name="log-out" size={15} /> Check out{kind === 'inhouse' ? ' early' : ''}</button></form>
         ))}
-        <Link href={`/dashboard/folio/${r.id}`} className={SG}><Icon name="receipt" size={15} /> Folio</Link>
-        {kind !== 'departure' && <Link href={`/dashboard/folio/${r.id}#move`} className={SG}><Icon name="arrow-left-right" size={15} /> Move</Link>}
+        <Link href={`/dashboard/reservations/${r.id}`} className={SG}><Icon name="receipt" size={15} /> Open</Link>
       </div>
     </li>
   );
@@ -74,7 +73,7 @@ export async function CockpitView({ sp, alerts }: { sp: Record<string, string | 
   const data = await cockpit(date);
   const canForce = can(u.role, 'reservation.cancel');
 
-  // Walk-in: free rooms/beds tonight, with tonight's Little Hotelier (or local) rate.
+  // Free rooms / beds tonight with tonight's price, for walk-ins.
   const c = pool() as unknown as Q;
   const types = await q<any>(`SELECT id, code, kind, name FROM room_types WHERE active ORDER BY sort_order, code`);
   const walk = [] as { t: any; rate: any; free: any[] }[];
@@ -83,7 +82,6 @@ export async function CockpitView({ sp, alerts }: { sp: Record<string, string | 
     walk.push({ t, rate, free });
   }
   const dueTotal = [...data.departures, ...data.inhouse].reduce((s, r) => s + Math.max(0, r.balance), 0);
-  const dirty = (await q<any>(`SELECT count(*)::int n FROM rooms WHERE active AND hk_status='dirty'`))[0].n;
 
   return (
     <>
@@ -94,8 +92,8 @@ export async function CockpitView({ sp, alerts }: { sp: Record<string, string | 
           <button className={BtnGhost}>Go</button>
           {date !== today && <Link href="/dashboard" className={BtnGhost}>Today</Link>}
         </form>
-        <Link href="/dashboard/reservations/new" className={BtnGhost}><Icon name="plus" size={16} /> New reservation</Link>
-        <a href="#walkin" className={Btn}><Icon name="user-plus" size={16} /> Walk-in</a>
+        <Link href="/dashboard/ota?ch=website#add" className={BtnGhost}><Icon name="plus" size={16} /> New booking</Link>
+        <Link href="/dashboard/ota?ch=walk_in#add" className={Btn}><Icon name="user-plus" size={16} /> Walk-in</Link>
         <a href="/pos" target="_blank" rel="noopener" className={BtnGhost}><Icon name="shopping-cart" size={16} /> Open POS</a>
       </PageHeader>
       <Flash sp={sp} />
@@ -104,8 +102,7 @@ export async function CockpitView({ sp, alerts }: { sp: Record<string, string | 
       {/* Counts live in the column headers; one slim line for money and rooms instead of four big tiles. */}
       <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-cocoa-200 bg-white px-4 py-3 text-sm text-cocoa-700">
         <span>Open balances <b className={`ms-1 text-base tabular-nums ${dueTotal > 0 ? 'text-red-800' : 'text-emerald-700'}`}>{fmt(dueTotal)}</b></span>
-        <Link className="inline-flex items-center gap-1.5 hover:underline" href="/dashboard/housekeeping"><Icon name="brush" size={15} /> <b>{dirty}</b> room{dirty === 1 ? '' : 's'} to clean</Link>
-        <Link className="inline-flex items-center gap-1.5 hover:underline" href="/print/housekeeping" target="_blank"><Icon name="printer" size={15} /> Housekeeping sheet</Link>
+        <Link className="inline-flex items-center gap-1.5 hover:underline" href="/print/housekeeping" target="_blank"><Icon name="printer" size={15} /> Print cleaning sheet (Arabic)</Link>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -114,34 +111,12 @@ export async function CockpitView({ sp, alerts }: { sp: Record<string, string | 
         <Column title="In house" icon="bed" rows={data.inhouse} kind="inhouse" empty="No guests in house." canForce={canForce} back={back} />
       </div>
 
-      <Card title="Walk-in: check in now" className="mt-6">
-        <div id="walkin" className="scroll-mt-24" />
-        <p className="mb-4 text-sm text-slate-600">Creates the stay, checks the guest in, marks the room occupied and tells Little Hotelier to stop selling it. Each night is priced at that date’s rate.</p>
-        <form action={fdWalkIn} className="grid gap-4 md:grid-cols-6">
-          <div className="md:col-span-2"><Lbl htmlFor="w-name">Guest name</Lbl><input id="w-name" name="fullName" required minLength={2} className={Input} /></div>
-          <div className="md:col-span-2"><Lbl htmlFor="w-phone">Phone</Lbl><input id="w-phone" name="phone" className={Input} dir="ltr" /></div>
-          <div className="md:col-span-2"><Lbl htmlFor="w-nat">Nationality</Lbl><input id="w-nat" name="nationality" className={Input} /></div>
-          <div className="md:col-span-4"><Lbl htmlFor="w-unit">Room or bed (free tonight)</Lbl>
-            <select id="w-unit" name="unitId" required className={Input}>
-              <option value="">Choose…</option>
-              {walk.map(({ t, rate, free }) => (
-                <optgroup key={t.id} label={`${nameOf(t.name, t.code)} · ${rate ? fmt(rate.cents) + ' tonight' + (rate.source === 'little_hotelier' ? ' (Little Hotelier)' : '') : 'no rate set'}`}>
-                  {free.length === 0 ? <option disabled>Full tonight</option> : free.map((f: any) => (
-                    <option key={f.id} value={f.id}>{t.kind === 'dorm' ? `${f.room_name} · ${f.label}` : f.room_name}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
-          <div><Lbl htmlFor="w-n">Nights</Lbl><input id="w-n" name="nights" type="number" min={1} max={60} defaultValue={1} className={Input} /></div>
-          <div><Lbl htmlFor="w-g">Guests</Lbl><input id="w-g" name="guests" type="number" min={1} max={12} defaultValue={1} className={Input} /></div>
-          <div className="flex items-end md:col-span-6"><button className={Btn}><Icon name="log-in" size={16} /> Check in walk-in</button>
-            <span className="ml-3 text-xs text-slate-500">The guest folio opens next so you can take payment.</span></div>
-        </form>
-        <div className="mt-4 flex flex-wrap gap-2">
+      <Card title="Free tonight" className="mt-6">
+        <div className="flex flex-wrap items-center gap-2">
           {walk.map(({ t, rate, free }) => (
             <Pill key={t.id} tone={free.length ? 'green' : 'slate'}>{nameOf(t.name, t.code)}: {free.length} free{rate ? ` · ${fmt(rate.cents)}` : ''}</Pill>
           ))}
+          <Link href="/dashboard/ota?ch=walk_in#add" className={Btn + ' ms-auto'}><Icon name="user-plus" size={16} /> Walk-in: book & check in</Link>
         </div>
       </Card>
     </>

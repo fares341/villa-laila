@@ -1,6 +1,7 @@
 import { requireUser } from '@/lib/auth';
 import { PageHeader, Flash, Stat, Pill, HK_LABEL, dt, Btn } from '@/components/dash';
 import { Icon } from '@/components/icons';
+import { ConfirmButton } from '@/components/ConfirmButton';
 import { roomBoard } from '@/services/pms/frontdesk';
 import { fdHousekeeping } from '../pms-actions';
 
@@ -9,8 +10,8 @@ export const dynamic = 'force-dynamic';
 const nameOf = (n: any, code: string) => (n && typeof n === 'object' ? n.en || n.ar : n) || code;
 const NEXT: Record<string, { to: string; label: string; icon: string }[]> = {
   dirty: [{ to: 'clean', label: 'Mark clean', icon: 'brush' }],
-  clean: [{ to: 'inspected', label: 'Inspected', icon: 'check-circle' }, { to: 'dirty', label: 'Dirty', icon: 'alert-triangle' }],
-  inspected: [{ to: 'dirty', label: 'Dirty', icon: 'alert-triangle' }],
+  clean: [{ to: 'inspected', label: 'Checked by supervisor', icon: 'check-circle' }, { to: 'dirty', label: 'Mark dirty', icon: 'alert-triangle' }],
+  inspected: [{ to: 'dirty', label: 'Mark dirty', icon: 'alert-triangle' }],
   out_of_order: [{ to: 'dirty', label: 'Back in service', icon: 'refresh' }],
 };
 
@@ -25,8 +26,8 @@ export default async function Housekeeping({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PageHeader title="Rooms & housekeeping" sub="Checkout and room moves mark rooms dirty automatically. Tap a button when a room is ready.">
-        <a href="/print/housekeeping" target="_blank" rel="noopener" className={Btn}><Icon name="printer" size={16} /> Print sheet (Arabic)</a>
+      <PageHeader title="Cleaning" sub="A room becomes dirty by itself at check-out or a room move. Tap the button when it is clean.">
+        <a href="/print/housekeeping" target="_blank" rel="noopener" className={Btn}><Icon name="printer" size={16} /> Print cleaning sheet (Arabic)</a>
       </PageHeader>
       <Flash sp={sp} />
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -50,7 +51,7 @@ export default async function Housekeeping({ searchParams }: { searchParams: Pro
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h3 className="text-lg font-bold text-cocoa-800">{r.name}</h3>
-                  <p className="text-xs text-slate-500">{nameOf(r.type_name, r.code)}{r.kind === 'dorm' ? ` · ${r.units} beds` : ''}</p>
+                  {(nameOf(r.type_name, r.code) !== r.name || r.kind === 'dorm') && <p className="text-xs text-slate-500">{[nameOf(r.type_name, r.code) !== r.name ? nameOf(r.type_name, r.code) : '', r.kind === 'dorm' ? `${r.units} beds` : ''].filter(Boolean).join(' · ')}</p>}
                 </div>
                 <Pill tone={tone}>{label}</Pill>
               </div>
@@ -70,9 +71,9 @@ export default async function Housekeeping({ searchParams }: { searchParams: Pro
                   </form>
                 ))}
                 {r.hk_status !== 'out_of_order' && (
-                  <form action={fdHousekeeping}>
+                  <form action={fdHousekeeping} className="ms-auto">
                     <input type="hidden" name="roomId" value={r.id} /><input type="hidden" name="status" value="out_of_order" /><input type="hidden" name="back" value={`/dashboard/housekeeping?show=${filter}`} />
-                    <button className="min-h-10 rounded-lg px-2 text-xs font-semibold text-slate-500 hover:text-slate-800">Out of order</button>
+                    <ConfirmButton className="min-h-10 rounded-lg px-2 text-xs font-semibold text-slate-500 hover:text-slate-800" message="Take this room out of use (broken, repairs)? It cannot be booked until set back.">Out of order</ConfirmButton>
                   </form>
                 )}
               </div>

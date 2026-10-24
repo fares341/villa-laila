@@ -238,7 +238,7 @@ function LiveClock() {
 
 /* ───────── Main app ───────── */
 
-export function PosApp({ hotel, branch, device }: { hotel: string; branch: string; device: string }) {
+export function PosApp({ hotel, branch, device, initialGuest = null }: { hotel: string; branch: string; device: string; initialGuest?: string | null }) {
   const [st, setSt] = useState<any>(null);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [online, setOnline] = useState(true);
@@ -289,7 +289,7 @@ export function PosApp({ hotel, branch, device }: { hotel: string; branch: strin
 
   return (
     <div className="pos-root">
-      <Register st={st} hotel={hotel} branch={branch} device={device} online={online} lastSync={lastSync} refresh={refresh} lock={lock}
+      <Register initialGuest={initialGuest} st={st} hotel={hotel} branch={branch} device={device} online={online} lastSync={lastSync} refresh={refresh} lock={lock}
         notify={(text, kind = 'ok') => setToast({ text, kind })} onClosed={(msg) => { setLockNotice(msg); refresh(); }} />
       {toast && <Toast t={toast} />}
     </div>
@@ -331,8 +331,8 @@ function OpenShift({ me, onOpened, onLock, tasksBtn }: { me: Staff; onOpened: (m
   );
 }
 
-function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, notify, onClosed }: {
-  st: any; hotel: string; branch: string; device: string; online: boolean; lastSync: Date | null;
+function Register({ initialGuest, st, hotel, branch, device, online, lastSync, refresh, lock, notify, onClosed }: {
+  initialGuest: string | null; st: any; hotel: string; branch: string; device: string; online: boolean; lastSync: Date | null;
   refresh: () => Promise<void>; lock: () => void; notify: (t: string, k?: 'ok' | 'bad') => void; onClosed: (msg: string) => void;
 }) {
   const products: Product[] = st.catalog?.products ?? [];
@@ -341,7 +341,7 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
   const [tab, setTab] = useState<Tab>('market');
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [guestId, setGuestId] = useState<string | null>(null);
+  const [guestId, setGuestId] = useState<string | null>(initialGuest);
   const [guestQuery, setGuestQuery] = useState('');
   const [guestOpen, setGuestOpen] = useState(false);
   const [method, setMethod] = useState<'cash' | 'card'>('cash');
@@ -354,7 +354,8 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
   const guest = guests.find((g) => g.id === guestId) ?? null;
   const total = cart.reduce((s, l) => s + l.unit * l.qty, 0);
 
-  useEffect(() => { if (guestId && !guests.some((g) => g.id === guestId)) setGuestId(null); }, [guests, guestId]);
+  // Forget a guest who left the list (checked out / cancelled); wait until the list has loaded.
+  useEffect(() => { if (guestId && st.guests && !guests.some((g) => g.id === guestId)) setGuestId(null); }, [guests, guestId, st.guests]);
 
   const add = useCallback((line: Omit<CartLine, 'key' | 'qty'> & { qty?: number }) => {
     setCart((c) => {
@@ -476,7 +477,7 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
                   {guest.state === 'due' && <span className="pos-badge red">Balance Due: {egp(guest.balance)}</span>}
                   {guest.state === 'settled' && <span className="pos-badge green">Fully Settled</span>}
                   {guest.state === 'credit' && <span className="pos-badge blue">Credit Balance: {egp(-guest.balance)}</span>}
-                  <button className="pos-link" onClick={() => setModal('folio')}><Icon name="file-text" size={15} /> Folio</button>
+                  <button className="pos-link" onClick={() => setModal('folio')}><Icon name="file-text" size={15} /> Bill</button>
                   <button className="pos-link" onClick={() => setModal('payment')}><Icon name="banknote" size={15} /> Receive payment</button>
                 </div>
               </div>
@@ -610,7 +611,7 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
             {st.takers?.length > 0 && <button className="pos-btn" onClick={() => setModal('taken')}><Icon name="wallet" /> Cash taken (owner)</button>}
             <a className="pos-btn" href="/dashboard" target="_blank" rel="noopener"><Icon name="door-open" /> Front desk (Today)</a>
             <a className="pos-btn" href="/dashboard" target="_blank" rel="noopener"><Icon name="layout-dashboard" /> Dashboard</a>
-            <p className="pos-fine">Device signed in as {device}. Channel manager {st.channel ? 'connected' : 'not connected'}.</p>
+            <p className="pos-fine">Device signed in as {device}.</p>
           </div>
         </Modal>
       )}
@@ -702,7 +703,7 @@ function FolioModal({ guest, onClose }: { guest: Guest; onClose: () => void }) {
   const [f, setF] = useState<any>(null);
   useEffect(() => { posGuestFolio(guest.id).then((r) => setF(r.ok ? r.data : { error: r.error })); }, [guest.id]);
   return (
-    <Modal title={`Folio · ${guest.full_name}`} onClose={onClose} wide>
+    <Modal title={`Bill · ${guest.full_name}`} onClose={onClose} wide>
       {!f ? <p>Loading…</p> : f.error ? <p className="pos-msg bad">{f.error}</p> : (
         <>
           <table className="pos-table">
@@ -711,7 +712,7 @@ function FolioModal({ guest, onClose }: { guest: Guest; onClose: () => void }) {
               {f.lines.map((l: any, i: number) => (
                 <tr key={l.id ?? i} className={l.amount_cents < 0 ? 'credit' : ''}>
                   <td className="num">{l.date}</td>
-                  <td>{l.description}{l.kind === 'room' && l.rate_source && <small className="pos-src">{l.rate_source === 'little_hotelier' ? 'Little Hotelier rate' : l.rate_source === 'booking' ? 'Booked rate' : l.rate_source === 'override' ? 'Manager rate' : 'Local rate'}</small>}</td>
+                  <td>{l.description}{l.kind === 'room' && l.rate_source && <small className="pos-src">{l.rate_source === 'booking' ? 'Booked price' : l.rate_source === 'override' ? 'Manager price' : 'Our rate'}</small>}</td>
                   <td className="r num">{l.quantity}</td><td className="r num">{egp(l.amount_cents)}</td>
                 </tr>
               ))}

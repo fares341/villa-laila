@@ -51,7 +51,7 @@ export default async function TaxiPage({ searchParams }: { searchParams: Promise
                       {t.status === 'booked' && (
                         <form action={taxiStatus} className="flex gap-1"><input type="hidden" name="id" value={t.id} />
                           <button name="status" value={t.confirmed_at ? 'uninformed' : 'informed'} className="rounded-md border border-cocoa-200 px-2 py-1 text-xs font-semibold">{t.confirmed_at ? 'Undo informed' : 'Mark informed'}</button>
-                          <button name="status" value="done" className="rounded-md border border-cocoa-200 px-2 py-1 text-xs font-semibold">Done</button>
+                          <button name="status" value="done" className="rounded-md border border-cocoa-200 px-2 py-1 text-xs font-semibold">Trip done</button>
                           {can(u.role, 'reservation.cancel') && <button name="status" value="cancelled" className="rounded-md px-2 py-1 text-xs font-semibold text-red-700">Cancel</button>}
                         </form>
                       )}
@@ -67,8 +67,8 @@ export default async function TaxiPage({ searchParams }: { searchParams: Promise
           <Card title="Book a taxi">
             <form action={taxiCreate} className="space-y-3">
               <div><Lbl htmlFor="tx-r">Guest (booking)</Lbl>
-                <select id="tx-r" name="reservationId" className={Input}>
-                  <option value="">Not in the system: type the name below</option>
+                <select id="tx-r" name="reservationId" className={Input} defaultValue={sp.reservation ?? ''}>
+                  <option value="">Choose the guest… (or leave and type a name below)</option>
                   {guests.map((g) => <option key={g.id} value={g.id}>{g.full_name} · {g.reference} · {g.check_in} → {g.check_out}</option>)}
                 </select></div>
               <div className="grid grid-cols-2 gap-2">
@@ -83,7 +83,7 @@ export default async function TaxiPage({ searchParams }: { searchParams: Promise
               </div>
               <div><Lbl htmlFor="tx-note">Note</Lbl><input id="tx-note" name="note" placeholder="Flight number, luggage…" className={Input} /></div>
               <button className={Btn + ' w-full'}><Icon name="plus" size={16} /> Book taxi</button>
-              <p className="text-xs text-slate-500">With a booking, the price is added to the guest’s folio at today’s rate. Before 10:00 the afternoon shift the evening before messages the guest; otherwise the morning shift that day.</p>
+              <p className="text-xs text-slate-500">With a booking, the price goes on the guest’s bill at today’s rate. Someone without a booking pays on the POS (Taxi). Before 10:00 the afternoon shift the evening before messages the guest; otherwise the morning shift that day.</p>
             </form>
           </Card>
           {can(u.role, 'staff.manage') && (

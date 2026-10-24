@@ -22,32 +22,26 @@ const NAV: [string, NavItem[]][] = [
     { href: '/dashboard/reservations', label: 'Reservations', perm: 'reservation.view', icon: 'bed', count: 'pending', match: ['/dashboard/extensions', '/dashboard/folio'] },
     { href: '/dashboard/ota', label: 'Bookings by source', perm: 'reservation.view', icon: 'globe' },
     { href: '/dashboard/calendar', label: 'Calendar', perm: 'reservation.view', icon: 'calendar-days' },
-    { href: '/dashboard/housekeeping', label: 'Rooms & housekeeping', perm: 'frontdesk.use', icon: 'brush', count: 'dirty' },
+    { href: '/dashboard/guests', label: 'Guests', perm: 'guest.view', icon: 'users' },
+    { href: '/dashboard/housekeeping', label: 'Cleaning', perm: 'frontdesk.use', icon: 'brush', count: 'dirty' },
     { href: '/dashboard/taxi', label: 'Airport taxi', perm: 'frontdesk.use', icon: 'map', count: 'taxis' },
-    { href: '/dashboard/inbox', label: 'Inbox', perm: 'inbox.use', icon: 'inbox', count: 'inbox' },
+    { href: '/dashboard/inbox', label: 'Guest messages', perm: 'inbox.use', icon: 'inbox', count: 'inbox' },
   ]],
   ['Sales', [
     { href: '/pos', label: 'Point of Sale', perm: 'pos.use', icon: 'shopping-cart', external: true },
-    { href: '/dashboard/catalog', label: 'Catalog, stock & tours', perm: 'inventory.manage', icon: 'package', count: 'lowstock', match: ['/dashboard/tours'] },
-    { href: '/dashboard/events', label: 'Events & InstaPay', perm: 'tours.manage', icon: 'ticket', count: 'instapay' },
+    { href: '/dashboard/catalog', label: 'Products & tours', perm: 'inventory.manage', icon: 'package', count: 'lowstock', match: ['/dashboard/tours'] },
+    { href: '/dashboard/events', label: 'Events', perm: 'tours.manage', icon: 'ticket' },
   ]],
   ['Money', [
     { href: '/dashboard/shift-reports', label: 'Shifts & cash', perm: 'reports.view', icon: 'receipt', count: 'shortages' },
-    { href: '/dashboard/payments', label: 'Payments to verify', perm: 'payment.record', icon: 'wallet', count: 'payments' },
-    { href: '/dashboard/guests', label: 'Guests', perm: 'guest.view', icon: 'users' },
+    { href: '/dashboard/payments', label: 'Payments to check', perm: 'payment.record', icon: 'wallet', count: 'payments' },
   ]],
-  ['Team', [
-    { href: '/dashboard/staff', label: 'Team & shift tasks', perm: 'staff.view', icon: 'user-plus', match: ['/dashboard/tasks'] },
+  ['Team & reports', [
+    { href: '/dashboard/staff', label: 'Team', perm: 'staff.view', icon: 'user-plus', match: ['/dashboard/tasks'] },
+    { href: '/dashboard/reports', label: 'Reports', perm: 'reports.view', icon: 'bar-chart', match: ['/dashboard/audit'] },
   ]],
   ['Setup', [
-    { href: '/dashboard/rooms', label: 'Rooms & rates', perm: 'inventory.manage', icon: 'settings' },
-    { href: '/dashboard/channel', label: 'Little Hotelier', perm: 'channel.manage', icon: 'link' },
     { href: '/dashboard/automation', label: 'Automation', perm: 'automation.manage', icon: 'activity' },
-    { href: '/dashboard/settings', label: 'Settings', perm: 'settings.manage', icon: 'settings' },
-    { href: '/dashboard/import', label: 'Import Excel', perm: 'import.run', icon: 'upload' },
-  ]],
-  ['Insight', [
-    { href: '/dashboard/reports', label: 'Reports', perm: 'reports.view', icon: 'bar-chart', match: ['/dashboard/audit'] },
   ]],
 ];
 
@@ -87,7 +81,11 @@ export async function DashShell({ user, children }: { user: SessionUser; childre
         </details>
         <div className="border-t border-white/10 px-4 py-3 text-sm">
           <p className="font-semibold text-white">{user.name}</p><p className="text-xs capitalize text-cocoa-200">{user.role}</p>
-          <form action={logoutAction} className="mt-2"><button className="inline-flex items-center gap-1.5 text-cocoa-200 hover:text-white"><Icon name="log-out" size={15} /> Sign out</button></form>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {/* Owner set-up pages (rooms & prices, users, texts) live behind one link, out of the daily menu. */}
+            {can(user.role, 'settings.manage') && <Link href="/dashboard/settings" className="inline-flex items-center gap-1.5 text-cocoa-200 hover:text-white"><Icon name="settings" size={15} /> Settings</Link>}
+            <form action={logoutAction}><button className="inline-flex items-center gap-1.5 text-cocoa-200 hover:text-white"><Icon name="log-out" size={15} /> Sign out</button></form>
+          </div>
         </div>
       </aside>
       <div className="min-w-0 flex-1 p-4 md:p-8">

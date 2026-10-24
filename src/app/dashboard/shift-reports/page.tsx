@@ -213,8 +213,8 @@ export default async function ShiftReports({ searchParams }: { searchParams: Pro
               <tbody>{comps.map((c) => (
                 <tr key={c.id} className="border-t border-slate-100 align-top">
                   <td className="py-2">{dt(c.created_at)}{c.shift_no && <div className="text-xs text-slate-500">Shift #{c.shift_no}</div>}</td>
-                  <td>{c.reservation_id ? <Link href={`/dashboard/folio/${c.reservation_id}`} className="underline">{c.guest}</Link> : 'Walk-in'}{c.reference && <div className="font-mono text-xs text-slate-500">{c.reference}</div>}</td>
-                  <td className="text-xs">{c.items || 'Folio balance'}</td>
+                  <td>{c.reservation_id ? <Link href={`/dashboard/reservations/${c.reservation_id}`} className="underline">{c.guest}</Link> : 'Walk-in'}{c.reference && <div className="font-mono text-xs text-slate-500">{c.reference}</div>}</td>
+                  <td className="text-xs">{c.items || 'Bill balance'}</td>
                   <td>{c.note}</td><td>{c.approver}</td><td>{c.cashier}</td>
                   <td className="text-right font-semibold tabular-nums">{fmt(Number(c.amount_cents))}</td>
                 </tr>))}

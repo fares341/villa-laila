@@ -198,7 +198,7 @@ async function end(id: string, status: 'cancelled' | 'rejected' | 'no_show', rea
     const r = await lockReservation(c, id);
     r.units = (await c.query('SELECT count(*)::int n FROM reservation_units WHERE reservation_id=$1 AND active', [id])).rows[0].n;
     if (['cancelled', 'rejected', 'checked_out', 'expired'].includes(r.status)) throw new BookingError('BAD_STATE', `Already ${r.status}`);
-    if (r.status === 'checked_in') throw new BookingError('BAD_STATE', 'The guest is in house. Use Check out (the folio settles the nights and the room goes to housekeeping).');
+    if (r.status === 'checked_in') throw new BookingError('BAD_STATE', 'The guest is in house. Use Check out instead (the room then goes to cleaning).');
     if (status === 'rejected' && !['hold', 'pending'].includes(r.status)) throw new BookingError('BAD_STATE', 'Only requests can be rejected; cancel instead');
     await c.query('UPDATE reservation_units SET active=false WHERE reservation_id=$1', [id]);
     await c.query('UPDATE reservations SET status=$2, cancelled_reason=$3, hold_expires_at=NULL, needs_review=false, updated_at=now() WHERE id=$1', [id, status, reason]);

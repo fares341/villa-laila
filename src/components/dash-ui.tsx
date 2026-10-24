@@ -25,6 +25,14 @@ export const STATUS_LABEL: Record<string, string> = {
   no_show: 'No-show',
 };
 
+/** Where a booking came from, in words staff use. */
+export const SOURCE_LABEL: Record<string, string> = {
+  website: 'Our website', walk_in: 'Walk-in', staff: 'Front desk', telegram: 'Telegram bot', import: 'Imported', channel: 'Imported',
+  booking_com: 'Booking.com', airbnb: 'Airbnb', hostelworld: 'Hostelworld', expedia: 'Expedia', agoda: 'Agoda',
+};
+export const sourceLabel = (s: string | null | undefined) => (s ? SOURCE_LABEL[s] ?? s.replace(/_/g, ' ') : '—');
+export const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+
 export const Badge = ({ status }: { status: string }) => (
   <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLE[status] ?? 'bg-slate-100'}`}>
     {STATUS_LABEL[status] ?? status}
@@ -116,7 +124,7 @@ export const BalancePill = ({ state, cents, cur = 'EGP' }: { state: 'due' | 'set
   : <Pill tone="green">Fully settled</Pill>;
 
 export const HK_LABEL: Record<string, [string, 'green' | 'red' | 'blue' | 'slate']> = {
-  clean: ['Clean', 'green'], dirty: ['Dirty', 'red'], inspected: ['Inspected', 'blue'], out_of_order: ['Out of order', 'slate'],
+  clean: ['Clean', 'green'], dirty: ['Dirty', 'red'], inspected: ['Checked by supervisor', 'blue'], out_of_order: ['Out of order', 'slate'],
 };
 
 /** Tabs between closely related pages, so the side menu stays short. */

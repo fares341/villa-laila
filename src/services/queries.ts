@@ -56,7 +56,7 @@ export async function overview() {
 
 export async function calendarData(from: string, days: number) {
   const to = addDays(from, days);
-  const units = await q<any>(`SELECT u.id, u.label, u.capacity, rm.name room, t.name tname, t.kind FROM units u JOIN rooms rm ON rm.id=u.room_id JOIN room_types t ON t.id=rm.room_type_id WHERE u.active AND rm.active ORDER BY t.sort_order, rm.name, u.label`);
+  const units = await q<any>(`SELECT u.id, u.label, u.capacity, rm.name room, t.name tname, t.kind FROM units u JOIN rooms rm ON rm.id=u.room_id JOIN room_types t ON t.id=rm.room_type_id WHERE u.active AND rm.active ORDER BY t.sort_order, rm.name, length(u.label), u.label`);
   const alloc = await q<any>(
     `SELECT ru.unit_id, lower(ru.during) s, upper(ru.during) e, r.id rid, r.reference, r.status, g.full_name, r.guests_count, r.hold_expires_at, r.source, r.channel_ref
      FROM reservation_units ru JOIN reservations r ON r.id=ru.reservation_id JOIN guests g ON g.id=r.guest_id
@@ -105,7 +105,7 @@ export async function houseView() {
 /** Small counters for the sidebar. */
 export async function navCounts() {
   return (await q<any>(`SELECT (SELECT count(*) FROM reservations WHERE status IN ('pending','hold') AND (hold_expires_at IS NULL OR hold_expires_at > now()))::int pending,
-    (SELECT count(*) FROM conversations WHERE status='needs_staff')::int inbox, (SELECT count(*) FROM payments WHERE status='recorded')::int payments,
+    (SELECT count(*) FROM conversations WHERE status='needs_staff')::int inbox, ((SELECT count(*) FROM payments WHERE status='recorded') + (SELECT count(*) FROM online_payments WHERE provider IN ('instapay','vodafone_cash') AND status='submitted'))::int payments,
     (SELECT count(*) FROM extension_requests WHERE status IN ('pending','conflict'))::int extensions,
     (SELECT count(*) FROM online_payments WHERE provider='instapay' AND status='submitted')::int instapay,
     (SELECT count(*) FROM reservations WHERE status IN ('pending','confirmed','hold') AND check_in = (now() AT TIME ZONE 'Africa/Cairo')::date)::int arrivals,

@@ -53,11 +53,11 @@ export async function fdWalkIn(fd: FormData) {
     id = r.id;
   } catch (e) { go('/dashboard?walkin=1', 'err', msg(e)); }
   revalidatePath('/dashboard');
-  go(`/dashboard/folio/${id}`, 'ok', 'Walk-in checked in · Little Hotelier notified');
+  go(`/dashboard/reservations/${id}`, 'ok', 'Walk-in checked in');
 }
 
 export async function fdMoveRoom(fd: FormData) {
-  const u = await requireUser('frontdesk.use'); const id = str(fd.get('id')); const back = safe(fd.get('back'), `/dashboard/folio/${id}`);
+  const u = await requireUser('frontdesk.use'); const id = str(fd.get('id')); const back = safe(fd.get('back'), `/dashboard/reservations/${id}`);
   try { await moveRoom({ reservationId: id, reservationUnitId: str(fd.get('ruId')) || undefined, newUnitId: str(fd.get('unitId')), effective: str(fd.get('effective')) || undefined, actor: u.email, userId: u.id }); }
   catch (e) { go(back, 'err', msg(e)); }
   revalidatePath(back); go(back, 'ok', 'Room moved · old room marked dirty');
@@ -71,23 +71,14 @@ export async function fdHousekeeping(fd: FormData) {
 
 /* ───────── Folio ───────── */
 
+/** Cash and card are only taken on the POS (so every pound is in a drawer); this old form now points there. */
 export async function folioPayment(fd: FormData) {
-  const u = await requireUser('payment.record'); const id = str(fd.get('id')); const back = `/dashboard/folio/${id}`;
-  const method = str(fd.get('method')) === 'card' ? 'card' : 'cash';
-  const shift = await openShiftRow();
-  const currency = (['USD', 'EUR'].includes(str(fd.get('currency'))) && method === 'cash' ? str(fd.get('currency')) : 'EGP') as any;
-  // Card payments: a foreign guest's passport details go on the daily Excel (same rule as the POS).
-  const kind = str(fd.get('payerKind'));
-  if (method === 'card' && !['eg', 'foreign'].includes(kind)) go(back, 'err', 'Card payment: choose Egyptian or Foreign guest');
-  const cardPayer = method === 'card' && kind === 'foreign' ? { name: str(fd.get('payerName')), nationality: str(fd.get('payerNationality')), passport: str(fd.get('payerPassport')) } : null;
-  if (cardPayer && (!cardPayer.name || !cardPayer.nationality || !cardPayer.passport)) go(back, 'err', 'Foreign guest: name, nationality and passport number are required');
-  try { await takeFolioPayment({ reservationId: id, amountCents: cents(fd.get('amount')) ?? 0, method, currency, shiftId: shift?.id ?? null, staffId: shift?.staff_id ?? null, userId: u.id, note: str(fd.get('note')) || undefined, actor: u.email, cardPayer, staffName: u.name }); }
-  catch (e) { go(back, 'err', msg(e)); }
-  revalidatePath(back); go(back, 'ok', 'Payment recorded');
+  await requireUser('payment.record'); const id = str(fd.get('id'));
+  go(`/dashboard/reservations/${id}`, 'err', 'Cash and card are taken on the POS: use "Take payment on POS".');
 }
 
 export async function folioCharge(fd: FormData) {
-  const u = await requireUser('reservation.edit'); const id = str(fd.get('id')); const back = `/dashboard/folio/${id}`;
+  const u = await requireUser('reservation.edit'); const id = str(fd.get('id')); const back = `/dashboard/reservations/${id}`;
   const unit = cents(fd.get('amount'));
   const desc = str(fd.get('description'));
   if (!unit || unit <= 0 || desc.length < 2) go(back, 'err', 'Enter a description and an amount');
@@ -97,13 +88,13 @@ export async function folioCharge(fd: FormData) {
 }
 
 export async function folioVoid(fd: FormData) {
-  const u = await requireUser('rate.override'); const id = str(fd.get('id')); const back = `/dashboard/folio/${id}`;
+  const u = await requireUser('rate.override'); const id = str(fd.get('id')); const back = `/dashboard/reservations/${id}`;
   try { await voidFolioEntry(str(fd.get('entryId')), str(fd.get('reason')), u.email); } catch (e) { go(back, 'err', msg(e)); }
   revalidatePath(back); go(back, 'ok', 'Line voided');
 }
 
 export async function folioRateOverride(fd: FormData) {
-  const u = await requireUser('rate.override'); const id = str(fd.get('id')); const back = `/dashboard/folio/${id}`;
+  const u = await requireUser('rate.override'); const id = str(fd.get('id')); const back = `/dashboard/reservations/${id}`;
   try { await applyRateOverride(id, str(fd.get('from')), str(fd.get('to')), cents(fd.get('rate')) ?? -1, str(fd.get('reason')), u.id, u.email); }
   catch (e) { go(back, 'err', msg(e)); }
   revalidatePath(back); go(back, 'ok', 'Rate override applied');

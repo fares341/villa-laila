@@ -23,10 +23,10 @@ export const CHANNELS: Record<ChannelKey, { label: string; source: 'booking_com'
   booking_com: { label: 'Booking.com', source: 'booking_com', collect: 'property', canPrepay: true, help: 'The guest pays at the hostel. Tick "Paid via Booking.com" only if the booking shows Booking.com already charged the guest.' },
   airbnb: { label: 'Airbnb', source: 'airbnb', collect: 'channel', help: 'Airbnb already took the money and pays the hostel. Nothing to collect at the desk, except extras.' },
   hostelworld: { label: 'Hostelworld', source: 'hostelworld', collect: 'deposit', help: 'The guest paid a deposit to Hostelworld. The rest of the total is paid at the hostel.' },
-  expedia_collect: { label: 'Expedia Collect', source: 'expedia', collect: 'channel', help: 'Expedia charged the guest and pays the hostel. Nothing to collect at the desk, except extras.' },
-  expedia_hotel: { label: 'Expedia Hotel Collect', source: 'expedia', collect: 'property', help: 'The guest pays the full amount at the hostel.' },
+  expedia_collect: { label: 'Expedia (paid to Expedia)', source: 'expedia', collect: 'channel', help: 'Expedia charged the guest and pays the hostel. Nothing to collect at the desk, except extras.' },
+  expedia_hotel: { label: 'Expedia (pays here)', source: 'expedia', collect: 'property', help: 'The guest pays the full amount at the hostel.' },
   agoda: { label: 'Agoda', source: 'agoda', collect: 'channel', canPayAtHostel: true, help: 'Agoda usually charges the guest and pays the hostel. Tick "Guest pays at the hostel" only if the booking says Pay at the hotel.' },
-  website: { label: 'Our website', source: 'website', collect: 'property', direct: true, help: 'Bookings made on villalaylahostel.com arrive here by themselves. Add one by hand only if the guest booked with us directly (phone, WhatsApp, email). The guest pays on the POS.' },
+  website: { label: 'Direct & website', source: 'website', collect: 'property', direct: true, help: 'Guests who booked with us: on villalaylahostel.com (they arrive here by themselves) or by phone, WhatsApp or email (add them here). The guest pays on the POS.' },
   walk_in: { label: 'Walk-in', source: 'walk_in', collect: 'property', direct: true, help: 'The guest came to the hostel and booked at the desk. Arriving today = checked in straight away. The guest pays on the POS.' },
 };
 export const channelOf = (source: string, collect: string | null): ChannelKey | null =>
