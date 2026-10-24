@@ -25,7 +25,7 @@ const ST: Record<string, [string, string]> = {
   expired: ['Expired', 'bg-slate-200 text-slate-600'],
   cancelled: ['Cancelled', 'bg-red-100 text-red-900'],
 };
-const METHOD: Record<string, string> = { paymob: 'Card (Paymob)', instapay: 'InstaPay', vodafone_cash: 'Vodafone Cash', cash: 'Cash at the villa' };
+const METHOD: Record<string, string> = { paymob: 'Card (Paymob)', instapay: 'InstaPay', vodafone_cash: 'Vodafone Cash', cash: 'Pay at the door', card: 'Card (POS)' };
 const mask = (t: string) => (t ? `${t.slice(0, 6)}…${t.slice(-4)}` : '');
 
 export default async function EventsDashboard({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -41,8 +41,8 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
   const [receipts, wallets, bot] = await Promise.all([listInstapaySubmissions(), getWallets(true), getAdminBotConfig()]);
 
   const tabs = [
-    { href: '/dashboard/events', label: 'Bookings & receipts', icon: 'ticket', count: receipts.length },
-    { href: '/dashboard/events?tab=events', label: 'Events on the website', icon: 'calendar-days' },
+    { href: '/dashboard/events', label: 'Bookings', icon: 'ticket' },
+    { href: '/dashboard/events?tab=events', label: 'Events list', icon: 'calendar-days' },
     ...(canEdit ? [{ href: '/dashboard/events?tab=settings', label: 'Payment accounts & bots', icon: 'settings' }] : []),
   ];
   const current = tab === 'bookings' ? '/dashboard/events' : `/dashboard/events?tab=${tab}`;
@@ -53,7 +53,7 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
       <PageHeader title="Events" sub="Bookings from the website, receipts to check, the events shown on the website, and how guests pay.">
         <form action={findTicketAction} className="flex gap-2">
           <input name="code" placeholder="Ticket code EV-…" className={Input + ' w-44'} aria-label="Ticket code" />
-          <button className={BtnGhost}>Find ticket</button>
+          <button className={BtnGhost + ' whitespace-nowrap'}>Find ticket</button>
         </form>
         {canEdit && <Link href="/dashboard/events/edit/new" className={Btn}><Icon name="plus" size={16} /> New event</Link>}
       </PageHeader>
@@ -138,7 +138,7 @@ async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
                           <td className="whitespace-nowrap">
                             <div className="flex flex-wrap gap-1">
                               {open && !b.confirmed_at && b.status !== 'pending_verification' && (
-                                <form action={confirmEventBookingAction}><input type="hidden" name="id" value={b.id} /><button className={BtnGhost}>Confirm</button></form>
+                                <form action={confirmEventBookingAction}><input type="hidden" name="id" value={b.id} /><button className={BtnGhost} title="Tells the guest on WhatsApp the booking is confirmed">Send confirmation</button></form>
                               )}
                               {b.status === 'paid' && !b.checked_in_at && (
                                 <form action={checkInEventAction}><input type="hidden" name="id" value={b.id} /><button className={Btn}>Check in</button></form>

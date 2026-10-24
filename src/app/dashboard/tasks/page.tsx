@@ -61,7 +61,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
       {view && (
         <div className="mb-6 grid gap-5 xl:grid-cols-3">
           <Card title={`${view.run.label} · ${view.run.work_date}`} className="xl:col-span-2">
-            {!view.run.distributed_at && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Not shared yet. It happens automatically after the grace period, or share now.</p>}
+            {!view.run.distributed_at && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Not shared between the staff yet. It happens by itself a few minutes after the shift starts, or press “Share tasks now” below.</p>}
             <div className="grid gap-3 md:grid-cols-2">
               {[...byPerson.entries()].map(([who, list]) => (
                 <div key={who} className="rounded-xl border border-cocoa-200 p-3">
@@ -90,7 +90,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
             </div>
             {manage && (
               <form action={taskRedistribute} className="mt-4"><input type="hidden" name="runId" value={view.run.id} />
-                <button className={BtnGhost}><Icon name="refresh" size={16} /> Share open tasks again</button>
+                <button className={BtnGhost}><Icon name="refresh" size={16} /> {view.run.distributed_at ? 'Share unfinished tasks again' : 'Share tasks now'}</button>
                 <span className="ml-2 text-xs text-slate-500">Tasks someone already started stay with them.</span></form>
             )}
           </Card>

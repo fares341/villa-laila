@@ -145,7 +145,7 @@ export async function clockIn(staffId: string, opts: { cashShiftId?: string | nu
         delayMs, L.minutes, L.tier, L.deductionCents, opts.cashShiftId ?? null, opts.source ?? 'pos'])).rows[0];
     if (L.tier >= 1) {
       await c.query(`INSERT INTO tasks(title,detail,kind,dedupe_key) VALUES($1,$2,'general',$3) ON CONFLICT (dedupe_key) DO NOTHING`,
-        [`${s.full_name} was ${L.minutes} min late (tier ${L.tier})`, `Scheduled ${sch?.roster.shift_code} at ${sch?.roster.start_time}. Deduction ${(L.deductionCents / 100).toFixed(0)} EGP. Waive it in Staff → Attendance if excused.`, 'late:' + att.id]);
+        [`${s.full_name} was ${L.minutes} min late`, `Scheduled shift at ${sch?.roster.start_time}. Deduction ${(L.deductionCents / 100).toFixed(0)} EGP. Forgive it in Team → Attendance if excused.`, 'late:' + att.id]);
     }
     await audit('pos', 'staff.clock_in', 'staff', staffId, { delayMinutes: L.minutes, tier: L.tier }, cq);
     return { attendance: att, alreadyIn: false, staff: s, alert: L.alert, minutes: L.minutes };

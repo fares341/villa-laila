@@ -9,7 +9,7 @@ import { attendanceWaive, latenessPolicySave } from '../../pms-actions';
 
 export const dynamic = 'force-dynamic';
 
-const TIER: Record<number, [string, 'green' | 'amber' | 'red' | 'slate']> = { 0: ['On time', 'green'], 1: ['Tier 1', 'amber'], 2: ['Tier 2', 'amber'], 3: ['Tier 3', 'red'] };
+const TIER: Record<number, [string, 'green' | 'amber' | 'red' | 'slate']> = { 0: ['On time', 'green'], 1: ['Late (quarter day)', 'amber'], 2: ['Late (half day)', 'amber'], 3: ['Very late (full day)', 'red'] };
 const h = (n: number) => `${(Math.round(n * 10) / 10).toLocaleString('en-US')} h`;
 
 export default async function Timesheet({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -24,11 +24,11 @@ export default async function Timesheet({ searchParams }: { searchParams: Promis
   const totals = sheet.reduce((a, r) => ({ worked: a.worked + r.worked_hours, late: a.late + r.late_minutes, ded: a.ded + Number(r.deductions_cents) }), { worked: 0, late: 0, ded: 0 });
   const monthName = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-15T12:00:00Z`));
   const back = `/dashboard/staff/timesheet?month=${month}${sp.staff ? `&staff=${sp.staff}` : ''}`;
-  const time = (v: any) => (v ? new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: process.env.HOSTEL_TZ || 'Africa/Cairo' }).format(new Date(v)) : '—');
+  const time = (v: any) => (v ? new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: process.env.HOSTEL_TZ || 'Africa/Cairo' }).format(new Date(v)) : '—');
 
   return (
     <>
-      <PageHeader title="Attendance & hours" sub="Clock-ins from the POS, measured against the roster to the millisecond. Deductions follow the lateness policy below.">
+      <PageHeader title="Attendance & hours" sub="Clock-ins from the POS against the schedule. Lateness deductions follow the rules at the bottom.">
         <Link href={`?month=${prev}`} className={BtnGhost} aria-label="Previous month"><Icon name="chevron-left" size={16} /></Link>
         <span className="self-center font-semibold text-cocoa-800">{monthName}</span>
         <Link href={`?month=${next}`} className={BtnGhost} aria-label="Next month"><Icon name="chevron-right" size={16} /></Link>
@@ -40,13 +40,12 @@ export default async function Timesheet({ searchParams }: { searchParams: Promis
         <Stat label="Hours worked" value={h(totals.worked)} />
         <Stat label="Late minutes" value={totals.late} tone={totals.late ? 'warn' : 'ok'} />
         <Stat label="Deductions" value={fmt(totals.ded)} tone={totals.ded ? 'due' : 'ok'} />
-        <Stat label="Grace period" value={`${policy.grace_minutes} min`} hint={policy.mode === 'fixed' ? 'Fixed EGP deductions' : 'Day-fraction deductions'} />
       </div>
 
       <Card title={`Monthly timesheet · ${monthName}`} className="mb-6">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-500"><tr><th className="py-2">Staff</th><th className="text-right">Target</th><th className="text-right">Scheduled</th><th className="text-right">Worked</th><th className="text-right">Variance</th><th className="text-right">Shifts</th><th className="text-right">Late</th><th className="text-right">Late min</th><th className="text-right">Deductions</th><th /></tr></thead>
+            <thead className="text-left text-slate-500"><tr><th className="py-2">Staff</th><th className="text-right">Monthly hours</th><th className="text-right">Scheduled</th><th className="text-right">Worked</th><th className="text-right">Over / under</th><th className="text-right">Shifts</th><th className="text-right">Times late</th><th className="text-right">Minutes late</th><th className="text-right">Deductions</th><th /></tr></thead>
             <tbody>
               {sheet.map((r) => {
                 const v = r.worked_hours - r.target_hours;
@@ -62,7 +61,7 @@ export default async function Timesheet({ searchParams }: { searchParams: Promis
                     <td className="text-right tabular-nums">{r.late_minutes}</td>
                     <td className="text-right tabular-nums">{fmt(Number(r.deductions_cents))}{Number(r.waived_cents) > 0 && <div className="text-xs text-slate-500">{fmt(Number(r.waived_cents))} waived</div>}
                       {r.salary_shortages && <div className="text-xs font-semibold text-red-700">Cash shortage: {r.salary_shortages}</div>}</td>
-                    <td><Link href={`?month=${month}&staff=${r.id}#log`} className="text-xs font-semibold text-cocoa-600 underline">Log</Link></td>
+                    <td><Link href={`?month=${month}&staff=${r.id}#log`} className="text-xs font-semibold text-cocoa-600 underline">Details</Link></td>
                   </tr>
                 );
               })}
@@ -77,7 +76,7 @@ export default async function Timesheet({ searchParams }: { searchParams: Promis
         {sp.staff && <Link href={`?month=${month}#log`} className="mb-3 inline-block text-sm underline">Show everyone</Link>}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-500"><tr><th className="py-2">Date</th><th>Staff</th><th>Shift</th><th>Scheduled</th><th>Clock in</th><th>Clock out</th><th className="text-right">Delay</th><th>Tier</th><th className="text-right">Deduction</th><th /></tr></thead>
+            <thead className="text-left text-slate-500"><tr><th className="py-2">Date</th><th>Staff</th><th>Shift</th><th>Scheduled</th><th>Clock in</th><th>Clock out</th><th className="text-right">Delay</th><th>Late?</th><th className="text-right">Deduction</th><th /></tr></thead>
             <tbody>
               {att.map((a) => {
                 const [tl, tt] = TIER[a.tier] ?? ['—', 'slate'];
@@ -86,7 +85,7 @@ export default async function Timesheet({ searchParams }: { searchParams: Promis
                   <tr key={a.id} className="border-t border-slate-100 align-top">
                     <td className="whitespace-nowrap py-2 tabular-nums">{a.work_date}</td>
                     <td>{a.full_name}</td>
-                    <td>{a.shift_code ?? <span className="text-slate-400">Not rostered</span>}</td>
+                    <td>{a.shift_code ? ({ MORNING: 'Morning', EVENING: 'Afternoon', NIGHT: 'Night', MID: 'In-between' } as Record<string, string>)[a.shift_code] ?? a.shift_code.charAt(0) + a.shift_code.slice(1).toLowerCase() : <span className="text-slate-400">Not on schedule</span>}</td>
                     <td className="tabular-nums">{time(a.scheduled_start)}</td>
                     <td className="tabular-nums">{time(a.clock_in_at)}</td>
                     <td className="tabular-nums">{a.clock_out_at ? time(a.clock_out_at) : <Pill tone="green">On shift</Pill>}</td>
@@ -120,9 +119,9 @@ export default async function Timesheet({ searchParams }: { searchParams: Promis
         <div id="policy" className="scroll-mt-24" />
         <ul className="mb-4 space-y-1 text-sm text-slate-700">
           <li><Pill tone="green">0 – {policy.grace_minutes} min</Pill> Grace period, no deduction.</li>
-          <li><Pill tone="amber">Tier 1 · {policy.grace_minutes + 1}–30 min</Pill> {policy.mode === 'fixed' ? fmt(policy.tiers[0]?.fixed_cents ?? 0) : 'Quarter day'}</li>
-          <li><Pill tone="amber">Tier 2 · 31–60 min</Pill> {policy.mode === 'fixed' ? fmt(policy.tiers[1]?.fixed_cents ?? 0) : 'Half day'}</li>
-          <li><Pill tone="red">Tier 3 · over 60 min</Pill> Full day, and managers get an alert.</li>
+          <li><Pill tone="amber">{policy.grace_minutes + 1}–30 min</Pill> {policy.mode === 'fixed' ? fmt(policy.tiers[0]?.fixed_cents ?? 0) : 'Quarter day'}</li>
+          <li><Pill tone="amber">31–60 min</Pill> {policy.mode === 'fixed' ? fmt(policy.tiers[1]?.fixed_cents ?? 0) : 'Half day'}</li>
+          <li><Pill tone="red">over 60 min</Pill> Full day, and managers get an alert.</li>
         </ul>
         {manage && (
           <form action={latenessPolicySave} className="grid gap-3 sm:grid-cols-4">

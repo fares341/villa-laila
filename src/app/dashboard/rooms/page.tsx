@@ -46,12 +46,12 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<Re
                 <div className="mt-2 flex flex-wrap gap-2">{units.filter((u) => u.room_id === r.id).map((u) => <span key={u.id} className={`rounded-full border px-2 py-0.5 text-xs ${u.active ? 'bg-white' : 'bg-slate-200 text-slate-500 line-through'}`}>{u.label}{u.capacity > 1 ? ` (${u.capacity})` : ''} <Toggle table="units" id={u.id} active={u.active} /></span>)}</div>
                 <form action={addUnitsAction} className="mt-2 flex flex-wrap items-end gap-2"><input type="hidden" name="roomId" value={r.id} />
                   <div><Lbl>Add</Lbl><input name="count" type="number" min={1} max={20} defaultValue={1} className={`${Input} w-20`} /></div>
-                  <div><Lbl>Label prefix</Lbl><input name="prefix" defaultValue={t.kind === 'dorm' ? 'Bed' : 'Room'} className={`${Input} w-28`} /></div>
-                  <div><Lbl>Sleeps</Lbl><input name="capacity" type="number" min={1} defaultValue={t.kind === 'dorm' ? 1 : 2} className={`${Input} w-20`} /></div><button className={BtnGhost}>Add units</button></form></div>))}
+                  <div><Lbl>Name starts with</Lbl><input name="prefix" defaultValue={t.kind === 'dorm' ? 'Bed' : 'Room'} className={`${Input} w-28`} /></div>
+                  <div><Lbl>Guests each</Lbl><input name="capacity" type="number" min={1} defaultValue={t.kind === 'dorm' ? 1 : 2} className={`${Input} w-20`} /></div><button className={BtnGhost}>Add beds / rooms</button></form></div>))}
             <form action={addRoomAction} className="mt-3 flex flex-wrap items-end gap-2"><input type="hidden" name="roomTypeId" value={t.id} />
               <div><Lbl>New room name</Lbl><input name="name" required className={Input} /></div>
               <div><Lbl>{t.kind === 'dorm' ? 'Number of beds' : 'Rooms'}</Lbl><input name="units" type="number" min={1} max={40} defaultValue={t.kind === 'dorm' ? 6 : 1} className={`${Input} w-24`} /></div>
-              <div><Lbl>Sleeps each</Lbl><input name="capacity" type="number" min={1} defaultValue={t.kind === 'dorm' ? 1 : 2} className={`${Input} w-24`} /></div>
+              <div><Lbl>Guests each</Lbl><input name="capacity" type="number" min={1} defaultValue={t.kind === 'dorm' ? 1 : 2} className={`${Input} w-24`} /></div>
               <input type="hidden" name="prefix" value={t.kind === 'dorm' ? 'Bed' : 'Room'} /><button className={BtnGhost}>Add room</button></form>
 
             <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-slate-500">Rates (per night, per {t.kind === 'dorm' ? 'bed' : 'room'})</h3>
@@ -68,7 +68,7 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<Re
         <form action={saveRoomTypeAction} className="grid gap-3 sm:grid-cols-3">
           <div><Lbl>Name (English) *</Lbl><input name="name_en" required className={Input} /></div><div><Lbl>Name (Español)</Lbl><input name="name_es" className={Input} /></div><div><Lbl>Name (Français)</Lbl><input name="name_fr" className={Input} /></div>
           <div><Lbl>Name (Arabic)</Lbl><input name="name_ar" dir="rtl" className={Input} /></div>
-          <div><Lbl>Code (url-friendly)</Lbl><input name="code" required pattern="[a-z0-9-]+" placeholder="mixed-dorm" className={Input} /></div>
+          <div><Lbl>Short code (small letters, no spaces)</Lbl><input name="code" required pattern="[a-z0-9-]+" placeholder="mixed-dorm" className={Input} /></div>
           <div><Lbl>Kind</Lbl><select name="kind" className={Input}><option value="dorm">Shared dorm (per bed)</option><option value="private">Private room (per room)</option></select></div>
           <div><Lbl>Gender</Lbl><select name="gender" className={Input}><option value="mixed">Mixed</option><option value="female">Female only</option><option value="male">Male only</option></select></div>
           <div className="sm:col-span-3"><button className={Btn}>Create room type</button></div></form>

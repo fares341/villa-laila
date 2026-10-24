@@ -1,3 +1,4 @@
+import { todayLocal, addDays } from '@/lib/dates';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { PageHeader, Card, Flash, fmt, Btn, BtnGhost, SubTabs, REPORT_TABS } from '@/components/dash';
@@ -13,9 +14,9 @@ export default async function ServicesReportPage({
   await requireUser('reports.view');
   const sp = await searchParams;
 
-  const now = new Date();
-  const defaultTo = now.toISOString().slice(0, 10);
-  const defaultFrom = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+  // Cairo day, not UTC (after midnight in Cairo the UTC date is still yesterday).
+  const defaultTo = todayLocal();
+  const defaultFrom = addDays(defaultTo, -30);
 
   const from = sp.from || defaultFrom;
   const to = sp.to || defaultTo;
@@ -55,12 +56,9 @@ export default async function ServicesReportPage({
   return (
     <>
       <PageHeader
-        title="Daily services sales"
-        sub="Daily POS sales per service plus airport taxis, without owner comps or voided sales."
+        title="Sales by service"
+        sub="POS sales per day and per service, plus airport taxis. Free (owner) and cancelled sales are not counted."
       >
-        <Link href="/pos" className={BtnGhost}>
-          <Icon name="shopping-cart" size={16} className="me-1 inline-block align-text-bottom" />Point of sale
-        </Link>
         <ExportCsvButton rows={rows} from={from} to={to} />
       </PageHeader>
 
@@ -106,7 +104,7 @@ export default async function ServicesReportPage({
           <p className="font-bold text-slate-900 mt-0.5">{fmt(totals.breakfast)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-left">
-          <span className="text-[11px] text-slate-500 font-medium">Laundry</span>
+          <span className="text-[11px] text-slate-500 font-medium">Wash</span>
           <p className="font-bold text-slate-900 mt-0.5">{fmt(totals.laundry)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-left">
@@ -137,12 +135,12 @@ export default async function ServicesReportPage({
                   <th className="py-2.5 px-2">Towel</th>
                   <th className="py-2.5 px-2">Taxi</th>
                   <th className="py-2.5 px-2">Pool</th>
-                  <th className="py-2.5 px-2">Laundry</th>
+                  <th className="py-2.5 px-2">Wash</th>
                   <th className="py-2.5 px-2">Water</th>
-                  <th className="py-2.5 px-2">Market</th>
+                  <th className="py-2.5 px-2">Drinks &amp; snacks</th>
                   <th className="py-2.5 px-2">Tours</th>
                   <th className="py-2.5 px-2">Meals</th>
-                  <th className="py-2.5 px-2">Other</th>
+                  <th className="py-2.5 px-2" title="Extras typed by hand and services not in another column">Other</th>
                   <th className="py-2.5 px-2 font-bold text-slate-900">Daily total</th>
                 </tr>
               </thead>

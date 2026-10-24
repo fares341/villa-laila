@@ -48,7 +48,7 @@ export async function rateFor(cur: Currency): Promise<number> {
   let r = await getRates();
   if (r[cur] == null) r = await refreshRates(true);
   const v = r[cur];
-  if (!v) throw new BookingError('BAD_STATE', `No ${cur} rate yet. Set today's rate in Shifts & Z-reports.`);
+  if (!v) throw new BookingError('BAD_STATE', `No ${cur} rate yet. Set today's rate in Shifts & cash.`);
   return v;
 }
 

@@ -165,7 +165,7 @@ export async function closePosShiftBlind(shiftId: string, counted: Partial<Count
   if (off.length) {
     const txt = off.map((k) => `${k} ${currencies[k].variance > 0 ? 'over' : 'short'} ${Math.abs(currencies[k].variance) / 100}`).join(', ');
     await q(`INSERT INTO tasks(title,detail,kind,dedupe_key) VALUES($1,$2,'payment',$3) ON CONFLICT (dedupe_key) DO NOTHING`,
-      [`Shift #${t.shift.shift_no} closed: ${txt}`, `Expected ${(['EGP', 'USD', 'EUR'] as const).map((k) => `${k} ${currencies[k].expected / 100}`).join(' · ')}. Counted ${countsText(c)}. Decide in Shifts & Z-reports: paid in cash or deduct from salary.`, 'zvar:' + shiftId]);
+      [`Shift #${t.shift.shift_no} closed: ${txt}`, `Expected ${(['EGP', 'USD', 'EUR'] as const).map((k) => `${k} ${currencies[k].expected / 100}`).join(' · ')}. Counted ${countsText(c)}. Decide in Shifts & cash → Shortages: paid now in cash, deduct from salary, or forgive.`, 'zvar:' + shiftId]);
   }
   await audit('pos', 'shift.close_blind', 'cash_shift', shiftId, { counted: c, expected: t.expectedCash, variance });
   return z;

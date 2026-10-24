@@ -9,9 +9,9 @@ import { productSave, tourSave, tourFileDelete } from '../pms-actions';
 export const dynamic = 'force-dynamic';
 
 const TABS = [
-  { k: 'market', label: 'Market', icon: 'store' },
+  { k: 'market', label: 'Drinks & snacks', icon: 'store' },
   { k: 'meals', label: 'Meals', icon: 'utensils' },
-  { k: 'services', label: 'In-house services', icon: 'shirt' },
+  { k: 'services', label: 'Services (wash, towel…)', icon: 'shirt' },
   { k: 'tours', label: 'Tours', icon: 'map' },
   { k: 'movements', label: 'Stock movements', icon: 'activity' },
 ] as const;
@@ -39,8 +39,7 @@ export default async function Catalog({ searchParams }: { searchParams: Promise<
 
   return (
     <>
-      <PageHeader title="Catalog & stock" sub="Everything sold on the POS. Prices and stock here are what the POS uses, live.">
-        <a href="/pos" target="_blank" rel="noopener" className={BtnGhost}><Icon name="shopping-cart" size={16} /> Open POS</a>
+      <PageHeader title="Products & tours" sub="Everything sold on the POS. A price or stock change here shows on the POS at once.">
         {edit && tab !== 'movements' && <Link href={`?tab=${tab}&edit=new#form`} className={Btn}><Icon name="plus" size={16} /> {tab === 'tours' ? 'Add tour' : 'Add item'}</Link>}
       </PageHeader>
       <Flash sp={sp} />
@@ -48,7 +47,7 @@ export default async function Catalog({ searchParams }: { searchParams: Promise<
         <Stat label="Active items" value={st.items} />
         <Stat label="Low stock" value={st.low} tone={st.low ? 'due' : 'ok'} hint="Flashes red on the POS" />
         <Stat label="Stock value (cost)" value={fmt(Number(st.stock_value))} />
-        <Stat label="Shown on website" value={st.online} hint="e.g. Extra Towel" />
+        <Stat label="Shown on website" value={st.online} />
       </div>
 
       <nav className="mb-4 flex flex-wrap gap-2" aria-label="Catalog sections">
@@ -57,7 +56,7 @@ export default async function Catalog({ searchParams }: { searchParams: Promise<
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${tab === t.k ? 'border-cocoa-800 bg-cocoa-800 text-white' : 'border-cocoa-200 bg-white text-cocoa-800 hover:border-cocoa-600'}`}>
             <Icon name={t.icon} size={15} /> {t.label}</Link>
         ))}
-        <Link href="/dashboard/tours" className="inline-flex items-center gap-1.5 rounded-full border border-cocoa-200 bg-white px-3 py-1.5 text-sm font-semibold text-cocoa-800 hover:border-cocoa-600"><Icon name="bar-chart" size={15} /> Tour sales & profit</Link>
+        <Link href="/dashboard/tours" className="inline-flex items-center gap-1.5 rounded-full border border-cocoa-200 bg-white px-3 py-1.5 text-sm font-semibold text-cocoa-800 hover:border-cocoa-600"><Icon name="bar-chart" size={15} /> Tour sales & trips</Link>
       </nav>
 
       <div className="grid gap-5 xl:grid-cols-3">
@@ -73,7 +72,7 @@ export default async function Catalog({ searchParams }: { searchParams: Promise<
             </table>
           ) : tab === 'tours' ? (
             <table className="w-full text-sm">
-              <thead className="text-left text-slate-500"><tr><th className="py-2">Tour</th><th>Organizer</th><th className="text-right">Cost</th><th className="text-right">Sell</th><th className="text-right">Hotel profit</th><th className="text-right">Sold</th><th /></tr></thead>
+              <thead className="text-left text-slate-500"><tr><th className="py-2">Tour</th><th>Organizer</th><th className="text-right">Cost</th><th className="text-right">Sell</th><th className="text-right">Profit</th><th className="text-right">Sold</th><th /></tr></thead>
               <tbody>{tours.map((t) => (
                 <tr key={t.id} className={`border-t border-slate-100 ${t.active ? '' : 'opacity-50'}`}>
                   <td className="py-2"><b>{t.name}</b>{t.duration && <div className="text-xs text-slate-500">{t.duration}</div>}</td><td>{t.organizer}</td>
@@ -84,7 +83,7 @@ export default async function Catalog({ searchParams }: { searchParams: Promise<
             </table>
           ) : (
             <table className="w-full text-sm">
-              <thead className="text-left text-slate-500"><tr><th className="py-2">Item</th><th className="text-right">Cost</th><th className="text-right">Sell</th><th className="text-right">Margin</th><th className="text-right">Stock</th><th className="text-right">Sold 30d</th><th>Flags</th><th /></tr></thead>
+              <thead className="text-left text-slate-500"><tr><th className="py-2">Item</th><th className="text-right">Cost</th><th className="text-right">Sell</th><th className="text-right">Profit</th><th className="text-right">Stock</th><th className="text-right">Sold (30 days)</th><th className="pl-3">Shown on</th><th /></tr></thead>
               <tbody>{rows.map((p) => {
                 const low = p.track_stock && p.stock_quantity <= p.low_stock_threshold;
                 return (
@@ -94,7 +93,7 @@ export default async function Catalog({ searchParams }: { searchParams: Promise<
                     <td className="text-right tabular-nums">{fmt(Number(p.price_cents) - Number(p.cost_cents))}</td>
                     <td className="text-right tabular-nums">{p.track_stock ? <span className={low ? 'font-bold text-red-700' : ''}>{p.stock_quantity}</span> : '—'}{p.track_stock && <div className="text-[11px] text-slate-400">alert at {p.low_stock_threshold}</div>}</td>
                     <td className="text-right tabular-nums">{p.sold30}</td>
-                    <td className="space-x-1">{low && <Pill tone="red">Low stock</Pill>}{p.public_visible ? <Pill tone="blue">Website</Pill> : <Pill>In-house only</Pill>}</td>
+                    <td className="space-x-1 pl-3">{low && <Pill tone="red">Low stock</Pill>}{p.public_visible ? <Pill tone="blue">POS + website</Pill> : <span className="text-xs text-slate-500">POS</span>}</td>
                     <td className="text-right">{edit && <Link href={`?tab=${tab}&edit=${p.id}#form`} className="text-sm font-semibold text-cocoa-600 underline">Edit</Link>}</td>
                   </tr>
                 );

@@ -28,7 +28,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <PageHeader title="Staff & roster" sub="Profiles, POS PINs and the weekly schedule. Lateness is measured against this roster when staff clock in on the POS.">
+      <PageHeader title="Team" sub="Who works here, their POS PIN and the weekly schedule. Lateness is measured against this schedule when staff clock in on the POS.">
         {manage && <a href="#profile" className={Btn}><Icon name="user-plus" size={16} /> Add staff</a>}
       </PageHeader>
       <SubTabs tabs={TEAM_TABS} current="/dashboard/staff" />
@@ -93,7 +93,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
         <Card title="Team" className="xl:col-span-2">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-slate-500"><tr><th className="py-2">Name</th><th>Role</th><th>Target</th><th>Hourly</th><th>Day rate</th><th>Access</th><th /></tr></thead>
+              <thead className="text-left text-slate-500"><tr><th className="py-2">Name</th><th>Role</th><th>Monthly hours</th><th>Hourly pay</th><th>Daily pay</th><th>Can</th><th /></tr></thead>
               <tbody>
                 {staff.map((s) => (
                   <tr key={s.id} className={`border-t border-slate-100 ${s.active ? '' : 'opacity-50'}`}>
@@ -126,15 +126,15 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
               <div><Lbl htmlFor="s-pin">{edit?.has_pin ? 'New POS PIN (leave empty to keep)' : 'POS PIN (4–6 digits)'}</Lbl>
                 <input id="s-pin" name="pin" inputMode="numeric" pattern="\d{4,6}" maxLength={6} autoComplete="new-password" className={Input + ' tracking-[.4em]'} /></div>
               <div className="grid grid-cols-3 gap-2">
-                <div><Lbl htmlFor="s-t">Target h / month</Lbl><input id="s-t" name="target" type="number" min={0} defaultValue={edit?.monthly_target_hours ?? 208} className={Input} /></div>
-                <div><Lbl htmlFor="s-h">Hourly (EGP)</Lbl><input id="s-h" name="hourly" type="number" min={0} step="0.01" defaultValue={edit ? edit.hourly_rate_cents / 100 : ''} className={Input} /></div>
-                <div><Lbl htmlFor="s-d">Day rate (EGP)</Lbl><input id="s-d" name="daily" type="number" min={0} step="0.01" defaultValue={edit ? edit.daily_rate_cents / 100 : ''} className={Input} /></div>
+                <div><Lbl htmlFor="s-t">Monthly hours</Lbl><input id="s-t" name="target" type="number" min={0} defaultValue={edit?.monthly_target_hours ?? 208} className={Input} /></div>
+                <div><Lbl htmlFor="s-h">Hourly pay (EGP)</Lbl><input id="s-h" name="hourly" type="number" min={0} step="0.01" defaultValue={edit ? edit.hourly_rate_cents / 100 : ''} className={Input} /></div>
+                <div><Lbl htmlFor="s-d">Daily pay (EGP)</Lbl><input id="s-d" name="daily" type="number" min={0} step="0.01" defaultValue={edit ? edit.daily_rate_cents / 100 : ''} className={Input} /></div>
               </div>
-              <p className="text-xs text-slate-500">Day rate is used when the lateness policy deducts quarter / half / full days (set on Attendance &amp; hours).</p>
+              <p className="text-xs text-slate-500">Daily pay is used when lateness takes a quarter, half or full day off (rules on Attendance &amp; hours).</p>
               <div className="flex flex-wrap gap-4 text-sm">
                 <label className="flex items-center gap-2"><input type="checkbox" name="canUsePos" defaultChecked={edit?.can_use_pos ?? true} /> Uses the POS</label>
-                <label className="flex items-center gap-2"><input type="checkbox" name="isManager" defaultChecked={edit?.is_manager ?? false} /> Manager (approvals)</label>
-                <label className="flex items-center gap-2"><input type="checkbox" name="canTakeCash" defaultChecked={edit?.can_take_cash ?? false} /> May take cash from the drawer (owner)</label>
+                <label className="flex items-center gap-2"><input type="checkbox" name="isManager" defaultChecked={edit?.is_manager ?? false} /> Can approve with PIN (expenses, free items, refunds)</label>
+                <label className="flex items-center gap-2"><input type="checkbox" name="canTakeCash" defaultChecked={edit?.can_take_cash ?? false} /> Can take money from the drawer (owner &quot;Taken&quot;)</label>
                 <label className="flex items-center gap-2"><input type="checkbox" name="active" defaultChecked={edit?.active ?? true} /> Active</label>
               </div>
               <div className="flex gap-2"><button className={Btn}>{edit ? 'Save changes' : 'Add staff'}</button>{edit && <Link href={`/dashboard/staff?week=${monday}`} className={BtnGhost}>Cancel</Link>}</div>

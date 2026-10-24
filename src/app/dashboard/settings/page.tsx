@@ -53,8 +53,8 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <ul className="text-sm"><li>Bot token (TELEGRAM_BOT_TOKEN): {ok(tg.token)}</li><li>Reception notification chat (TELEGRAM_STAFF_CHAT_ID): {ok(tg.staff)}</li><li>AI key, OpenRouter (OPENROUTER_API_KEY): {ok(tg.or)} · model {tg.orModel}</li><li>Alternative: Gemini key (GEMINI_API_KEY): {ok(tg.gemini)} · model {tg.model} {tg.or ? '(not used: OpenRouter takes priority)' : ''}</li></ul>
           <p className="mt-2 text-xs text-slate-500">Keys are never shown or stored in the database or the browser. Restart the worker after changing them (see the setup guide).</p>
         </Card>
-        <Card title="Eligibility & document policy rules">
-          <p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">The hostel has said some Egyptian guests may have special booking conditions, but the real conditions have <b>not</b> been provided. Nothing is applied until you write the rule and switch it <b>Active</b>. A rule can only ask extra questions, send a booking to staff review, or show a message — it never rejects a guest automatically. Editing a rule creates a new version, recorded on each booking.</p>
+        <Card title="Who can book (house rules)">
+          <p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">House rules for who can book (for example: Egyptian guests and mixed dorms). A rule does nothing until it is switched <b>Active</b>. An active rule can refuse a booking made online, or flag it for reception to check; bookings typed in by staff are only flagged. Every change is kept as a new version.</p>
           <div className="space-y-4">{[...pol, null].map((p: any, i) => (
             <form key={p?.id ?? 'new'} action={savePolicyRuleAction} className="rounded-lg border border-slate-200 p-4"><input type="hidden" name="id" value={p?.id ?? ''} />
               <p className="mb-2 text-sm font-semibold">{p ? `${p.name} · version ${p.version} · ${p.active ? 'ACTIVE' : 'inactive'}` : 'Add a new rule'}</p>
@@ -77,14 +77,14 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <form action={saveFaqAction}><Lbl htmlFor="faq">FAQ as JSON (leave empty to use the default list). Format: [{'{'}"q":{'{'}"en":"…","es":"…","fr":"…","ar":"…"{'}'},"a":{'{'}…{'}'}{'}'}]</Lbl>
             <textarea id="faq" name="faq" rows={8} defaultValue={faq ? JSON.stringify(faq, null, 2) : ''} placeholder={JSON.stringify(DEFAULT_FAQ.slice(0, 1), null, 2)} className={`${Input} font-mono`} /><button className={`${Btn} mt-2`}>Save FAQ</button></form>
         </Card>
-        <Card title="Staff accounts">
+        <Card title="Dashboard logins (email + password)">
           <div className="space-y-3">{users.map((u) => (
             <form key={u.id} action={updateUserAction} className="grid items-end gap-2 sm:grid-cols-[1.4fr_9rem_1fr_auto_auto]"><input type="hidden" name="id" value={u.id} />
               <div><p className="text-sm font-medium">{u.name}</p><p className="text-xs text-slate-500">{u.email}</p></div>
               <div><Lbl>Role</Lbl><select name="role" defaultValue={u.role} className={Input}><option value="receptionist">Receptionist</option><option value="manager">Manager</option><option value="owner">Owner</option></select></div>
               <div><Lbl>New password (optional)</Lbl><input name="password" type="password" autoComplete="new-password" minLength={10} className={Input} /></div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={u.active} /> Active</label><button className={BtnGhost}>Save</button></form>))}</div>
-          <form action={createUserAction} className="mt-5 grid gap-3 border-t pt-4 sm:grid-cols-5"><p className="text-sm font-semibold sm:col-span-5">Add staff member</p>
+          <form action={createUserAction} className="mt-5 grid gap-3 border-t pt-4 sm:grid-cols-5"><p className="text-sm font-semibold sm:col-span-5">Add a dashboard login <span className="font-normal text-slate-500">(email + password for this website; POS staff and PINs are added under Team)</span></p>
             <div><Lbl>Name</Lbl><input name="name" required className={Input} /></div><div><Lbl>Email</Lbl><input name="email" type="email" required className={Input} /></div>
             <div><Lbl>Password (10+ chars)</Lbl><input name="password" type="password" minLength={10} required autoComplete="new-password" className={Input} /></div>
             <div><Lbl>Role</Lbl><select name="role" className={Input}><option value="receptionist">Receptionist</option><option value="manager">Manager</option><option value="owner">Owner</option></select></div><div className="flex items-end"><button className={Btn}>Create</button></div></form>
