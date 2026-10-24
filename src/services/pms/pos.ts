@@ -177,6 +177,10 @@ export async function recordTaken(shiftId: string, input: { takerId: string; tak
   if (!a.EGP && !a.USD && !a.EUR) throw new BookingError('INVALID_INPUT', 'Enter the amount taken');
   const t = await shiftTotals(shiftId);
   if (t.shift.status !== 'open') throw new BookingError('BAD_STATE', 'The shift is closed');
+  for (const c of ['EGP', 'USD', 'EUR'] as const) {
+    const inDrawer = Number((t.currencies as any)[c]?.expected ?? 0);
+    if (a[c] > inDrawer) throw new BookingError('INVALID_INPUT', `Only ${c} ${(Math.max(0, inDrawer) / 100).toLocaleString('en-US')} is in the drawer`);
+  }
   await q(`INSERT INTO cash_taken(shift_id,staff_id,egp_cents,usd_cents,eur_cents,note) VALUES($1,$2,$3,$4,$5,$6)`, [shiftId, s.id, a.EGP, a.USD, a.EUR, input.note?.trim() || null]);
   await audit('pos:' + s.full_name, 'shift.taken', 'cash_shift', shiftId, a);
   return { by: s.full_name, ...a };
@@ -205,18 +209,25 @@ export async function posCatalog() {
 }
 
 /** Checked-in guests with their rooms and live balance. */
+/**
+ * Guests the POS can work with: everyone checked in, plus bookings made on the Dashboard that have not arrived yet
+ * (confirmed or pending, arriving within 60 days), so reception can take a deposit or the full price on the POS.
+ * The payment lands on the same guest account, so the Dashboard folio shows it straight away.
+ */
 export async function inHouseGuests() {
   const rows = await q<any>(`
-    SELECT r.id, r.reference, r.check_in, r.check_out, r.currency, g.full_name, g.nationality,
+    SELECT r.id, r.reference, r.status, r.check_in, r.check_out, r.currency, g.full_name, g.nationality,
       (SELECT string_agg(DISTINCT rm.name || CASE WHEN t.kind='dorm' THEN ' · ' || u.label ELSE '' END, ', ')
        FROM reservation_units ru JOIN units u ON u.id=ru.unit_id JOIN rooms rm ON rm.id=u.room_id JOIN room_types t ON t.id=rm.room_type_id
-       WHERE ru.reservation_id=r.id AND ru.active AND ru.during @> current_date) rooms
+       WHERE ru.reservation_id=r.id AND ru.active AND (r.status<>'checked_in' OR ru.during @> current_date)) rooms
     FROM reservations r JOIN guests g ON g.id=r.guest_id
-    WHERE r.status='checked_in' ORDER BY rooms NULLS LAST, g.full_name`);
+    WHERE r.status='checked_in'
+       OR (r.status IN ('confirmed','pending') AND r.check_out > current_date AND r.check_in <= current_date + 60)
+    ORDER BY r.status<>'checked_in', CASE WHEN r.status='checked_in' THEN NULL ELSE r.check_in END, g.full_name`);
   const out = [];
   for (const r of rows) {
     const f = await getFolio(r.id);
-    out.push({ ...r, charges: f.charges + f.credits, paid: f.paid, balance: f.balance, state: f.state });
+    out.push({ ...r, inHouse: r.status === 'checked_in', charges: f.charges + f.credits, paid: f.paid, balance: f.balance, state: f.state });
   }
   return out;
 }
@@ -284,7 +295,7 @@ export async function processSale(input: SaleInput) {
     if (input.reservationId) {
       res = (await c.query(`SELECT r.*, g.full_name FROM reservations r JOIN guests g ON g.id=r.guest_id WHERE r.id=$1`, [input.reservationId])).rows[0];
       if (!res) throw new BookingError('NOT_FOUND', 'guest');
-      if (!['checked_in', 'confirmed'].includes(res.status)) throw new BookingError('BAD_STATE', 'Guest is not in house');
+      if (!['checked_in', 'confirmed', 'pending'].includes(res.status)) throw new BookingError('BAD_STATE', 'This booking is cancelled or already closed');
     }
     const lines = input.items.length ? await resolveLines(cq, input.items) : [];
     if (!lines.length && input.mode !== 'settle_all' && input.mode !== 'comp') throw new BookingError('INVALID_INPUT', 'The cart is empty');
@@ -370,6 +381,9 @@ export async function processSale(input: SaleInput) {
 export async function takeFolioPayment(input: { reservationId: string; amountCents: number; method: PayMethod; shiftId: string | null; staffId: string | null; userId: string; note?: string; actor: string; currency?: Currency; cardPayer?: CardPayer | null; staffName?: string | null }) {
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new BookingError('INVALID_INPUT', 'Enter an amount');
   const payer = input.method === 'card' ? cleanPayer(input.cardPayer) : null;
+  const st = (await q<any>(`SELECT status FROM reservations WHERE id=$1`, [input.reservationId]))[0]?.status;
+  if (!st) throw new BookingError('NOT_FOUND', 'Booking not found');
+  if (['cancelled', 'no_show'].includes(st)) throw new BookingError('BAD_STATE', 'This booking is cancelled, no payment can be taken on it');
   if (input.method === 'cash' && !input.shiftId) throw new BookingError('BAD_STATE', 'Open a POS shift to take cash, so it is counted in the drawer');
   const sh = input.shiftId ? (await q<any>(`SELECT shift_no FROM cash_shifts WHERE id=$1 AND status='open'`, [input.shiftId]))[0] : null;
   if (input.shiftId && !sh) throw new BookingError('BAD_STATE', 'The shift is closed');
@@ -377,6 +391,10 @@ export async function takeFolioPayment(input: { reservationId: string; amountCen
   const rate = cur === 'EGP' ? 1 : await rateFor(cur);
   // amountCents is in the currency received; the folio is credited with its EGP value at today's rate.
   const egp = cur === 'EGP' ? input.amountCents : toEgp(input.amountCents, rate);
+  // EGP cash and card: never more than is owed, so a typo cannot leave money on the account nobody asked for.
+  // (USD / EUR notes may come to a little more than the balance; the extra stays as credit on the guest's account.)
+  const owed = (await getFolio(input.reservationId)).balance;
+  if (cur === 'EGP' && egp > owed) throw new BookingError('INVALID_INPUT', owed > 0 ? `That is more than the balance due (EGP ${(owed / 100).toLocaleString('en-US')})` : 'Nothing is due on this booking');
   await tx(async (c) => {
   const pay = (await c.query(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,recorded_by,verified_by,verified_at,shift_id,staff_id,cash_currency,cash_amount_minor,fx_rate)
            VALUES($1,$2,$3,$4,'verified',$5,$6,$6,now(),$7,$8,$9,$10,$11) RETURNING id`,

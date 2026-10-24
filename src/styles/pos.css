@@ -47,6 +47,7 @@
 .pos-msg.bad { background: var(--red-bg); color: var(--red); }
 .pos-fine { font-size: 13.5px; color: var(--ink2); }
 .pos-empty { color: var(--ink2); padding: 16px; font-size: 14px; }
+.pos-arrive { color: var(--ink2); font-weight: 400; }
 .pos-center { flex: 1; display: grid; place-items: center; padding: 24px; }
 .pos-card-msg { width: min(520px, 100%); background: #fff; border-radius: 22px; padding: 30px; box-shadow: 0 30px 60px -30px rgba(74,50,34,.45); display: grid; gap: 12px; border: 1px solid var(--line); }
 .pos-card-msg.wide { width: min(560px, 100%); }

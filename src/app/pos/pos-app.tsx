@@ -20,7 +20,7 @@ const time = (iso: string | Date) => new Intl.DateTimeFormat('en-GB', { hour: '2
 type Staff = { id: string; full_name: string; role: string; is_manager: boolean };
 type Product = { id: string; name: string; pos_category: 'market' | 'meals' | 'services'; price_cents: number; stock_quantity: number; track_stock: boolean; low_stock_threshold: number; barcode: string | null; unit_label: string | null };
 type Tour = { id: string; name: string; organizer: string; cost_cents: number; price_cents: number; duration: string | null; guest_message?: string | null; files?: { id: string; name: string; mime: string }[] };
-type Guest = { id: string; reference: string; full_name: string; nationality?: string | null; rooms: string | null; check_out: string; charges: number; paid: number; balance: number; state: 'due' | 'settled' | 'credit' };
+type Guest = { id: string; reference: string; full_name: string; nationality?: string | null; rooms: string | null; check_in: string; check_out: string; status: string; inHouse: boolean; charges: number; paid: number; balance: number; state: 'due' | 'settled' | 'credit' };
 type Payer = { kind: 'eg' | 'foreign' | null; name: string; nationality: string; passport: string };
 
 const ISO = 'AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR BN BG BF BI KH CM CA CV CF TD CL CN CO KM CG CD CR CI HR CU CY CZ DK DJ DM DO EC SV GQ ER EE SZ ET FJ FI FR GA GM GE DE GH GR GD GT GN GW GY HT HN HK HU IS IN ID IR IQ IE IL IT JM JP JO KZ KE KI KW KG LA LV LB LS LR LY LI LT LU MO MG MW MY MV ML MT MH MR MU MX FM MD MC MN ME MA MZ MM NA NR NP NL NZ NI NE NG KP MK NO OM PK PW PS PA PG PY PE PH PL PT PR QA RO RU RW KN LC VC WS SM ST SA SN RS SC SL SG SK SI SB SO ZA KR SS ES LK SD SR SE CH SY TW TJ TZ TH TL TG TO TT TN TR TM TV UG UA AE GB US UY UZ VU VA VE VN YE ZM ZW'.split(' ');
@@ -460,11 +460,11 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
         {/* ── Cart & guest (35%) ── */}
         <aside className="pos-cart">
           <div className="pos-guest">
-            <label className="pos-label" htmlFor="pos-guest-q">In-house guest</label>
+            <label className="pos-label" htmlFor="pos-guest-q">Guest or booking</label>
             {guest ? (
               <div className="pos-guest-card">
                 <div className="pos-guest-hd">
-                  <div><b>{guest.full_name}</b><small>{guest.rooms ?? 'No room'} · {guest.reference} · out {guest.check_out}</small></div>
+                  <div><b>{guest.full_name}</b><small>{guest.rooms ?? 'No room'} · {guest.reference} · {guest.inHouse ? `out ${guest.check_out}` : `arrives ${guest.check_in}${guest.status === 'pending' ? ' · pending' : ''}`}</small></div>
                   <button className="pos-icon-btn" onClick={() => setGuestId(null)} aria-label="Clear guest"><Icon name="x" /></button>
                 </div>
                 <div className="pos-bal">
@@ -483,16 +483,16 @@ function Register({ st, hotel, branch, device, online, lastSync, refresh, lock, 
             ) : (
               <div className="pos-guest-search">
                 <Icon name="search" size={18} />
-                <input id="pos-guest-q" placeholder="Room number or guest name" value={guestQuery} onFocus={() => setGuestOpen(true)} onChange={(e) => { setGuestQuery(e.target.value); setGuestOpen(true); }} autoComplete="off" />
+                <input id="pos-guest-q" placeholder="Room, guest name or booking ref" value={guestQuery} onFocus={() => setGuestOpen(true)} onChange={(e) => { setGuestQuery(e.target.value); setGuestOpen(true); }} autoComplete="off" />
                 {guestOpen && (
                   <ul className="pos-guest-list" role="listbox">
                     {guestMatches.map((g) => (
                       <li key={g.id}><button role="option" aria-selected={false} onMouseDown={(e) => e.preventDefault()} onClick={() => { setGuestId(g.id); setGuestQuery(''); setGuestOpen(false); }}>
-                        <span><b>{g.rooms ?? '—'}</b> {g.full_name}</span>
+                        <span><b>{g.rooms ?? '—'}</b> {g.full_name}{!g.inHouse && <small className="pos-arrive"> · arrives {g.check_in}</small>}</span>
                         <span className={`pos-dot ${g.state}`}>{g.state === 'due' ? egp(g.balance) : g.state === 'credit' ? 'Credit' : 'Settled'}</span>
                       </button></li>
                     ))}
-                    {!guestMatches.length && <li className="pos-empty">No in-house guest matches.</li>}
+                    {!guestMatches.length && <li className="pos-empty">No guest or booking matches.</li>}
                     <li><button className="pos-close-list" onMouseDown={(e) => e.preventDefault()} onClick={() => setGuestOpen(false)}>Close</button></li>
                   </ul>
                 )}
