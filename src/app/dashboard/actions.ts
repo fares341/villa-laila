@@ -54,7 +54,7 @@ export async function loginAction(f: FormData) {
   if ('error' in r) redirect('/dashboard/login?err=' + enc(r.error));
   await createSession(r);
   await audit(r.email, 'auth.login');
-  redirect('/dashboard');
+  redirect(r.role === 'event_manager' ? '/dashboard/events' : '/dashboard');
 }
 export async function logoutAction() { await destroySession(); redirect('/dashboard/login'); }
 
@@ -290,7 +290,7 @@ export async function createUserAction(f: FormData) {
   const u = await requireUser('users.manage');
   return run('/dashboard/settings', async () => {
     const pw = String(f.get('password') ?? ''); if (pw.length < 10) throw new BookingError('INVALID_INPUT', 'Password must be at least 10 characters.');
-    await q('INSERT INTO users(email,name,password_hash,role) VALUES($1,$2,$3,$4)', [S(f, 'email').toLowerCase(), S(f, 'name'), await hash(pw), z.enum(['owner', 'manager', 'receptionist']).parse(S(f, 'role'))]);
+    await q('INSERT INTO users(email,name,password_hash,role) VALUES($1,$2,$3,$4)', [S(f, 'email').toLowerCase(), S(f, 'name'), await hash(pw), z.enum(['owner', 'manager', 'receptionist', 'event_manager']).parse(S(f, 'role'))]);
     await audit(u.email, 'users.create', 'user', S(f, 'email'), { role: S(f, 'role') });
     return 'Staff account created.';
   });
@@ -299,7 +299,7 @@ export async function updateUserAction(f: FormData) {
   const u = await requireUser('users.manage'); const id = S(f, 'id');
   return run('/dashboard/settings', async () => {
     if (id === u.id && (f.get('active') !== 'on' || S(f, 'role') !== 'owner')) throw new BookingError('CONFLICT', 'You cannot deactivate or demote yourself.');
-    await q('UPDATE users SET role=$2, active=$3 WHERE id=$1', [id, z.enum(['owner', 'manager', 'receptionist']).parse(S(f, 'role')), f.get('active') === 'on']);
+    await q('UPDATE users SET role=$2, active=$3 WHERE id=$1', [id, z.enum(['owner', 'manager', 'receptionist', 'event_manager']).parse(S(f, 'role')), f.get('active') === 'on']);
     const pw = String(f.get('password') ?? ''); if (pw) { if (pw.length < 10) throw new BookingError('INVALID_INPUT', 'Password must be at least 10 characters.'); await q('UPDATE users SET password_hash=$2 WHERE id=$1', [id, await hash(pw)]); }
     await audit(u.email, 'users.update', 'user', id);
     return 'Staff account updated.';

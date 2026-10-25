@@ -29,7 +29,7 @@ export async function decideInstapayAction(formData: FormData) {
 }
 
 export async function markEventPaidAction(formData: FormData) {
-  const u = await requireUser('tours.manage');
+  const u = await requireUser('events.bookings');
   const id = String(formData.get('id'));
   const shift = await openShiftRow();
   try { await markEventBookingPaid(id, u.email, shift ? `Paid cash at the desk · shift #${shift.shift_no}` : 'Paid at the desk', { shiftId: shift?.id ?? null }); } catch (e) { fail(e); }
@@ -37,7 +37,7 @@ export async function markEventPaidAction(formData: FormData) {
 }
 
 export async function checkInEventAction(formData: FormData) {
-  const u = await requireUser('tours.manage');
+  const u = await requireUser('events.bookings');
   const back = safeBack(formData.get('back'));
   try { await checkInTicket(String(formData.get('id')), u.email); } catch (e) { fail(e, back); }
   done('Guest checked in', back);
@@ -48,14 +48,14 @@ export async function staffCheckInTicketAction(formData: FormData) {
 }
 
 export async function cancelEventBookingAction(formData: FormData) {
-  const u = await requireUser('tours.manage');
+  const u = await requireUser('events.bookings');
   let sent = false;
   try { sent = (await cancelEventBookingAdmin(String(formData.get('id')), u.email, String(formData.get('reason') || '').trim() || null)).wa.sent; } catch (e) { fail(e); }
   done(sent ? 'Booking cancelled · the guest was told on WhatsApp' : 'Booking cancelled · tell the guest (WhatsApp button)');
 }
 
 export async function confirmEventBookingAction(formData: FormData) {
-  const u = await requireUser('tours.manage');
+  const u = await requireUser('events.bookings');
   let sent = false;
   try { sent = (await confirmEventBookingAdmin(String(formData.get('id')), u.email, u.id)).wa.sent; } catch (e) { fail(e); }
   done(sent ? 'Booking confirmed · confirmation sent on WhatsApp' : 'Booking confirmed · send the guest the confirmation (WhatsApp button)');
@@ -106,7 +106,7 @@ export async function saveWhatsAppAction(f: FormData) {
 }
 
 export async function findTicketAction(formData: FormData) {
-  await requireUser('tours.manage');
+  await requireUser('events.bookings');
   const code = String(formData.get('code') || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
   const withPrefix = code.startsWith('EV-') ? code : 'EV-' + code;
   const b = (await q<any>('SELECT ticket_code, language FROM event_bookings WHERE ticket_code=$1', [withPrefix]))[0];
@@ -126,4 +126,60 @@ export async function updateEventAction(formData: FormData) {
     }, u.email);
   } catch (e) { fail(e); }
   done('Event updated');
+}
+
+/* ───────── Weekly dinner menu ───────── */
+
+const MENU = '/dashboard/events/menu';
+async function photoOf(v: FormDataEntryValue | null): Promise<{ bytes: Buffer; mime: string } | null> {
+  if (!v || typeof v === 'string' || !(v as File).size) return null;
+  const f = v as File;
+  return { bytes: Buffer.from(await f.arrayBuffer()), mime: f.type || 'image/jpeg' };
+}
+const menuDone = (ok: string) => { revalidatePath(MENU); revalidatePath('/en'); revalidatePath('/ar'); redirect(`${MENU}?ok=${encodeURIComponent(ok)}`); };
+
+export async function menuSaveDayAction(f: FormData) {
+  const u = await requireUser('events.manage');
+  try {
+    const { saveDay } = await import('@/services/weekly-menu');
+    await saveDay(parseInt(String(f.get('weekday')), 10), {
+      titleAr: String(f.get('titleAr') || ''), titleEn: String(f.get('titleEn') || ''),
+      dishesAr: String(f.get('dishesAr') || ''), dishesEn: String(f.get('dishesEn') || ''),
+      descAr: String(f.get('descAr') || ''), descEn: String(f.get('descEn') || ''),
+      photo: await photoOf(f.get('photo')), imageUrl: String(f.get('imageUrl') || '') || null,
+    }, u.email);
+  } catch (e) { fail(e, MENU); }
+  menuDone('Meal saved');
+}
+
+export async function menuClearDayAction(f: FormData) {
+  const u = await requireUser('events.manage');
+  const { clearDay } = await import('@/services/weekly-menu');
+  await clearDay(parseInt(String(f.get('weekday')), 10), u.email);
+  menuDone('Day cleared');
+}
+
+export async function menuCopyAction(f: FormData) {
+  const u = await requireUser('events.manage');
+  try {
+    const { copyDay } = await import('@/services/weekly-menu');
+    const to = f.getAll('to').map((x) => parseInt(String(x), 10));
+    if (!to.length) throw new Error('Choose the days to copy to');
+    await copyDay(parseInt(String(f.get('from')), 10), to, u.email);
+  } catch (e) { fail(e, MENU); }
+  menuDone('Meal copied');
+}
+
+export async function menuImportAction(f: FormData) {
+  const u = await requireUser('events.manage');
+  let msg = '';
+  try {
+    const file = f.get('file');
+    const text = file && typeof file !== 'string' && (file as File).size ? await (file as File).text() : String(f.get('json') || '');
+    const json = JSON.parse(text);
+    const { importMenu } = await import('@/services/weekly-menu');
+    const r = await importMenu(Array.isArray(json) ? json : json.days, u.email);
+    msg = `Imported ${r.days} day(s)${r.imageErrors.length ? ` · photos not downloaded: ${r.imageErrors.join('; ')}` : ''}`;
+  } catch (e) { fail(e instanceof SyntaxError ? new Error('That is not valid JSON') : e, MENU); }
+  menuDone(msg);
 }

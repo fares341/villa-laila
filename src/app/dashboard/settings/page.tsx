@@ -81,14 +81,14 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <div className="space-y-3">{users.map((u) => (
             <form key={u.id} action={updateUserAction} className="grid items-end gap-2 sm:grid-cols-[1.4fr_9rem_1fr_auto_auto]"><input type="hidden" name="id" value={u.id} />
               <div><p className="text-sm font-medium">{u.name}</p><p className="text-xs text-slate-500">{u.email}</p></div>
-              <div><Lbl>Role</Lbl><select name="role" defaultValue={u.role} className={Input}><option value="receptionist">Receptionist</option><option value="manager">Manager</option><option value="owner">Owner</option></select></div>
+              <div><Lbl>Role</Lbl><select name="role" defaultValue={u.role} className={Input}><option value="receptionist">Receptionist</option><option value="event_manager">Event manager</option><option value="manager">Manager</option><option value="owner">Owner</option></select></div>
               <div><Lbl>New password (optional)</Lbl><input name="password" type="password" autoComplete="new-password" minLength={10} className={Input} /></div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={u.active} /> Active</label><button className={BtnGhost}>Save</button></form>))}</div>
           <form action={createUserAction} className="mt-5 grid gap-3 border-t pt-4 sm:grid-cols-5"><p className="text-sm font-semibold sm:col-span-5">Add a dashboard login <span className="font-normal text-slate-500">(email + password for this website; POS staff and PINs are added under Team)</span></p>
             <div><Lbl>Name</Lbl><input name="name" required className={Input} /></div><div><Lbl>Email</Lbl><input name="email" type="email" required className={Input} /></div>
             <div><Lbl>Password (10+ chars)</Lbl><input name="password" type="password" minLength={10} required autoComplete="new-password" className={Input} /></div>
-            <div><Lbl>Role</Lbl><select name="role" className={Input}><option value="receptionist">Receptionist</option><option value="manager">Manager</option><option value="owner">Owner</option></select></div><div className="flex items-end"><button className={Btn}>Create</button></div></form>
-          <p className="mt-3 text-xs text-slate-500">Receptionist: reservations, calendar, guests, inbox, extensions, recording payments. Manager: also inventory, rates, verify payments, reports, import, cancel. Owner: everything incl. settings and staff.</p>
+            <div><Lbl>Role</Lbl><select name="role" className={Input}><option value="receptionist">Receptionist</option><option value="event_manager">Event manager</option><option value="manager">Manager</option><option value="owner">Owner</option></select></div><div className="flex items-end"><button className={Btn}>Create</button></div></form>
+          <p className="mt-3 text-xs text-slate-500">Receptionist: reservations, calendar, guests, inbox, extensions, recording payments. Manager: also inventory, rates, verify payments, reports, import, cancel. Owner: everything incl. settings and staff. Event manager: events only (add and edit events, the weekly dinner menu, event bookings).</p>
         </Card>
       </div>
     </>

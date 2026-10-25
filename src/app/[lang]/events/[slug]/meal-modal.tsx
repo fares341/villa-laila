@@ -3,44 +3,44 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
-/** The four dishes of the home-cooked poolside dinner (photos in /public/photos/events/meals). */
-const MEALS = [
-  {
-    img: '/photos/events/meals/beef-onion-tagen.webp',
-    ar: { t: 'طاجن لحمة بالبصل المكرمل', d: 'لحمة طرية مطهية على نار هادية مع البصل المكرمل في صوص غني.' },
-    en: { t: 'Beef & caramelised onion tagine', d: 'Tender beef slowly cooked with onions in a rich sauce.' },
-  },
-  {
-    img: '/photos/events/meals/vermicelli-rice.webp',
-    ar: { t: 'أرز مصري بالشعرية الذهبية', d: 'أرز مصري مفلفل بالشعرية المحمّرة.' },
-    en: { t: 'Egyptian vermicelli rice', d: 'Fluffy Egyptian rice with toasted vermicelli.' },
-  },
-  {
-    img: '/photos/events/meals/orzo-soup.webp',
-    ar: { t: 'شوربة لسان عصفور ساخنة', d: 'شوربة دافية ومريحة بلسان العصفور.' },
-    en: { t: 'Warm orzo soup', d: 'Warm, comforting orzo soup.' },
-  },
-  {
-    img: '/photos/events/meals/egyptian-salad.webp',
-    ar: { t: 'سلطة خضراء بلدي طازجة', d: 'سلطة مصرية طازجة من خضار اليوم.' },
-    en: { t: 'Fresh Egyptian salad', d: 'Fresh Egyptian salad.' },
-  },
-];
+type Loc = { ar?: string; en?: string };
+/** The meal of a weekday (Events → Weekly dinner menu): one photo, its name, the dishes on the plate. */
+export type DayMeal = { title: Loc; dishes: Loc[]; description: Loc; img: string | null };
 
-/** Small text button that opens the dinner photos. */
-export function MealLink({ ar, onOpen }: { ar: boolean; onOpen: () => void }) {
+/** Shown on a day with nothing in the weekly menu yet. */
+const STANDARD: DayMeal = {
+  img: '/photos/events/meals/egyptian-salad.webp',
+  title: { ar: 'طاجن لحمة بالبصل', en: 'Beef & onion tagine' },
+  dishes: [
+    { ar: 'أرز مصري بالشعرية', en: 'Egyptian vermicelli rice' },
+    { ar: 'شوربة لسان عصفور', en: 'Orzo soup' },
+    { ar: 'سلطة خضراء بلدي', en: 'Fresh Egyptian salad' },
+  ],
+  description: { ar: 'لحمة طرية مطهية على نار هادية مع البصل في صوص غني.', en: 'Tender beef slowly cooked with onions in a rich sauce.' },
+};
+
+const t = (x: Loc | undefined, ar: boolean) => (ar ? x?.ar || x?.en : x?.en || x?.ar) || '';
+
+/** Button with the meal photo that opens the meal of the chosen day. */
+export function MealLink({ ar, onOpen, meal, day }: { ar: boolean; onOpen: () => void; meal?: DayMeal | null; day?: string | null }) {
+  const m = meal ?? STANDARD;
   return (
     <button type="button" className="evb-meal-link" onClick={onOpen} aria-haspopup="dialog">
-      <span aria-hidden>🍽️</span> {ar ? 'شاهد صور وتفاصيل الوجبة' : 'View meal photos'}
+      {m.img && <span className="evb-meal-thumbs" aria-hidden><img src={m.img} alt="" loading="lazy" /></span>}
+      <span className="evb-meal-t">
+        <b><span aria-hidden>🍽️</span> {ar ? 'شاهد صور وتفاصيل الوجبة' : 'View meal photos'}</b>
+        <small>{meal && day ? `${ar ? 'عشاء' : 'Dinner'} ${day}: ${t(m.title, ar)}` : t(m.title, ar)}</small>
+      </span>
     </button>
   );
 }
 
 /**
- * The dinner, dish by dish. A bottom sheet on phones, a centred card on larger screens.
- * Closes with X, Esc or a tap outside; the page behind does not scroll while it is open.
+ * The meal of the day: one photo of the plate, its name and what is on it.
+ * A bottom sheet on phones, a centred card on larger screens; closes with X, Esc or a tap outside.
  */
-export function MealModal({ ar, priceLabel, onClose }: { ar: boolean; priceLabel?: string | null; onClose: () => void }) {
+export function MealModal({ ar, priceLabel, onClose, meal, day }: { ar: boolean; priceLabel?: string | null; onClose: () => void; meal?: DayMeal | null; day?: string | null }) {
+  const m = meal ?? STANDARD;
   const closeRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     const prevFocus = document.activeElement as HTMLElement | null;
@@ -56,33 +56,41 @@ export function MealModal({ ar, priceLabel, onClose }: { ar: boolean; priceLabel
     };
   }, [onClose]);
 
+  const title = t(m.title, ar);
+  const desc = t(m.description, ar);
   return createPortal(
     <div className="meal-scrim" onClick={onClose}>
       <div className="meal-sheet" role="dialog" aria-modal="true" aria-labelledby="meal-h" dir={ar ? 'rtl' : 'ltr'} onClick={(e) => e.stopPropagation()}>
         <span className="meal-grab" aria-hidden />
-        <header className="meal-hd">
-          <div>
-            <span className="meal-kicker">{ar ? 'عشاء بيتي بجانب المسبح' : 'Home-cooked dinner by the pool'}</span>
-            <h3 id="meal-h">{ar ? 'إيه اللي في الوجبة؟' : 'What’s on the plate'}</h3>
-            {priceLabel && <p>{ar ? <>طبق كامل لكل فرد · <b dir="ltr">+{priceLabel}</b></> : <>A full plate per person · <b dir="ltr">+{priceLabel}</b></>}</p>}
-          </div>
+        <div className="meal-photo">
+          {m.img ? <img src={m.img} alt={title} decoding="async" /> : <span className="meal-noimg" aria-hidden>🍽️</span>}
           <button ref={closeRef} type="button" className="meal-x" onClick={onClose} aria-label={ar ? 'إغلاق' : 'Close'}>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
-        </header>
-        <ul className="meal-grid">
-          {MEALS.map((m, i) => {
-            const x = ar ? m.ar : m.en;
-            return (
-              <li key={m.img} style={{ ['--i' as string]: i }}>
-                <span className="meal-ph"><img src={m.img} alt={x.t} loading="eager" decoding="async" /></span>
-                <b>{x.t}</b>
-                <small>{x.d}</small>
-              </li>
-            );
-          })}
-        </ul>
-        <p className="meal-note">{ar ? 'بيتطبخ طازة في مطبخ الفيلا يوم الفعالية، ويتقدم على الترابيزات جنب المسبح.' : 'Cooked fresh in the villa kitchen on the day and served at the tables by the pool.'}</p>
+          {meal && day && <span className="meal-day">{ar ? `منيو ${day}` : `Menu · ${day}`}</span>}
+        </div>
+        <div className="meal-body">
+          <span className="meal-kicker">{ar ? 'عشاء بيتي بجانب المسبح' : 'Home-cooked dinner by the pool'}</span>
+          <h3 id="meal-h">{title || (ar ? 'عشاء اليوم' : 'Tonight’s dinner')}</h3>
+          {desc && <p className="meal-desc">{desc}</p>}
+          {m.dishes.length > 0 && (
+            <>
+              <h4>{ar ? 'في الطبق' : 'On the plate'}</h4>
+              <ul className="meal-dishes">
+                {m.dishes.map((d, i) => (
+                  <li key={i} style={{ ['--i' as string]: i }}>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden><path d="m5 12 5 5 9-10" /></svg>
+                    {t(d, ar)}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="meal-foot">
+            {priceLabel && <span className="meal-price">{ar ? 'طبق كامل للفرد' : 'A full plate per person'} · <b dir="ltr">+{priceLabel}</b></span>}
+            <span>{ar ? 'بيتطبخ طازة في مطبخ الفيلا ويتقدم جنب المسبح.' : 'Cooked fresh in the villa kitchen, served by the pool.'}</span>
+          </div>
+        </div>
       </div>
     </div>,
     document.body,

@@ -44,7 +44,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
   const methods = liveMethods(ev, wallets);
   const walletMethods = (['instapay', 'vodafone_cash'] as const).filter((m) => methods.includes(m));
   const staff = await currentUser().catch(() => null);
-  const canCheckIn = !!staff && can(staff.role, 'tours.manage');
+  const canCheckIn = !!staff && can(staff.role, 'events.bookings');
 
   const STATUS: Record<string, { label: string; cls: string }> = {
     paid: { label: L('Paid · valid ticket', 'مدفوعة · تذكرة صالحة'), cls: 'ok' },

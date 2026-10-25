@@ -1,4 +1,4 @@
-export type Role = 'owner' | 'manager' | 'receptionist';
+export type Role = 'owner' | 'manager' | 'receptionist' | 'event_manager';
 
 // Single source of truth for what each role may do. Enforced server-side in requireUser(perm).
 const MAP: Record<string, Role[]> = {
@@ -34,7 +34,9 @@ const MAP: Record<string, Role[]> = {
   'rate.override': ['owner', 'manager'],
   'comp.approve': ['owner', 'manager'],
   'channel.manage': ['owner', 'manager'],
-  'events.manage': ['owner', 'manager'],
+  // Events: bookings (front desk too) and everything about the events themselves (event managers: events only).
+  'events.bookings': ['owner', 'manager', 'receptionist', 'event_manager'],
+  'events.manage': ['owner', 'manager', 'event_manager'],
   'catalog.manage': ['owner', 'manager'],
 };
 export type Perm = keyof typeof MAP;

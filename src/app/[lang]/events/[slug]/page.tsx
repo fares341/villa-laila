@@ -10,8 +10,11 @@ import { HeroMedia } from './hero-media';
 import { priceLabel, whenLabel } from '@/services/event-view';
 import { scheduleLabel, timeLabel, dateLabel } from '@/lib/event-dates';
 import { EventBooker } from './event-booker';
+import { weeklyMenu } from '@/services/weekly-menu';
 
 export const dynamic = 'force-dynamic';
+
+const MAP_URL = 'https://maps.app.goo.gl/H7YGjCVT7nshDExj9';
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string; slug: string }> }): Promise<Metadata> {
   const { lang, slug } = await params;
@@ -76,7 +79,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
               <div><dt>{isAr ? 'المواعيد' : 'When'}</dt><dd>{schedule}</dd></div>
               <div><dt>{isAr ? 'الوقت' : 'Time'}</dt><dd dir="ltr">{time}</dd></div>
               <div><dt>{isAr ? 'السعر' : 'Price'}</dt><dd dir="ltr">{priceLabel(ev.price_cents, ev.currency, lang)} <small>{isAr ? '/ للشخص' : '/ person'}</small></dd></div>
-              <div><dt>{isAr ? 'المكان' : 'Where'}</dt><dd>{isAr ? 'فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب' : 'Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab'}</dd></div>
+              <div><dt>{isAr ? 'المكان' : 'Where'}</dt><dd className="evd-where">
+                <span>{isAr ? 'فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب' : 'Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab'}</span>
+                <a className="evd-map" href={MAP_URL} target="_blank" rel="noopener noreferrer" aria-label={isAr ? 'افتح المكان على خرائط جوجل' : 'Open in Google Maps'} title={isAr ? 'افتح على خرائط جوجل' : 'Open in Google Maps'}>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z" /><circle cx="12" cy="10" r="2.6" /></svg>
+                  <span>{isAr ? 'الخريطة' : 'Map'}</span>
+                </a>
+              </dd></div>
             </dl>
 
             <h2>{isAr ? 'عن الفعالية' : 'About'}</h2>
@@ -137,6 +146,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 guestPriceCents={ev.guest_price_cents}
                 depositCents={ev.deposit_cents ?? null}
                 dinnerCents={ev.dinner_cents ?? null}
+                menu={ev.dinner_cents ? await weeklyMenu() : {}}
                 currency={ev.currency}
                 methods={ev.methods}
                 wallets={{

@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { requireUser } from '@/lib/auth';
+import { requireUser, currentUser } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { can } from '@/lib/permissions';
 import { q } from '@/lib/db';
 import { navCounts } from '@/services/queries';
@@ -15,6 +16,8 @@ export const dynamic = 'force-dynamic';
  * then arrivals / departures / in house with their balances, then open tasks.
  */
 export default async function Today({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  // Event managers only work on events: their home is the Events page.
+  if ((await currentUser())?.role === 'event_manager') redirect('/dashboard/events');
   const u = await requireUser('dashboard.view');
   const sp = await searchParams;
   const c: Record<string, number> = await navCounts().catch(() => ({}) as any);

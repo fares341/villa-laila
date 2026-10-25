@@ -20,6 +20,11 @@ export async function bookingDetail(id: string) {
       (SELECT op.id FROM online_payments op WHERE op.event_booking_id=b.id AND op.provider IN ('instapay','vodafone_cash') AND op.status='submitted' ORDER BY op.created_at DESC LIMIT 1) proof_id
     FROM event_bookings b JOIN events e ON e.id=b.event_id WHERE b.id=$1`, [id]))[0];
   if (!b) throw new BookingError('NOT_FOUND');
+  // The meal of that weekday (weekly dinner menu), for the kitchen.
+  if (b.dinner) {
+    const { menuForDate, menuLine } = await import('./weekly-menu');
+    b.menu_line = menuLine(await menuForDate(b.event_date).catch(() => null), 'ar');
+  }
   return b;
 }
 
@@ -42,8 +47,8 @@ export function bookingText(b: any, head = 'حجز فعالية'): string {
     `${head} · ${b.ticket_code}`,
     `${tr(b.title, 'ar')}`,
     `التاريخ: ${b.event_date} · ${b.start_time}–${b.end_time}`,
-    `العدد: ${b.quantity}${opt ? ` · ${opt.ar || opt.en}` : ''}${b.is_hotel_guest ? ` · نزيل (${b.stay_reference})` : ''}`,
-    b.dinner ? `🍽 عشاء بيتي بجانب المسبح: ${b.quantity} وجبة (${money(Number(b.dinner_cents) * Number(b.quantity), b.currency)}) · بلّغ المطبخ` : '',
+    `العدد: ${b.quantity}${opt ? ` · ${opt.ar || opt.en}` : ''}${b.is_hotel_guest ? ` · نزيل بالفيلا${b.stay_reference ? ` (${b.stay_reference})` : ' (اتأكد بالاسم والرقم)'}` : ''}`,
+    b.dinner ? `🍽 عشاء بيتي بجانب المسبح: ${b.quantity} وجبة (${money(Number(b.dinner_cents) * Number(b.quantity), b.currency)}) · بلّغ المطبخ${b.menu_line ? `\nمنيو اليوم: ${b.menu_line}` : ''}` : '',
     `الاسم: ${b.full_name}`,
     `الموبايل: ${b.phone || '—'}`,
     `الإيميل: ${b.email}`,
@@ -84,7 +89,7 @@ export async function bookingWhatsAppLink(bookingId: string): Promise<string> {
     `• الاسم: ${b.full_name}`,
     `• الهاتف: ${b.phone || '—'}`,
     `• الإيميل: ${b.email}`,
-    b.is_hotel_guest ? `• نزيل بالفيلا · رقم الحجز ${b.stay_reference}` : '',
+    b.is_hotel_guest ? `• نازل في الفيلا${b.stay_reference ? ` · رقم الحجز ${b.stay_reference}` : ''}` : '',
     `• كود الحجز: ${b.ticket_code}`,
     `التذكرة: ${await ticketUrl(b)}`,
   ] : [
@@ -99,7 +104,7 @@ export async function bookingWhatsAppLink(bookingId: string): Promise<string> {
     `• Name: ${b.full_name}`,
     `• Phone: ${b.phone || '—'}`,
     `• Email: ${b.email}`,
-    b.is_hotel_guest ? `• Staying at the villa · booking ${b.stay_reference}` : '',
+    b.is_hotel_guest ? `• Staying at the villa${b.stay_reference ? ` · booking ${b.stay_reference}` : ''}` : '',
     `• Booking code: ${b.ticket_code}`,
     `Ticket: ${await ticketUrl(b)}`,
   ];

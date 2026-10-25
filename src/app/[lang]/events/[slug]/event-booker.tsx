@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { bookEventAction } from '../actions';
-import { MealLink, MealModal } from './meal-modal';
+import { MealLink, MealModal, type DayMeal } from './meal-modal';
 
 type DateChip = { date: string; label: string; sub: string; left: number | null };
 type Method = 'paymob' | 'instapay' | 'vodafone_cash' | 'cash';
@@ -25,9 +25,9 @@ function Submit({ label, busy }: { label: string; busy: string }) {
 
 export function EventBooker(props: {
   lang: string; slug: string; dates: DateChip[]; initialDate: string;
-  options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; depositCents?: number | null; dinnerCents?: number | null; currency: string; methods: Method[]; wallets?: WalletInfo;
+  options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; depositCents?: number | null; dinnerCents?: number | null; menu?: Record<number, DayMeal | null>; currency: string; methods: Method[]; wallets?: WalletInfo;
 }) {
-  const { lang, slug, dates, options, priceCents, depositCents = null, dinnerCents = null, currency, methods } = props;
+  const { lang, slug, dates, options, priceCents, depositCents = null, dinnerCents = null, menu = {}, currency, methods } = props;
   const ar = lang === 'ar';
   const [date, setDate] = useState(props.initialDate);
   const [showAll, setShowAll] = useState(() => dates.findIndex((d) => d.date === props.initialDate) >= 6);
@@ -45,10 +45,14 @@ export function EventBooker(props: {
   // Hostel guests: the ticket is pay what you want (at the villa); only the dinner, if chosen, has a price.
   const unit = hotelGuest ? 0 : priceCents;
   const dinnerEach = dinner && dinnerCents != null && dinnerCents > 0 ? dinnerCents : 0;
-  const total = (unit + dinnerEach) * Math.min(qty, maxQty);
+  const n = Math.min(qty, maxQty);
+  const total = (unit + dinnerEach) * n;
   // Deposit events: only the deposit is sent now by InstaPay / Vodafone Cash; the rest is paid at the villa.
   const deposit = !hotelGuest && depositCents && (method === 'instapay' || method === 'vodafone_cash') ? Math.min(total, depositCents * Math.min(qty, maxQty)) : null;
   const chosen = useMemo(() => dates.find((d) => d.date === date), [dates, date]);
+  // Weekly menu: the dishes of the chosen date's weekday (0 = Sunday).
+  const dayMeal = date ? menu[new Date(date + 'T12:00:00Z').getUTCDay()] ?? null : null;
+  const dayName = chosen?.label ?? null;
 
   const M: Record<Method, { t: string; d: string; icon: React.ReactNode }> = {
     paymob: {
@@ -128,17 +132,12 @@ export function EventBooker(props: {
             ))}
           </div>
         )}
-        {options.some((o) => isMealOption(o.label)) && !(dinnerCents != null && dinnerCents > 0) && <MealLink ar={ar} onOpen={() => setMealOpen(true)} />}
+        {options.some((o) => isMealOption(o.label)) && !(dinnerCents != null && dinnerCents > 0) && <MealLink ar={ar} meal={dayMeal} day={dayName} onOpen={() => setMealOpen(true)} />}
         <label className="evb-check">
           <input type="checkbox" name="hotelGuest" checked={hotelGuest} onChange={(e) => setHotelGuest(e.target.checked)} />
           <span>{ar ? 'أنا نازل في فيلا ليلى · التذكرة «ادفع اللي تحبه»' : 'I’m staying at Villa Layla · ticket is “pay what you want”'}</span>
         </label>
-        {hotelGuest && (
-          <div className="evb-field">
-            <label htmlFor="evb-stay">{ar ? 'رقم حجز الإقامة' : 'Your booking reference'}</label>
-            <input id="evb-stay" name="stayRef" required placeholder="VL-XXXXXX" dir="ltr" autoCapitalize="characters" maxLength={20} />
-          </div>
-        )}
+        {hotelGuest && <p className="evb-fine">{ar ? 'بنتأكد إنك نازل عندنا في الفيلا بالاسم والرقم. التذكرة بتدفع فيها اللي تحبه، والعشاء بسعره العادي.' : 'We check your stay at the villa with your name and phone. You pay what you want for the ticket; dinner is at its normal price.'}</p>}
         {dinnerCents != null && dinnerCents > 0 && (
           <label className={`evb-addon ${dinner ? 'on' : ''}`}>
             <input type="checkbox" name="dinner" checked={dinner} onChange={(e) => setDinner(e.target.checked)} />
@@ -152,8 +151,8 @@ export function EventBooker(props: {
             <span className="evb-addon-p num" dir="ltr">+{fmt(dinnerCents, currency, ar)}</span>
           </label>
         )}
-        {dinnerCents != null && dinnerCents > 0 && <MealLink ar={ar} onOpen={() => setMealOpen(true)} />}
-        {mealOpen && <MealModal ar={ar} priceLabel={dinnerCents ? fmt(dinnerCents, currency, ar) : null} onClose={closeMeal} />}
+        {dinnerCents != null && dinnerCents > 0 && <MealLink ar={ar} meal={dayMeal} day={dayName} onOpen={() => setMealOpen(true)} />}
+        {mealOpen && <MealModal ar={ar} meal={dayMeal} day={dayName} priceLabel={dinnerCents ? fmt(dinnerCents, currency, ar) : null} onClose={closeMeal} />}
       </fieldset>
 
       <fieldset className="evb-step">
@@ -187,18 +186,26 @@ export function EventBooker(props: {
 
       <div className="evb-sum">
         <div>
-          {hotelGuest ? (
-            <>
-              <small>{chosen ? `${chosen.label} · ${Math.min(qty, maxQty)} ${ar ? 'تذكرة' : 'ticket(s)'}` : ''}{ar ? ' · نزيل الفيلا' : ' · hostel guest'}</small>
-              <b className="evb-pwyw">{ar ? 'ادفع اللي تحبه' : 'Pay what you want'}</b>
-              {dinnerEach > 0 && <small className="evb-pwyw-dinner">{ar ? `+ العشاء ${fmt(total, currency, ar)} (لـ ${Math.min(qty, maxQty)} ${Math.min(qty, maxQty) === 1 ? 'فرد' : 'أفراد'})` : `+ dinner ${fmt(total, currency, ar)} (${Math.min(qty, maxQty)} × ${fmt(dinnerEach, currency, ar)})`}</small>}
-            </>
-          ) : (
-            <>
-              <small>{chosen ? `${chosen.label} · ${Math.min(qty, maxQty)} × ${fmt(unit + dinnerEach, currency, ar)}` : ''}{dinnerEach > 0 ? (ar ? ' · شامل العشاء' : ' · dinner included') : ''}</small>
-              <b className="num" dir="ltr">{fmt(total, currency, ar)}</b>
-            </>
-          )}
+          {/* Line by line: tickets, dinner, total (the server computes the same: (ticket + dinner) × people). */}
+          {chosen && <small>{chosen.label} · {n} {ar ? (n === 1 ? 'فرد' : 'أفراد') : n === 1 ? 'person' : 'people'}</small>}
+          <ul className="evb-lines">
+            <li>
+              <span>{ar ? 'التذاكر' : 'Tickets'}{!hotelGuest && <small> {ar ? `(${n} ${n === 1 ? 'فرد' : 'أفراد'})` : `${n} × ${fmt(unit, currency, ar)}`}</small>}</span>
+              <b className={hotelGuest ? '' : 'num'} dir={hotelGuest || ar ? undefined : 'ltr'}>{hotelGuest ? (ar ? 'ادفع اللي تحبه' : 'Pay what you want') : fmt(unit * n, currency, ar)}</b>
+            </li>
+            {dinnerEach > 0 && (
+              <li>
+                <span>{ar ? 'العشاء' : 'Dinner'}<small> {ar ? `(${n} ${n === 1 ? 'فرد' : 'أفراد'})` : `${n} × ${fmt(dinnerEach, currency, ar)}`}</small></span>
+                <b className="num" dir={ar ? undefined : 'ltr'}>{fmt(dinnerEach * n, currency, ar)}</b>
+              </li>
+            )}
+          </ul>
+          <div className="evb-total">
+            <span>{ar ? 'الإجمالي' : 'Total'}</span>
+            {hotelGuest
+              ? <b>{dinnerEach > 0 ? <><span className="num" dir={ar ? undefined : 'ltr'}>{fmt(total, currency, ar)}</span> {ar ? '+ اللي تحبه' : '+ what you want'}</> : (ar ? 'ادفع اللي تحبه' : 'Pay what you want')}</b>
+              : <b className="num" dir={ar ? undefined : 'ltr'}>{fmt(total, currency, ar)}</b>}
+          </div>
           {deposit != null && deposit < total && <small>{ar ? `الآن ${fmt(deposit, currency, ar)} · في الفيلا ${fmt(total - deposit, currency, ar)}` : `Now ${fmt(deposit, currency, ar)} · at the villa ${fmt(total - deposit, currency, ar)}`}</small>}
         </div>
         <Submit

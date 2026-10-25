@@ -1,0 +1,24 @@
+{
+  "days": [
+    {
+      "day": "monday",
+      "title_ar": "طاجن لحمة بالبصل",
+      "title_en": "Beef & Onion Tagen",
+      "dishes": [
+        { "ar": "أرز مصري بالشعرية", "en": "Vermicelli rice" },
+        { "ar": "شوربة لسان عصفور", "en": "Orzo soup" },
+        { "ar": "سلطة خضراء بلدي", "en": "Fresh Egyptian salad" }
+      ],
+      "desc_ar": "لحمة طرية مطهية مع البصل في صوص غني.",
+      "desc_en": "Tender beef slowly cooked with onions in a rich sauce.",
+      "image": "https://example.com/monday-plate.jpg"
+    },
+    {
+      "day": "الثلاثاء",
+      "title_ar": "مكرونة بشاميل وفراخ بانيه",
+      "title_en": "Macarona Béchamel & breaded chicken",
+      "dishes": [ { "ar": "شوربة مشروم", "en": "Mushroom soup" }, { "ar": "أرز أبيض", "en": "White rice" }, { "ar": "سلطة خضراء", "en": "Green salad" } ],
+      "image": "/photos/events/meals/tuesday.webp"
+    }
+  ]
+}

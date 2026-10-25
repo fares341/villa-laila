@@ -29,7 +29,7 @@ const METHOD: Record<string, string> = { paymob: 'Card (Paymob)', instapay: 'Ins
 const mask = (t: string) => (t ? `${t.slice(0, 6)}…${t.slice(-4)}` : '');
 
 export default async function EventsDashboard({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const user = await requireUser('tours.manage');
+  const user = await requireUser('events.bookings');
   const sp = await searchParams;
   const tab = sp.tab === 'events' ? 'events' : sp.tab === 'settings' ? 'settings' : 'bookings';
   const today = todayLocal();
@@ -43,6 +43,7 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
   const tabs = [
     { href: '/dashboard/events', label: 'Bookings', icon: 'ticket' },
     { href: '/dashboard/events?tab=events', label: 'Events list', icon: 'calendar-days' },
+    ...(canEdit ? [{ href: '/dashboard/events/menu', label: 'Weekly dinner menu', icon: 'utensils' }] : []),
     ...(canEdit ? [{ href: '/dashboard/events?tab=settings', label: 'Payment accounts & bots', icon: 'settings' }] : []),
   ];
   const current = tab === 'bookings' ? '/dashboard/events' : `/dashboard/events?tab=${tab}`;

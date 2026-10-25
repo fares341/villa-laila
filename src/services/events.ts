@@ -131,17 +131,13 @@ export async function createEventBooking(input: EventBookingInput) {
       optionKey = opt.key;
     }
 
-    // Hostel guests (a real stay that covers the event date): pay what you want, at the villa. No fixed ticket price
-    // online; only the dinner add-on, if chosen, has a price.
+    // Hostel guests: pay what you want for the ticket, at the villa. Only the dinner add-on, if chosen, has a (full) price.
     let unit = ev.price_cents;
     let isGuest = false;
     let stayRef: string | null = null;
+    // No booking reference needed for now: the guest just ticks it and leaves name and phone; reception checks at the villa.
     if (input.isHotelGuest) {
-      stayRef = (input.stayReference || '').trim().toUpperCase();
-      const stay = (await c.query(
-        `SELECT 1 FROM reservations WHERE reference=$1 AND status IN ('pending','confirmed','checked_in') AND check_in <= $2::date AND check_out >= $2::date`,
-        [stayRef, input.date])).rows[0];
-      if (!stay) throw new BookingError('INVALID_INPUT', 'stay_reference');
+      stayRef = (input.stayReference || '').trim().toUpperCase().slice(0, 20) || null;
       unit = 0;
       isGuest = true;
     }
