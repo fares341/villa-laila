@@ -22,10 +22,20 @@ const MAX_PHOTO = 8 * 1024 * 1024;
 const clean = (s: unknown, max: number) => String(s ?? '').trim().slice(0, max);
 const lines = (s: unknown) => String(s ?? '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean).slice(0, 12);
 
-const toDay = (r: any): DayMenu => ({
-  weekday: r.weekday, title: r.title ?? {}, dishes: Array.isArray(r.dishes) ? r.dishes : [], description: r.description ?? {},
-  img: r.has_photo ? `/api/media/menu/${r.weekday}?v=${new Date(r.updated_at).getTime()}` : r.image_url ?? null,
-});
+const toDay = (r: any): DayMenu => {
+  const v = new Date(r.updated_at).getTime();
+  let img = r.has_photo ? `/api/media/menu/${r.weekday}?v=${v}` : r.image_url ?? null;
+  if (img && !img.includes('?')) {
+    img = `${img}?v=${v}`;
+  }
+  return {
+    weekday: r.weekday,
+    title: r.title ?? {},
+    dishes: Array.isArray(r.dishes) ? r.dishes : [],
+    description: r.description ?? {},
+    img,
+  };
+};
 
 /** The meal of each weekday (null = nothing set for that day). */
 export async function weeklyMenu(): Promise<Record<number, DayMenu | null>> {

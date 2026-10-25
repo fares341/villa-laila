@@ -9,8 +9,8 @@ export type DayMeal = { title: Loc; dishes: Loc[]; description: Loc; img: string
 
 /** Shown on a day with nothing in the weekly menu yet. */
 const STANDARD: DayMeal = {
-  img: '/photos/events/meals/egyptian-salad.webp',
-  title: { ar: 'طاجن لحمة بالبصل', en: 'Beef & onion tagine' },
+  img: '/photos/events/meals/beef-onion-tagen-plate.webp?v=20261025d',
+  title: { ar: 'طاجن لحمة بالبصل المكرمل', en: 'Beef & caramelised onion tagen' },
   dishes: [
     { ar: 'أرز مصري بالشعرية', en: 'Egyptian vermicelli rice' },
     { ar: 'شوربة لسان عصفور', en: 'Orzo soup' },
