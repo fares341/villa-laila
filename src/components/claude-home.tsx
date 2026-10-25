@@ -961,7 +961,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
                     e.preventDefault();
                     if (s.filter) setRoomFilter(s.filter);
                     const el = document.getElementById('stay');
-                    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 84, behavior: 'smooth' });
+                    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 12, behavior: 'smooth' });
                   }
                 }}
                 target={s.go.startsWith('http') ? '_blank' : undefined}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { Lang } from '@/i18n/bot';
@@ -12,19 +12,11 @@ export function ClaudeHeader({ lang }: { lang: string }) {
 
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [headerSolid, setHeaderSolid] = useState(false);
-  const [headerHide, setHeaderHide] = useState(false);
-  const lastScrollY = useRef(0);
 
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY;
       setHeaderSolid(y > 10);
-      if (y > 400 && y > lastScrollY.current + 6) {
-        setHeaderHide(true);
-      } else if (y < lastScrollY.current - 6) {
-        setHeaderHide(false);
-      }
-      lastScrollY.current = y;
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
@@ -34,7 +26,7 @@ export function ClaudeHeader({ lang }: { lang: string }) {
     if (isHomePage) {
       const el = document.getElementById(anchor);
       if (el) {
-        const y = el.getBoundingClientRect().top + window.scrollY - 84;
+        const y = el.getBoundingClientRect().top + window.scrollY - 12;
         window.scrollTo({ top: y, behavior: 'smooth' });
       }
     }
@@ -53,7 +45,7 @@ export function ClaudeHeader({ lang }: { lang: string }) {
   };
 
   return (
-    <header className={`hdr ${headerSolid ? 'solid' : ''} ${headerHide ? 'hide' : ''}`} id="hdr">
+    <header className={`hdr ${headerSolid ? 'solid' : ''} `} id="hdr">
       <div className="wrap hdr-in">
         <Link href={`/${lang}`} className="logo" aria-label="Villa Layla">
           <img className="logo-img" src="/assets/logo-240.webp" alt="Villa Layla" width={180} height={52} />
@@ -193,7 +185,7 @@ export function ClaudeFooter({ lang }: { lang: string }) {
     if (isHomePage) {
       const el = document.getElementById(anchor);
       if (el) {
-        const y = el.getBoundingClientRect().top + window.scrollY - 84;
+        const y = el.getBoundingClientRect().top + window.scrollY - 12;
         window.scrollTo({ top: y, behavior: 'smooth' });
       }
     }
@@ -554,7 +546,7 @@ export function ClaudeBottomBar({ lang }: { lang: string }) {
     if (isHomePage) {
       const el = document.getElementById(anchor);
       if (el) {
-        const y = el.getBoundingClientRect().top + window.scrollY - 84;
+        const y = el.getBoundingClientRect().top + window.scrollY - 12;
         window.scrollTo({ top: y, behavior: 'smooth' });
       }
     }
