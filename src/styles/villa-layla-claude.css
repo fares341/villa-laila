@@ -1820,3 +1820,4 @@ html.vl-mt body { top: 0 !important; position: static !important; }
 .vl-mt-pill button { padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,.14); color: #fff; font: inherit; border: 0; cursor: pointer; }
 .vl-mt-pill button:hover { background: rgba(255,255,255,.24); }
 @media (max-width: 760px) { .vl-mt-pill { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); } }
+.evb-sum .evb-err { flex: 1 1 100%; margin: 0; padding: 10px 12px; border-radius: var(--r-sm); background: var(--color-error-bg); line-height: 1.6; }

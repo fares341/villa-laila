@@ -15,6 +15,17 @@ const fmt = (cents: number, cur: string, ar: boolean) => {
   return ar && cur === 'EGP' ? `${v} ج.م` : `${cur} ${v}`;
 };
 
+const BOOK_ERR: Record<string, { ar: string; en: string }> = {
+  no_availability: { ar: 'عذرًا، الأماكن المتبقية في هذا اليوم لا تكفي. اختر يومًا آخر أو عددًا أقل.', en: 'Sorry, there aren’t enough places left on that date. Pick another date or fewer tickets.' },
+  invalid_dates: { ar: 'هذا اليوم لم يعد متاحًا. اختر يومًا آخر.', en: 'That date is no longer available. Please pick another one.' },
+  'invalid_input:pay_method': { ar: 'طريقة الدفع دي مش متاحة. اختار طريقة تانية.', en: 'That payment method isn’t available. Choose another one.' },
+  'invalid_input:option': { ar: 'من فضلك اختر نوع التذكرة.', en: 'Please choose an option.' },
+  pwyw: { ar: 'اكتب المبلغ اللي حابب تدفعه للتذاكر (رقم، صفر أو أكتر).', en: 'Write how much you want to pay for the tickets (a number, 0 or more).' },
+  rate_limit: { ar: 'محاولات كثيرة. انتظر دقائق وحاول مرة أخرى.', en: 'Too many attempts. Please wait a few minutes and try again.' },
+  not_found: { ar: 'الفعالية دي مش متاحة للحجز دلوقتي.', en: 'This event isn’t open for booking right now.' },
+  invalid_input: { ar: 'راجع بياناتك وحاول مرة أخرى.', en: 'Please check your details and try again.' },
+};
+
 function Submit({ label, busy, loading }: { label: string; busy: string; loading?: boolean }) {
   const { pending } = useFormStatus();
   const isBusy = pending || loading;
@@ -39,6 +50,7 @@ export function EventBooker(props: {
   const [pwywStr, setPwywStr] = useState('');
   const [dinner, setDinner] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [formErr, setFormErr] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     if (method === 'paymob') return; // Paymob checkout runs via server action
@@ -93,6 +105,7 @@ export function EventBooker(props: {
       return `https://wa.me/${num}?text=${encodeURIComponent(lines)}`;
     };
 
+    setFormErr(null);
     try {
       const res = await fetch('/api/events/book', {
         method: 'POST',
@@ -103,10 +116,19 @@ export function EventBooker(props: {
         window.location.href = data.waUrl;
         return;
       }
+      // The booking was refused (sold out, date gone, missing amount…): say why and let them fix it.
+      if (res.status >= 400 && res.status < 500 && data?.error) {
+        const code = String(data.error);
+        const msg = BOOK_ERR[code] ?? BOOK_ERR[code.split(':')[0]] ?? BOOK_ERR.invalid_input;
+        setFormErr(ar ? msg.ar : msg.en);
+        setSubmitting(false);
+        return;
+      }
     } catch (err) {
       console.error('[Event booking submit error]:', err);
     }
 
+    // Server unreachable: still let the guest reach reception on WhatsApp with their details.
     window.location.href = buildFallbackWa();
   };
   const [mealOpen, setMealOpen] = useState(false);
@@ -318,6 +340,7 @@ export function EventBooker(props: {
           </div>
           {deposit != null && deposit < total && <small>{ar ? `الآن ${fmt(deposit, currency, ar)} · في الفيلا ${fmt(total - deposit, currency, ar)}` : `Now ${fmt(deposit, currency, ar)} · at the villa ${fmt(total - deposit, currency, ar)}`}</small>}
         </div>
+        {formErr && <p role="alert" className="form-msg evb-err">{formErr}</p>}
         <Submit
           label={method === 'paymob' ? (ar ? 'ادفع واحصل على التذكرة' : 'Pay & get ticket') : (ar ? 'تأكيد الحجز عبر واتساب' : 'Confirm booking on WhatsApp')}
           busy={ar ? 'جارٍ تحويلك لواتساب…' : 'Connecting to WhatsApp…'}

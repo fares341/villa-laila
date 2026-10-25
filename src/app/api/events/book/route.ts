@@ -6,6 +6,7 @@ import { createEventBooking } from '@/services/events';
 import { bookingWhatsAppLink } from '@/services/event-admin';
 import { notifyNewEventBooking } from '@/services/admin-bot';
 import { isSiteLang } from '@/i18n/site';
+import { BookingError } from '@/services/errors';
 
 const schema = z.object({
   lang: z.string().default('ar'),
@@ -41,19 +42,19 @@ export async function POST(req: NextRequest) {
 
     const p = schema.safeParse(raw);
     if (!p.success) {
-      return NextResponse.json({ ok: false, error: 'invalid_input', details: p.error.format() }, { status: 400 });
+      return NextResponse.json({ ok: false, error: 'invalid_input' }, { status: 400 });
     }
 
     const v = p.data;
     const isGuest = v.hotelGuest === true || v.hotelGuest === 'on' || v.hotelGuest === 'true';
     const isDinner = v.dinner === true || v.dinner === 'on' || v.dinner === 'true';
 
+    // Hostel guest: how much they will pay for the tickets is required (same rule as the form).
     let pwywOfferCents: number | null = null;
-    if (isGuest && v.pwyw) {
-      const n = Number(String(v.pwyw).replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[,\s]/g, ''));
-      if (Number.isFinite(n) && n >= 0 && n <= 100000) {
-        pwywOfferCents = Math.round(n * 100);
-      }
+    if (isGuest) {
+      const n = Number(String(v.pwyw ?? '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[,\s]/g, ''));
+      if (!v.pwyw || !Number.isFinite(n) || n < 0 || n > 100000) return NextResponse.json({ ok: false, error: 'pwyw' }, { status: 400 });
+      pwywOfferCents = Math.round(n * 100);
     }
 
     const lang = isSiteLang(v.lang) ? v.lang : 'ar';
@@ -90,6 +91,10 @@ export async function POST(req: NextRequest) {
       waUrl,
     });
   } catch (err: any) {
+    // Booking rules (sold out, date gone, payment method not allowed…): tell the guest, never fake a booking.
+    if (err instanceof BookingError) {
+      return NextResponse.json({ ok: false, error: `${err.code.toLowerCase()}${err.message && err.message !== err.code ? ':' + err.message : ''}` }, { status: 400 });
+    }
     console.error('[API /api/events/book error]:', err);
     return NextResponse.json({ ok: false, error: err?.message || 'internal_error' }, { status: 500 });
   }

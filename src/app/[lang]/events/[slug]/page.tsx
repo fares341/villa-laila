@@ -121,7 +121,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           <aside className="evd-book" id="book" aria-labelledby="bookH">
             <h2 id="bookH">{isAr ? 'احجز تذكرتك' : 'Book your ticket'}</h2>
             {errMsg && <p role="alert" className="form-msg">{errMsg}</p>}
-            {dates.length > 0 && dates.every((d) => d.left === 0) ? (
+            {dates.length === 0 ? (
+              // The event's dates are over (a one-off that already happened): no form with nothing to pick.
+              <div className="evd-off">
+                <p><b>{isAr ? 'مفيش مواعيد جاية دلوقتي' : 'No upcoming dates right now'}</b> · {isAr ? 'الفعالية دي خلصت. تابعنا أو اسألنا على واتساب عن الموعد الجاي.' : 'This event has taken place. Follow us or ask on WhatsApp about the next one.'}</p>
+                <a className="btn btn-line" href={wa} target="_blank" rel="noopener noreferrer">{isAr ? 'اسأل على واتساب' : 'Ask on WhatsApp'}</a>
+              </div>
+            ) : dates.every((d) => d.left === 0) ? (
               <div className="evd-off">
                 <p><b>{isAr ? 'نفدت التذاكر' : 'Sold out'}</b> · {isAr ? 'كل الأماكن في الأيام القادمة محجوزة. تابعنا للمواعيد الجديدة.' : 'Every place for the coming dates is taken. Follow us for the next dates.'}</p>
                 <a className="btn btn-line" href={wa} target="_blank" rel="noopener noreferrer">{isAr ? 'اسأل على واتساب' : 'Ask on WhatsApp'}</a>
