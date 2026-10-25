@@ -32,6 +32,8 @@ const ERR: Record<string, { en: string; ar: string }> = {
   'invalid_input:stay_reference': { en: 'We couldn’t find a stay with that booking reference on this date. Check it, or book at the regular price.', ar: 'لم نجد حجز إقامة بهذا الرقم في هذا اليوم. راجع الرقم أو احجز بالسعر العادي.' },
   'invalid_input:option': { en: 'Please choose an option.', ar: 'من فضلك اختر نوعًا.' },
   'invalid_input:pay_method': { en: 'That payment method isn’t available right now. Choose another one.', ar: 'طريقة الدفع هذه غير متاحة الآن. اختر طريقة أخرى.' },
+  pwyw: { en: 'Write how much you want to pay for the tickets (a number, 0 or more).', ar: 'اكتب المبلغ اللي حابب تدفعه للتذاكر (رقم، صفر أو أكتر).' },
+  'invalid_input:pwyw': { en: 'That amount is too large. Please check it.', ar: 'المبلغ كبير جدًا، راجعه من فضلك.' },
   invalid_input: { en: 'Please check your details and try again.', ar: 'راجع بياناتك وحاول مرة أخرى.' },
   rate_limit: { en: 'Too many attempts. Please wait a few minutes and try again.', ar: 'محاولات كثيرة. انتظر دقائق وحاول مرة أخرى.' },
   generic: { en: 'Something went wrong. Please try again or message us on WhatsApp.', ar: 'حدث خطأ. حاول مرة أخرى أو راسلنا على واتساب.' },

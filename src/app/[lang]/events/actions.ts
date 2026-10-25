@@ -14,7 +14,7 @@ import { BookingError } from '@/services/errors';
 const schema = z.object({
   lang: z.string(), slug: z.string().min(1).max(80), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   quantity: z.coerce.number().int().min(1).max(20), option: z.string().max(40).optional(),
-  hotelGuest: z.string().optional(), dinner: z.string().optional(), stayRef: z.string().trim().max(20).optional(),
+  hotelGuest: z.string().optional(), pwyw: z.string().trim().max(12).optional(), dinner: z.string().optional(), stayRef: z.string().trim().max(20).optional(),
   fullName: z.string().trim().min(2).max(80), email: z.string().trim().email().max(120), phone: z.string().trim().min(6).max(30),
   payMethod: z.enum(['paymob', 'instapay', 'vodafone_cash', 'cash']), website: z.string().optional(), payerRef: z.string().trim().max(60).optional(),
 });
@@ -37,12 +37,19 @@ export async function bookEventAction(formData: FormData) {
   const p = schema.safeParse(raw);
   if (!p.success) return back('invalid_input');
   const v = p.data;
+  // Hostel guest: how much they want to pay for the tickets (whole pounds), required when ticked.
+  let pwywOfferCents: number | null = null;
+  if (v.hotelGuest === 'on') {
+    const n = Number(String(v.pwyw ?? '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[,\s]/g, ''));
+    if (!v.pwyw || !Number.isFinite(n) || n < 0 || n > 100000) return back('pwyw');
+    pwywOfferCents = Math.round(n * 100);
+  }
   let code: string;
   let bookingId: string;
   try {
     const { booking } = await createEventBooking({
       slug: v.slug, date: v.date, quantity: v.quantity, optionKey: v.option || null,
-      isHotelGuest: v.hotelGuest === 'on', stayReference: v.stayRef || null, dinner: v.dinner === 'on',
+      isHotelGuest: v.hotelGuest === 'on', stayReference: v.stayRef || null, pwywOfferCents, dinner: v.dinner === 'on',
       fullName: v.fullName, email: v.email, phone: v.phone || null, language: lang, payMethod: v.payMethod,
     });
     code = booking.ticket_code;

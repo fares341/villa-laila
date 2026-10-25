@@ -103,7 +103,7 @@ export async function seatsLeft(ev: PublicEvent): Promise<Record<string, number 
 
 export type EventBookingInput = {
   slug: string; date: string; quantity: number; optionKey?: string | null;
-  isHotelGuest?: boolean; stayReference?: string | null;
+  isHotelGuest?: boolean; stayReference?: string | null; pwywOfferCents?: number | null;
   /** Optional add-on: home-cooked dinner by the pool, per person (only when the event offers it). */
   dinner?: boolean;
   fullName: string; email: string; phone?: string | null; language: string; payMethod: PayMethod;
@@ -141,6 +141,9 @@ export async function createEventBooking(input: EventBookingInput) {
       unit = 0;
       isGuest = true;
     }
+    // What the guest says they will pay for the tickets (a note for reception; the money is taken on the POS).
+    const offer = isGuest && input.pwywOfferCents != null && Number.isFinite(input.pwywOfferCents) ? Math.max(0, Math.round(input.pwywOfferCents)) : null;
+    if (offer != null && offer > 100_000_00) throw new BookingError('INVALID_INPUT', 'pwyw');
 
     await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['ev:' + ev.id + ':' + input.date]);
     if (ev.capacity != null) {
@@ -163,11 +166,11 @@ export async function createEventBooking(input: EventBookingInput) {
     }
     const row = (await c.query(
       `INSERT INTO event_bookings(ticket_code,event_id,event_date,quantity,option_key,is_hotel_guest,stay_reference,full_name,email,phone,language,
-         unit_price_cents,total_cents,currency,pay_method,status,hold_expires_at,deposit_cents,dinner,dinner_cents)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, CASE WHEN $17::int IS NULL THEN NULL ELSE now() + make_interval(mins => $17::int) END, $18, $19, $20)
+         unit_price_cents,total_cents,currency,pay_method,status,hold_expires_at,deposit_cents,dinner,dinner_cents,pwyw_offer_cents)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, CASE WHEN $17::int IS NULL THEN NULL ELSE now() + make_interval(mins => $17::int) END, $18, $19, $20, $21)
        RETURNING *`,
       [code, ev.id, input.date, qty, optionKey, isGuest, stayRef, input.fullName.trim(), input.email.trim(), input.phone?.trim() || null, input.language,
-        unit, total, ev.currency, input.payMethod, status, holdMin, deposit, dinnerEach > 0, dinnerEach])).rows[0];
+        unit, total, ev.currency, input.payMethod, status, holdMin, deposit, dinnerEach > 0, dinnerEach, offer])).rows[0];
     await audit('website', 'event_booking.create', 'event_booking', row.id, { code, slug: ev.slug, date: input.date, qty, total, method: input.payMethod, dinner: dinnerEach > 0 }, c as unknown as Q);
     return { booking: row, event: ev };
   });

@@ -52,7 +52,7 @@ export function bookingText(b: any, head = 'حجز فعالية'): string {
     `الاسم: ${b.full_name}`,
     `الموبايل: ${b.phone || '—'}`,
     `الإيميل: ${b.email}`,
-    `الإجمالي: ${b.is_hotel_guest ? `نزيل · ادفع اللي تحبه (يتسجل على البي او اس)${Number(b.total_cents) ? ` + ${money(b.total_cents, b.currency)} عشاء` : ''}` : money(b.total_cents, b.currency)} · ${b.pay_method === 'cash' ? 'كاش في المكان' : b.pay_method === 'paymob' ? 'بطاقة (Paymob)' : walletLabel(b.pay_method, true)}`,
+    `الإجمالي: ${b.is_hotel_guest ? `نزيل · ادفع اللي تحبه${b.pwyw_offer_cents != null ? `: قال هيدفع ${money(b.pwyw_offer_cents, b.currency)} للتذاكر` : ''} (يتسجل على البي او اس)${Number(b.total_cents) ? ` + ${money(b.total_cents, b.currency)} عشاء` : ''}${b.pwyw_offer_cents != null ? ` = ${money(Number(b.pwyw_offer_cents) + Number(b.total_cents), b.currency)}` : ''}` : money(b.total_cents, b.currency)} · ${b.pay_method === 'cash' ? 'كاش في المكان' : b.pay_method === 'paymob' ? 'بطاقة (Paymob)' : walletLabel(b.pay_method, true)}`,
     `الحالة: ${STATUS_AR[b.status] ?? b.status}${b.confirmed_at && b.status !== 'cancelled' ? ' · متأكد' : ''}${b.attendance_confirmed_at ? ' · أكد الحضور' : ''}`,
     b.cancel_reason ? `سبب الإلغاء: ${b.cancel_reason}` : '',
   ].filter(Boolean).join('\n');
@@ -76,6 +76,7 @@ export async function bookingWhatsAppLink(bookingId: string): Promise<string> {
     : ar ? `${walletLabel(b.pay_method, true)} — ابعتولي الرقم من فضلكم` : `${walletLabel(b.pay_method, false)} — please send me the number`;
   const guest = !!b.is_hotel_guest;
   const dinnerTotal = b.dinner ? Number(b.dinner_cents) * Number(b.quantity) : 0;
+  const offer = guest && b.pwyw_offer_cents != null ? Number(b.pwyw_offer_cents) : null;
   const dep = b.deposit_cents != null && Number(b.deposit_cents) < Number(b.total_cents) ? Number(b.deposit_cents) : null;
   const lines = ar ? [
     'مرحباً فيلا ليلى 👋',
@@ -83,8 +84,9 @@ export async function bookingWhatsAppLink(bookingId: string): Promise<string> {
     `• الفعالية: ${tr(b.title, 'ar')}${opt ? ` (${opt.ar || opt.en})` : ''}`,
     `• الموعد: ${when}`,
     `• عدد التذاكر: ${b.quantity}`,
-    `• عشاء بيتي بجانب المسبح: ${b.dinner ? `نعم (+${cur(Number(b.dinner_cents))} للفرد)` : 'لا'}`,
-    guest ? `• سعر التذكرة: نزيل بالفيلا · ادفع اللي تحبه${dinnerTotal ? ` + العشاء ${cur(dinnerTotal)}` : ''}` : `• الإجمالي: ${cur(Number(b.total_cents))}${dep ? ` (عربون ${cur(dep)} والباقي في الفيلا)` : ''}`,
+    `• العشاء: ${b.dinner ? `نعم · ${b.quantity} × ${cur(Number(b.dinner_cents))} = ${cur(dinnerTotal)}` : 'لا'}`,
+    guest ? `• سعر التذاكر: نزيل بالفيلا · ادفع اللي تحبه${offer != null ? ` · هدفع ${cur(offer)}` : ''}` : '',
+    guest ? (offer != null ? `• الإجمالي: ${cur(offer + dinnerTotal)}` : '') : `• الإجمالي: ${cur(Number(b.total_cents))}${dep ? ` (عربون ${cur(dep)} والباقي في الفيلا)` : ''}`,
     `• طريقة الدفع: ${pay}`,
     `• الاسم: ${b.full_name}`,
     `• الهاتف: ${b.phone || '—'}`,
@@ -98,8 +100,9 @@ export async function bookingWhatsAppLink(bookingId: string): Promise<string> {
     `• Event: ${tr(b.title, 'en')}${opt ? ` (${opt.en || opt.ar})` : ''}`,
     `• When: ${when}`,
     `• Tickets: ${b.quantity}`,
-    `• Home-cooked dinner by the pool: ${b.dinner ? `Yes (+${cur(Number(b.dinner_cents))} per person)` : 'No'}`,
-    guest ? `• Ticket: hostel guest · pay what you want${dinnerTotal ? ` + dinner ${cur(dinnerTotal)}` : ''}` : `• Total: ${cur(Number(b.total_cents))}${dep ? ` (deposit ${cur(dep)}, the rest at the villa)` : ''}`,
+    `• Dinner: ${b.dinner ? `Yes · ${b.quantity} × ${cur(Number(b.dinner_cents))} = ${cur(dinnerTotal)}` : 'No'}`,
+    guest ? `• Ticket price: hostel guest · pay what you want${offer != null ? ` · I'll pay ${cur(offer)}` : ''}` : '',
+    guest ? (offer != null ? `• Total: ${cur(offer + dinnerTotal)}` : '') : `• Total: ${cur(Number(b.total_cents))}${dep ? ` (deposit ${cur(dep)}, the rest at the villa)` : ''}`,
     `• Payment: ${pay}`,
     `• Name: ${b.full_name}`,
     `• Phone: ${b.phone || '—'}`,

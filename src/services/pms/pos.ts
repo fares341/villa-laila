@@ -311,7 +311,7 @@ export async function recordExchange(shiftId: string, staffId: string, input: { 
  */
 export async function unpaidEventTickets() {
   return q<any>(`SELECT b.id, b.ticket_code, b.full_name, b.phone, b.event_date, b.quantity, b.total_cents, b.paid_cents, (b.total_cents - b.paid_cents) due_cents,
-                   b.status, b.pay_method, b.checked_in_at, b.dinner, b.is_hotel_guest, b.stay_reference, e.title,
+                   b.status, b.pay_method, b.checked_in_at, b.dinner, b.is_hotel_guest, b.stay_reference, b.pwyw_offer_cents, e.title,
                    EXISTS (SELECT 1 FROM online_payments o WHERE o.event_booking_id=b.id AND o.status='submitted') receipt_waiting
                  FROM event_bookings b JOIN events e ON e.id=b.event_id
                  WHERE b.status IN ('pay_on_site','awaiting_payment','pending_verification','paid') AND b.event_date >= (now() AT TIME ZONE 'Africa/Cairo')::date - 1

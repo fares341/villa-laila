@@ -1335,7 +1335,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
                       {Number(b.paid_cents) > 0 && Number(b.due_cents) > 0 && <small>Deposit {egp(Number(b.paid_cents))} paid online of {egp(Number(b.total_cents))}</small>}
                       {pending && <small className="warn">InstaPay / Vodafone receipt waiting for a manager (Payments to check). Do not take the money again.</small>}
                     </div>
-                    {payable(b) ? <button className="pos-btn primary" onClick={() => setPick(b)}>{b.is_hotel_guest ? `Hostel guest · pay what you want${Number(b.due_cents) > 0 ? ` + ${egp(Number(b.due_cents))}` : ''}` : `Take ${egp(Number(b.due_cents))}`}</button>
+                    {payable(b) ? <button className="pos-btn primary" onClick={() => { setPick(b); setPwywStr(b.is_hotel_guest && b.pwyw_offer_cents != null ? String(Number(b.pwyw_offer_cents) / 100) : ''); }}>{b.is_hotel_guest ? `Hostel guest · pay what you want${b.pwyw_offer_cents != null ? ` (said ${egp(Number(b.pwyw_offer_cents))})` : ''}${Number(b.due_cents) > 0 ? ` + ${egp(Number(b.due_cents))}` : ''}` : `Take ${egp(Number(b.due_cents))}`}</button>
                       : pending ? <span className="pos-badge">Being checked</span>
                       : b.checked_in_at ? <span className="pos-badge green"><Icon name="check" size={14} /> Checked in</span>
                       : <button className="pos-btn" onClick={async () => {
