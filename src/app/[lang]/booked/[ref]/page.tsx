@@ -33,7 +33,9 @@ export default async function Booked({ params, searchParams }: { params: Promise
   const wallets = await getWallets();
   const canInstapay = open && pay.due > 0 && !pay.pendingInstapay && walletOn(wallets, 'instapay', r.currency);
   const ip = wallets.instapay;
-  const extras = await q<any>(`SELECT name, price_cents, currency, unit_label FROM products WHERE is_active AND public_visible ORDER BY sort_order, name`).catch(() => []);
+  // Same product listed twice (e.g. once per category) is shown once.
+  const extras = (await q<any>(`SELECT name, price_cents, currency, unit_label FROM products WHERE is_active AND public_visible ORDER BY sort_order, name`).catch(() => []))
+    .filter((x: any, i: number, all: any[]) => all.findIndex((y: any) => y.name === x.name && y.price_cents === x.price_cents && y.currency === x.currency) === i);
 
   const banner =
     sp.payment === 'paid' ? { cls: 'ok', text: L('Payment received — thank you! It’s already on your booking.', 'تم استلام الدفع — شكرًا! تم تسجيله على حجزك.') } :
@@ -114,7 +116,7 @@ export default async function Booked({ params, searchParams }: { params: Promise
               <h2 id="exH">{L('Extras at the villa', 'إضافات متاحة في الفيلا')}</h2>
               <p className="bkd-sub">{L('Ask at reception during your stay; it is added to your room bill.', 'اطلبها من الاستقبال أثناء إقامتك وتُضاف على فاتورة غرفتك.')}</p>
               <ul className="bkd-extras">
-                {extras.map((x: any) => <li key={x.name}><span>{x.name}{x.unit_label ? ` · ${x.unit_label}` : ''}</span><b dir="ltr">{money(Number(x.price_cents), x.currency, lang)}</b></li>)}
+                {extras.map((x: any) => <li key={`${x.name}-${x.price_cents}-${x.currency}`}><span>{x.name}{x.unit_label ? ` · ${x.unit_label}` : ''}</span><b dir="ltr">{money(Number(x.price_cents), x.currency, lang)}</b></li>)}
               </ul>
             </section>
           )}

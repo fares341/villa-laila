@@ -1542,7 +1542,7 @@
 .tk-pay-card p { font-size: 14px; color: var(--color-text-secondary); }
 .tk-steps { margin: 0; padding-inline-start: 20px; display: grid; gap: 6px; font-size: 14px; }
 .tk-steps b { color: var(--color-primary-dark); }
-.tk-steps .sel { user-select: all; background: #fff; border: 1px dashed var(--color-bronze); padding: 1px 6px; border-radius: 6px; }
+.tk-steps .sel { user-select: all; background: #fff; border: 1px dashed var(--color-bronze); padding: 1px 6px; border-radius: 6px; white-space: nowrap; display: inline-block; unicode-bidi: isolate; }
 @media (max-width: 760px) {
   .tk { grid-template-columns: 1fr; }
   .tk-stub { border-inline-start: 0; border-top: 2px dashed var(--color-border); }
