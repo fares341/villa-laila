@@ -138,19 +138,16 @@ export function EventBooker(props: {
           <span>{ar ? 'أنا نازل في فيلا ليلى · التذكرة «ادفع اللي تحبه»' : 'I’m staying at Villa Layla · ticket is “pay what you want”'}</span>
         </label>
         {hotelGuest && <p className="evb-fine">{ar ? 'بنتأكد إنك نازل عندنا في الفيلا بالاسم والرقم. التذكرة بتدفع فيها اللي تحبه، والعشاء بسعره العادي.' : 'We check your stay at the villa with your name and phone. You pay what you want for the ticket; dinner is at its normal price.'}</p>}
+        {dinnerCents != null && dinnerCents > 0 && <MealLink ar={ar} meal={dayMeal} day={dayName} onOpen={() => setMealOpen(true)} />}
         {dinnerCents != null && dinnerCents > 0 && (
           <label className={`evb-addon ${dinner ? 'on' : ''}`}>
             <input type="checkbox" name="dinner" checked={dinner} onChange={(e) => setDinner(e.target.checked)} />
-            <span className="evb-addon-ic" aria-hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 3v8a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M6 13v8M17 3c-1.7 0-3 2-3 5s1.3 4 3 4v9" /></svg>
-            </span>
             <span className="evb-addon-t">
               <b>{(dayMeal && (ar ? dayMeal.title.ar || dayMeal.title.en : dayMeal.title.en || dayMeal.title.ar)) || (ar ? 'أضف العشاء' : 'Add dinner')}</b>
             </span>
             <span className="evb-addon-p num" dir="ltr">+{fmt(dinnerCents, currency, ar)}</span>
           </label>
         )}
-        {dinnerCents != null && dinnerCents > 0 && <MealLink ar={ar} meal={dayMeal} day={dayName} onOpen={() => setMealOpen(true)} />}
         {mealOpen && <MealModal ar={ar} meal={dayMeal} day={dayName} priceLabel={dinnerCents ? fmt(dinnerCents, currency, ar) : null} onClose={closeMeal} />}
       </fieldset>
 

@@ -25,10 +25,10 @@ const t = (x: Loc | undefined, ar: boolean) => (ar ? x?.ar || x?.en : x?.en || x
 export function MealLink({ ar, onOpen, meal, day }: { ar: boolean; onOpen: () => void; meal?: DayMeal | null; day?: string | null }) {
   const m = meal ?? STANDARD;
   return (
-    <button type="button" className="evb-meal-link" onClick={onOpen} aria-haspopup="dialog">
-      {m.img && <span className="evb-meal-thumbs" aria-hidden><img src={m.img} alt="" loading="lazy" /></span>}
+    <button type="button" className={`evb-meal-link${m.img ? ' has-img' : ''}`} onClick={onOpen} aria-haspopup="dialog">
+      {m.img && <img className="evb-meal-cover" src={m.img} alt="" loading="lazy" />}
       <span className="evb-meal-t">
-        <b><span aria-hidden>🍽️</span> {ar ? 'شاهد صور وتفاصيل الوجبة' : 'View meal photos'}</b>
+        <b>{ar ? 'شاهد صور وتفاصيل الوجبة' : 'View meal photos & details'}</b>
         <small>{meal && day ? `${ar ? 'عشاء' : 'Dinner'} ${day}: ${t(m.title, ar)}` : t(m.title, ar)}</small>
       </span>
     </button>
