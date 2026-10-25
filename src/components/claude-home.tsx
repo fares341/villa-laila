@@ -1261,20 +1261,6 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
 
           <GuestFilms isAr={isAr} />
 
-          <div className="films-ft">
-            <span>
-              {isAr ? 'تابع حسابنا على إنستغرام لمزيد من اللقطات اليومية:' : 'Follow our official Instagram for daily reels:'}{' '}
-              <b>@villalaylacairo</b>
-            </span>
-            <a
-              className="btn btn-outline-light btn-sm"
-              href="https://instagram.com/villalaylacairo"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {isAr ? 'افتح إنستغرام' : 'Open Instagram'}
-            </a>
-          </div>
         </div>
       </section>
 
