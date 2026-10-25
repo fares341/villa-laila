@@ -93,7 +93,7 @@ export function GuestFilms({ isAr }: { isAr: boolean }) {
   };
 
   // Silent preview on hover (desktop pointers only).
-  const preview = (e: React.MouseEvent<HTMLButtonElement>, on: boolean) => {
+  const preview = (e: { currentTarget: HTMLElement }, on: boolean) => {
     if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
     const v = e.currentTarget.querySelector('video');
     if (!v) return;
