@@ -1,5 +1,6 @@
 'use server';
 import { redirect } from 'next/navigation';
+import { okMedia } from '@/services/site-content';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { toEmbed } from '@/content/videos';
@@ -166,7 +167,7 @@ export async function saveRoomTypeAction(f: FormData) {
     const name = loc(f, 'name'); if (!name.en) throw new BookingError('INVALID_INPUT', 'English name is required');
     const amen = S(f, 'amenities').split('\n').map((s) => s.trim()).filter(Boolean).map((en) => ({ en }));
     const id = S(f, 'id');
-    if (id) await q('UPDATE room_types SET name=$2, description=$3, amenities=$4, sort_order=$5, gender=$6, photos=$7 WHERE id=$1', [id, name, loc(f, 'desc'), JSON.stringify(amen), N(f, 'sort') || 0, z.enum(['mixed', 'female', 'male']).catch('mixed').parse(S(f, 'gender')), JSON.stringify(S(f, 'photos').split('\n').map((x) => x.trim()).filter((x) => /^https:\/\//.test(x)))]);
+    if (id) await q('UPDATE room_types SET name=$2, description=$3, amenities=$4, sort_order=$5, gender=$6, photos=$7 WHERE id=$1', [id, name, loc(f, 'desc'), JSON.stringify(amen), N(f, 'sort') || 0, z.enum(['mixed', 'female', 'male']).catch('mixed').parse(S(f, 'gender')), JSON.stringify(S(f, 'photos').split('\n').map((x) => okMedia(x)).filter(Boolean))]);
     else await q('INSERT INTO room_types(code,kind,name,description,amenities,sort_order,gender) VALUES($1,$2,$3,$4,$5,$6,$7)', [S(f, 'code').toLowerCase().replace(/[^a-z0-9-]+/g, '-') || 'type-' + Date.now(), z.enum(['dorm', 'private']).parse(S(f, 'kind')), name, loc(f, 'desc'), JSON.stringify(amen), N(f, 'sort') || 0, z.enum(['mixed', 'female', 'male']).catch('mixed').parse(S(f, 'gender'))]);
     await audit(u.email, 'inventory.room_type', 'room_type', id || null, name);
     return 'Room type saved.';

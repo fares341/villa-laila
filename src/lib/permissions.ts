@@ -24,6 +24,7 @@ const MAP: Record<string, Role[]> = {
   'automation.manage': ['owner', 'manager'],
   'policy.manage': ['owner'],
   'settings.manage': ['owner'],
+  'site.manage': ['owner', 'manager'],
   'users.manage': ['owner'],
   'reports.view': ['owner', 'manager'],
   'import.run': ['owner', 'manager'],

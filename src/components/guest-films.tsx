@@ -18,8 +18,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 const IG = 'https://instagram.com/villalaylacairo';
 const HANDLE = '@villalaylacairo';
-const MAIN = { src: '/videos/films/film-5.mp4', poster: '/photos/films/film-5-poster.jpg' };
-const REELS = [0, 1, 2, 3, 4].map((i) => ({ src: `/videos/films/film-${i}.mp4`, poster: `/photos/films/film-${i}-poster.jpg` }));
+type Clip = { src: string; poster: string };
+/** Used until the films are set in the dashboard (Website → Guest films). */
+const DEFAULT_MAIN: Clip = { src: '/videos/films/film-5.mp4', poster: '/photos/films/film-5-poster.jpg' };
+const DEFAULT_REELS: Clip[] = [0, 1, 2, 3, 4].map((i) => ({ src: `/videos/films/film-${i}.mp4`, poster: `/photos/films/film-${i}-poster.jpg` }));
+export type GuestFilmsData = { main: Clip | null; reels: Clip[] };
 
 const Svg = ({ d, fill = false, size = 20 }: { d: string; fill?: boolean; size?: number }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -48,7 +51,9 @@ function Avatar({ size = 44 }: { size?: number }) {
   );
 }
 
-export function GuestFilms({ isAr }: { isAr: boolean }) {
+export function GuestFilms({ isAr, films }: { isAr: boolean; films?: GuestFilmsData | null }) {
+  const MAIN = films ? films.main : DEFAULT_MAIN;
+  const REELS = films ? films.reels : DEFAULT_REELS;
   const t = (ar: string, en: string) => (isAr ? ar : en);
   const mainRef = useRef<HTMLVideoElement | null>(null);
   const [mainOn, setMainOn] = useState(false);
@@ -116,12 +121,13 @@ export function GuestFilms({ isAr }: { isAr: boolean }) {
         </a>
       </div>
 
-      <div className={`gf-stage ${mainOn ? 'on' : ''}`} style={{ ['--poster' as string]: `url(${MAIN.poster})` }}>
+      {MAIN && (
+      <div className={`gf-stage ${mainOn ? 'on' : ''}`} style={{ ['--poster' as string]: MAIN.poster ? `url(${MAIN.poster})` : 'none' }}>
         <div className="gf-stage-in">
           <video
             ref={mainRef}
             src={MAIN.src}
-            poster={MAIN.poster}
+            poster={MAIN.poster || undefined}
             preload="none"
             playsInline
             controls={mainOn}
@@ -146,7 +152,9 @@ export function GuestFilms({ isAr }: { isAr: boolean }) {
           </button>
         </div>
       </div>
+      )}
 
+      {REELS.length > 0 && (<>
       <div className="gf-reels-hd">
         <b><Svg d={P.reel} size={18} /> {t('ريلز من الفيلا', 'Reels from the villa')}</b>
         <span className="gf-reels-nav">
@@ -170,7 +178,7 @@ export function GuestFilms({ isAr }: { isAr: boolean }) {
               aria-label={t(`شاهد الريل ${i + 1}`, `Watch reel ${i + 1}`)}
             >
               <span className="gf-card-in">
-                <img src={r.poster} alt="" loading="lazy" />
+                {r.poster ? <img src={r.poster} alt="" loading="lazy" /> : <video src={`${r.src}#t=0.5`} muted playsInline preload="metadata" aria-hidden />}
                 <video src={r.src} muted loop playsInline preload="none" aria-hidden="true" tabIndex={-1} />
                 <span className="gf-card-top"><Svg d={P.reel} size={16} /></span>
                 <span className="gf-card-play"><Svg d={P.play} fill size={22} /></span>
@@ -183,13 +191,14 @@ export function GuestFilms({ isAr }: { isAr: boolean }) {
           ))}
         </div>
       </div>
+      </>)}
 
-      {open !== null && <ReelViewer index={open} onIndex={setOpen} onClose={() => setOpen(null)} isAr={isAr} />}
+      {open !== null && <ReelViewer reels={REELS} index={open} onIndex={setOpen} onClose={() => setOpen(null)} isAr={isAr} />}
     </div>
   );
 }
 
-function ReelViewer({ index, onIndex, onClose, isAr }: { index: number; onIndex: (i: number) => void; onClose: () => void; isAr: boolean }) {
+function ReelViewer({ reels: REELS, index, onIndex, onClose, isAr }: { reels: Clip[]; index: number; onIndex: (i: number) => void; onClose: () => void; isAr: boolean }) {
   const n = REELS.length;
   const vRef = useRef<HTMLVideoElement | null>(null);
   const [progress, setProgress] = useState(0);
@@ -227,7 +236,7 @@ function ReelViewer({ index, onIndex, onClose, isAr }: { index: number; onIndex:
   const r = REELS[index];
   return (
     <div className="gf-modal" role="dialog" aria-modal="true" aria-label={isAr ? 'ريلز فيلا ليلى' : 'Villa Layla reels'} onClick={onClose}>
-      <div className="gf-modal-bg" style={{ backgroundImage: `url(${r.poster})` }} aria-hidden="true" />
+      <div className="gf-modal-bg" style={{ backgroundImage: r.poster ? `url(${r.poster})` : 'none' }} aria-hidden="true" />
       <button className="gf-arrow gf-side prev" aria-label={isAr ? 'السابق' : 'Previous'} onClick={(e) => { e.stopPropagation(); go(-1); }} disabled={index === 0}>
         <Svg d={isAr ? P.next : P.prev} />
       </button>

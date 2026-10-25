@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { EventsSection, type EventCard } from './events-section';
-import { GuestFilms } from './guest-films';
+import { GuestFilms, type GuestFilmsData } from './guest-films';
 
 export type LiveRoomStatusMap = Record<
   string,
@@ -22,7 +22,12 @@ export type ClaudeHomeProps = {
   currency?: string;
   initialRates?: LiveRoomStatusMap;
   events?: EventCard[];
+  /** From the dashboard (Website): day trips, guest films and room photos by room code. */
+  tours?: { name: Loc; duration: Loc; tag: Loc; included: { ar?: string[]; en?: string[] }; excluded: Loc; image: string | null }[] | null;
+  films?: GuestFilmsData | null;
+  roomPhotos?: Record<string, string[]>;
 };
+type Loc = { ar?: string; en?: string };
 
 const icons = {
   bed: (
@@ -81,7 +86,7 @@ const icons = {
   ),
 };
 
-export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events = [] }: ClaudeHomeProps) {
+export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events = [], tours: siteTours = null, films = null, roomPhotos = {} }: ClaudeHomeProps) {
   const router = useRouter();
   const isAr = lang === 'ar';
 
@@ -251,7 +256,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
   const wa = (msg: string) => `https://wa.me/201040551515?text=${encodeURIComponent(msg + (isAr ? ' — فيلا ليلى' : ' — Villa Layla'))}`;
 
   // Rooms Data
-  const ALL_ROOMS = [
+  const BASE_ROOMS = [
     {
       slug: 'sheherazade',
       name: isAr ? 'شهرزاد' : 'Sheherazade',
@@ -537,6 +542,8 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
       kind: 'dorm',
     },
   ];
+  // Room photos are managed in the dashboard (Website → Room photos); the list above is the fallback.
+  const ALL_ROOMS = BASE_ROOMS.map((r) => (roomPhotos[r.slug]?.length ? { ...r, photos: roomPhotos[r.slug] } : r));
 
   const filteredRooms = ALL_ROOMS.filter((r) => {
     if (roomFilter === 'all') return true;
@@ -586,7 +593,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
     },
   ];
 
-  const TOURS = [
+  const BASE_TOURS = [
     {
       name: isAr ? 'أهرامات الجيزة وسقارة وميت رهينة' : 'Pyramids of Giza, Saqqara & Memphis',
       dur: isAr ? '٧–٨ ساعات · تبدأ 8:30 ص' : '7–8 hrs · Starts 8:30 AM',
@@ -648,6 +655,11 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
       excl: isAr ? 'لا يشمل: تذاكر الدخول' : 'Exclude: Entrance fees',
     },
   ];
+  // Day trips are managed in the dashboard (Website → Day trips); the list above is the fallback.
+  const L = (x: Loc | undefined) => (isAr ? x?.ar || x?.en : x?.en || x?.ar) || '';
+  const TOURS = siteTours && siteTours.length
+    ? siteTours.map((t) => ({ name: L(t.name), dur: L(t.duration), tag: L(t.tag), img: t.image || '/photos/gallery_and_hostel/grand.avif', incl: (isAr ? t.included.ar?.length ? t.included.ar : t.included.en : t.included.en?.length ? t.included.en : t.included.ar) ?? [], excl: L(t.excluded) }))
+    : BASE_TOURS;
 
   const REVIEWS = [
     {
@@ -1313,7 +1325,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
             </div>
           </div>
 
-          <GuestFilms isAr={isAr} />
+          <GuestFilms isAr={isAr} films={films} />
 
         </div>
       </section>

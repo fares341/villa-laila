@@ -6,6 +6,7 @@ import { ClaudeHeader, ClaudeFooter, ClaudeFabs, ClaudeBottomBar } from '@/compo
 import { ClaudeHome } from '@/components/claude-home';
 import { listPublicEvents } from '@/services/events';
 import { toEventCard } from '@/services/event-view';
+import { listTours, listFilms, roomPhotosByCode } from '@/services/site-content';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,12 +26,18 @@ export default async function Home({ params }: { params: Promise<{ lang: string 
   }
 
   const events = (await listPublicEvents()).map((e) => toEventCard(e, lang));
+  // Website content from the dashboard (Website). Nothing set yet → the built-in defaults.
+  const [tours, allFilms, roomPhotos] = await Promise.all([listTours(), listFilms(true), roomPhotosByCode()]);
+  const live = allFilms.filter((f) => f.active);
+  const films = allFilms.length
+    ? { main: live.filter((f) => f.kind === 'main').map((f) => ({ src: f.video, poster: f.poster ?? '' }))[0] ?? null, reels: live.filter((f) => f.kind === 'reel').map((f) => ({ src: f.video, poster: f.poster ?? '' })) }
+    : null;
 
   return (
     <div className="vl-page min-h-screen flex flex-col bg-[#FBF7F1] text-[#2F2925]">
       <ClaudeHeader lang={lang} />
       <main id="main" className="flex-1">
-        <ClaudeHome lang={lang} currency={cur} initialRates={initialRates} events={events} />
+        <ClaudeHome lang={lang} currency={cur} initialRates={initialRates} events={events} tours={tours.length ? tours : null} films={films} roomPhotos={roomPhotos} />
       </main>
       <ClaudeFooter lang={lang} />
       <ClaudeFabs lang={lang} />
