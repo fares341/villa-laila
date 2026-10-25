@@ -591,14 +591,7 @@
   border-radius: 50%;
   background: #22c55e;
 }
-.hw-sync-pill {
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  color: #15803d;
-  margin-top: 3px;
-  letter-spacing: .01em;
-}
+.hw-sync-pill { display: none !important; }
 .fav {
   position: absolute;
   top: 12px;

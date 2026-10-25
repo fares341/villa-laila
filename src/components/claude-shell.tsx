@@ -241,9 +241,6 @@ export function ClaudeFooter({ lang }: { lang: string }) {
               <span className="foot-rate">
                 <b>9.9</b>Hostelworld
               </span>
-              <span className="foot-rate">
-                <b>9.8</b>Booking.com
-              </span>
             </div>
             <div className="foot-ctas">
               <button className="btn btn-gold" onClick={scrollToBook}>

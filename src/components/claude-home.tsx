@@ -887,9 +887,6 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
               <span className="score">
                 <b>9.9</b>Hostelworld
               </span>
-              <span className="score">
-                <b>9.8</b>Booking.com
-              </span>
               <span className="score" style={{ paddingInlineStart: '12px' }}>
                 {isAr ? 'أفضل سعر مضمون عند الحجز المباشر' : 'Best rate when you book direct'}
               </span>
@@ -1105,9 +1102,6 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
                           ${effectivePrice}
                           <span> / {dorm ? (isAr ? 'للسرير' : 'bed') : (isAr ? 'لليلة' : 'night')}</span>
                         </b>
-                        <span className="hw-sync-pill" title="Hostelworld live rate">
-                          {isAr ? '✓ متزامن مع هوستل ورد' : '✓ Hostelworld live sync'}
-                        </span>
                       </div>
 
                       <div className="acts">
@@ -1190,9 +1184,6 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
                       ${modalRoom.effectivePrice ?? modalRoom.price}
                       <span> / {modalRoom.perBed ? (isAr ? 'للسرير' : 'bed') : (isAr ? 'لليلة' : 'night')}</span>
                     </b>
-                    <span className="hw-sync-pill">
-                      {isAr ? '✓ متزامن مع هوستل ورد' : '✓ Hostelworld live sync'}
-                    </span>
                   </div>
 
                   {modalRoom.isAvailable !== undefined && (
@@ -1415,13 +1406,6 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
               <span>
                 <strong>Hostelworld</strong>
                 {isAr ? 'تقييم ممتاز من المسافرين' : 'Superb solo & dorm reviews'}
-              </span>
-            </div>
-            <div className="plat">
-              <b>9.8</b>
-              <span>
-                <strong>Booking.com</strong>
-                {isAr ? 'تقييم استثنائي موثّق' : 'Exceptional verified stays'}
               </span>
             </div>
           </div>
