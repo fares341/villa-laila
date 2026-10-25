@@ -1267,6 +1267,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
   const [payer, setPayer] = useState<Payer>(newPayer(guest));
   const [tip, setTip] = useState('');
   const [checkIn, setCheckIn] = useState(false);
+  const [dinner, setDinner] = useState(false);
   const [chg, setChg] = useState<ChangeState>(newChange);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1274,7 +1275,8 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
   const ev = events?.find((e) => e.id === evId) ?? null;
   useEffect(() => { if (ev && !date) setDate(ev.dates[0]?.date ?? ''); if (ev?.options?.length && !opt) setOpt(ev.options[0].key); }, [ev, date, opt]);
   const title = (t: any) => (t && typeof t === 'object' ? t.en || t.ar : t) || 'Event';
-  const unit = ev ? (guest && ev.guestPrice != null ? Number(ev.guestPrice) : Number(ev.price)) : 0;
+  const dinnerEach = ev && dinner && ev.dinner ? Number(ev.dinner) : 0;
+  const unit = (ev ? (guest && ev.guestPrice != null ? Number(ev.guestPrice) : Number(ev.price)) : 0) + dinnerEach;
   const total = mode === 'sell' ? unit * qty : Number(pick?.due_cents ?? 0);
   const s = qy.trim().toLowerCase();
   const shown = (list ?? []).filter((b) => !s || `${b.full_name} ${b.ticket_code} ${b.phone ?? ''}`.toLowerCase().includes(s)).slice(0, 12);
@@ -1293,7 +1295,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
           <>
             <div className="pos-two">
               <div className="pos-field"><label htmlFor="ev-e">Event</label>
-                <select id="ev-e" className="pos-select" value={evId ?? ''} onChange={(e) => { setEvId(e.target.value || null); setDate(''); setOpt(''); }}>
+                <select id="ev-e" className="pos-select" value={evId ?? ''} onChange={(e) => { setEvId(e.target.value || null); setDate(''); setOpt(''); setDinner(false); }}>
                   <option value="">Choose…</option>{events.map((e) => <option key={e.id} value={e.id}>{title(e.title)} · {egp(Number(e.price))}</option>)}
                 </select></div>
               <div className="pos-field"><label htmlFor="ev-d">Day</label>
@@ -1308,7 +1310,8 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
             </div>
             <div className="pos-field"><label>Tickets</label>
               <div className="pos-qty big"><button onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Less"><Icon name="minus" /></button><span className="num">{qty}</span><button onClick={() => setQty((q) => Math.min(left ?? 20, q + 1))} aria-label="More"><Icon name="plus" /></button></div></div>
-            {ev && <p className="pos-fine">{egp(unit)} per ticket{guest && ev.guestPrice != null ? ` (hotel guest price for ${guest.full_name}; the normal price is used if they are not staying that night)` : ev.guestPrice != null ? `. Hotel guests pay ${egp(Number(ev.guestPrice))}: choose the guest on the left first.` : ''}</p>}
+            {ev?.dinner ? <label className="pos-check"><input type="checkbox" checked={dinner} onChange={(e) => setDinner(e.target.checked)} /> 🍽 Home-cooked dinner by the pool (+{egp(Number(ev.dinner))} per person)</label> : null}
+            {ev && <p className="pos-fine">{egp(unit)} per ticket{dinnerEach ? ' with dinner' : ''}{guest && ev.guestPrice != null ? ` (hotel guest price for ${guest.full_name}; the normal price is used if they are not staying that night)` : ev.guestPrice != null ? `. Hotel guests pay ${egp(Number(ev.guestPrice))}: choose the guest on the left first.` : ''}</p>}
           </>
         )
       ) : (
@@ -1323,6 +1326,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
                     <div className="who">
                       <b>{b.full_name}</b>
                       <small>{title(b.title)} · {dayLabel(b.event_date)} · {b.quantity} ticket{b.quantity === 1 ? '' : 's'} · {b.ticket_code}</small>
+                      {b.dinner && <small className="warn">🍽 With dinner by the pool × {b.quantity}</small>}
                       {Number(b.paid_cents) > 0 && Number(b.due_cents) > 0 && <small>Deposit {egp(Number(b.paid_cents))} paid online of {egp(Number(b.total_cents))}</small>}
                       {pending && <small className="warn">InstaPay / Vodafone receipt waiting for a manager (Payments to check). Do not take the money again.</small>}
                     </div>
@@ -1338,7 +1342,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
                 );
               })}</ul>)}
           </>
-        ) : <p className="pos-fine"><b>{pick.full_name}</b> · {title(pick.title)} · {dayLabel(pick.event_date)} · ticket {pick.ticket_code}
+        ) : <p className="pos-fine"><b>{pick.full_name}</b> · {title(pick.title)} · {dayLabel(pick.event_date)} · ticket {pick.ticket_code}{pick.dinner ? ` · 🍽 dinner × ${pick.quantity}` : ''}
               {Number(pick.paid_cents) > 0 && <> · total {egp(Number(pick.total_cents))}, deposit {egp(Number(pick.paid_cents))} already paid online</>} <button className="pos-link" onClick={() => setPick(null)}>change</button></p>
       )}
       {ready && (
@@ -1358,7 +1362,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
           setBusy(true); setErr(null);
           const common = { method: m, cardPayer: m === 'card' ? payerOut(payer) : null, tipMinor: toCents(tip), walletRef: isWal(m) ? ref.trim() : null, change: m === 'cash' ? changeOut(chg) : null };
           const r = mode === 'sell'
-            ? await posSellEvent({ eventId: evId!, date, quantity: qty, optionKey: opt || null, fullName: name, phone: phone || null, reservationId: guest?.id ?? null, ...common })
+            ? await posSellEvent({ eventId: evId!, date, quantity: qty, dinner, optionKey: opt || null, fullName: name, phone: phone || null, reservationId: guest?.id ?? null, ...common })
             : await posPayEvent({ bookingId: pick.id, ...common });
           setBusy(false);
           if (!r.ok) { setErr(r.error); return; }

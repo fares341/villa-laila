@@ -14,6 +14,7 @@ import { can } from '@/lib/permissions';
 import { retryEventPaymobAction, submitEventWalletAction, confirmAttendanceAction } from '../../events/actions';
 import { staffCheckInTicketAction } from '@/app/dashboard/events/actions';
 import { CopyButton } from '@/components/copy-button';
+import { bookingWhatsAppLink } from '@/services/event-admin';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your ticket', robots: { index: false } };
@@ -38,6 +39,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
   const restAtVilla = Number(b.total_cents) - Number(b.paid_cents ?? 0);
   const option = b.option_key ? ev.options.find((o) => o.key === b.option_key) : null;
   const firstName = String(b.full_name).split(/\s+/)[0];
+  const villaWa = await bookingWhatsAppLink(b.id).catch(() => null);
   const wallets = await getWallets();
   const ip = wallets.instapay;
   const methods = liveMethods(ev, wallets);
@@ -82,6 +84,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
                   <div><dt>{L('Date', 'التاريخ')}</dt><dd>{dateLabel(b.event_date, lang, { weekday: 'long', day: 'numeric', month: 'long' })}</dd></div>
                   <div><dt>{L('Time', 'الوقت')}</dt><dd dir="ltr">{timeLabel(ev.start_time, lang)} – {timeLabel(ev.end_time, lang)}</dd></div>
                   <div><dt>{L('Guests', 'الأشخاص')}</dt><dd className="num">{b.quantity}{option ? ` · ${ar ? option.ar : option.en}` : ''}</dd></div>
+                  {b.dinner && <div><dt>{L('Dinner', 'العشاء')}</dt><dd>{L('Home-cooked dinner by the pool', 'عشاء بيتي بجانب المسبح')} · <span className="num" dir="ltr">{b.quantity} × {priceLabel(Number(b.dinner_cents), b.currency, lang)}</span></dd></div>}
                   <div><dt>{L('Name', 'الاسم')}</dt><dd>{firstName}</dd></div>
                   <div><dt>{L('Total', 'الإجمالي')}</dt><dd dir="ltr">{total}</dd></div>
                   {Number(b.paid_cents ?? 0) > 0 && restAtVilla > 0 && <div><dt>{L('Paid', 'المدفوع')}</dt><dd dir="ltr">{priceLabel(Number(b.paid_cents), b.currency, lang)} · {L('rest at the villa', 'الباقي في الفيلا')} {priceLabel(restAtVilla, b.currency, lang)}</dd></div>}
@@ -98,6 +101,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
           </article>
 
           <div className="tk-actions">
+            {villaWa && b.status !== 'cancelled' && <a className="btn btn-whatsapp" href={villaWa} target="_blank" rel="noopener noreferrer">{L('Send booking to the villa on WhatsApp', 'ابعت الحجز لواتساب الفيلا')}</a>}
             <CopyButton text={url} label={L('Copy ticket link', 'انسخ رابط التذكرة')} done={L('Link copied', 'تم نسخ الرابط')} />
             <a className="btn btn-line" href={`https://wa.me/?text=${encodeURIComponent(`${tr(ev.title, lang)} — ${url}`)}`} target="_blank" rel="noopener noreferrer">{L('Save to WhatsApp', 'احفظها على واتساب')}</a>
             <a className="btn btn-line" href={`/${lang}#events`}>{L('More events', 'فعاليات أخرى')}</a>

@@ -136,6 +136,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 priceCents={ev.price_cents}
                 guestPriceCents={ev.guest_price_cents}
                 depositCents={ev.deposit_cents ?? null}
+                dinnerCents={ev.dinner_cents ?? null}
                 currency={ev.currency}
                 methods={ev.methods}
                 wallets={{

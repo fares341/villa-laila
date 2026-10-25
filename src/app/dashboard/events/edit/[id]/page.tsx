@@ -81,6 +81,12 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
             </div>
             {!isNew && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">Profit per ticket: <b>{fmt(profitPer)}</b>{e.capacity ? <> · full house: <b>{fmt(profitPer * e.capacity)}</b></> : null}</p>}
           </Card>
+          <Card title="Dinner add-on">
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="dinnerOn" defaultChecked={isNew ? e.kind !== 'day_use' : e.dinner_cents != null} /> Offer «Home-cooked dinner by the pool» when booking</label>
+            <div className="mt-2"><Lbl htmlFor="e-dinner">Dinner price per person (EGP)</Lbl>
+              <input id="e-dinner" name="dinner" type="number" min={1} step="0.01" defaultValue={isNew ? 300 : e.dinner_cents != null ? v(e.dinner_cents) : 300} className={Input} />
+              <p className="mt-1 text-xs text-slate-500">The guest ticks it on the booking form: total = (ticket + dinner) × people. It shows on the booking, the ticket, Telegram and the POS so the kitchen knows how many dinners.</p></div>
+          </Card>
           <Card title="Payment on the website">
             <div className="space-y-2 text-sm">
               <label className="flex items-center gap-2"><input type="checkbox" name="payMethods" value="paymob" defaultChecked={(e.pay_methods ?? []).includes('paymob')} /> Paymob (card / wallet, ticket issued instantly)</label>

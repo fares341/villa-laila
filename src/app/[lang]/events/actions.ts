@@ -6,7 +6,7 @@ import { rateLimit } from '@/lib/ratelimit';
 import { siteBase, clientIp } from '@/lib/base-url';
 import { createEventBooking } from '@/services/events';
 import { startEventPaymob, submitEventWalletProof } from '@/services/online-payments';
-import { confirmAttendance } from '@/services/event-admin';
+import { confirmAttendance, bookingWhatsAppLink } from '@/services/event-admin';
 import { notifyNewEventBooking, notifyWalletProof } from '@/services/admin-bot';
 import { isWallet } from '@/services/wallets';
 import { BookingError } from '@/services/errors';
@@ -14,7 +14,7 @@ import { BookingError } from '@/services/errors';
 const schema = z.object({
   lang: z.string(), slug: z.string().min(1).max(80), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   quantity: z.coerce.number().int().min(1).max(20), option: z.string().max(40).optional(),
-  hotelGuest: z.string().optional(), stayRef: z.string().trim().max(20).optional(),
+  hotelGuest: z.string().optional(), dinner: z.string().optional(), stayRef: z.string().trim().max(20).optional(),
   fullName: z.string().trim().min(2).max(80), email: z.string().trim().email().max(120), phone: z.string().trim().min(6).max(30),
   payMethod: z.enum(['paymob', 'instapay', 'vodafone_cash', 'cash']), website: z.string().optional(), payerRef: z.string().trim().max(60).optional(),
 });
@@ -38,13 +38,15 @@ export async function bookEventAction(formData: FormData) {
   if (!p.success) return back('invalid_input');
   const v = p.data;
   let code: string;
+  let bookingId: string;
   try {
     const { booking } = await createEventBooking({
       slug: v.slug, date: v.date, quantity: v.quantity, optionKey: v.option || null,
-      isHotelGuest: v.hotelGuest === 'on', stayReference: v.stayRef || null,
+      isHotelGuest: v.hotelGuest === 'on', stayReference: v.stayRef || null, dinner: v.dinner === 'on',
       fullName: v.fullName, email: v.email, phone: v.phone || null, language: lang, payMethod: v.payMethod,
     });
     code = booking.ticket_code;
+    bookingId = booking.id;
     // Wallet payments: the receipt can be uploaded right in the booking form (otherwise on the ticket page).
     let proofId: string | null = null;
     if (isWallet(v.payMethod) && booking.status === 'awaiting_payment') {
@@ -56,7 +58,6 @@ export async function bookEventAction(formData: FormData) {
     }
     await notifyNewEventBooking(booking.id).catch((e) => console.error('[admin bot]', e));
     if (proofId) await notifyWalletProof(proofId).catch((e) => console.error('[admin bot]', e));
-    if (proofId) redirect(`/${lang}/tickets/${code}?payment=submitted`);
     if (v.payMethod === 'paymob' && booking.status === 'awaiting_payment') {
       let url: string | null = null;
       try { url = await startEventPaymob(code, await siteBase()); }
@@ -69,7 +70,10 @@ export async function bookEventAction(formData: FormData) {
     if (!(e instanceof BookingError)) console.error('[event booking]', e);
     return back(errCode(e));
   }
-  redirect(`/${lang}/tickets/${code}`);
+  // Booking saved (dashboard, POS, Telegram). The guest goes straight to the villa's WhatsApp with a ready message.
+  let wa: string | null = null;
+  try { wa = await bookingWhatsAppLink(bookingId); } catch (e) { console.error('[event wa link]', e); }
+  redirect(wa ?? `/${lang}/tickets/${code}`);
 }
 
 export async function retryEventPaymobAction(formData: FormData) {

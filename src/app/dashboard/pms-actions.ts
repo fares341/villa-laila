@@ -261,8 +261,9 @@ export async function eventSave(fd: FormData) {
       onceDate: str(fd.get('onceDate')) || null, endsOn: str(fd.get('endsOn')) || null, startTime: str(fd.get('startTime')), endTime: str(fd.get('endTime')),
       payMethods: fd.getAll('payMethods').map(String) as any, active: fd.get('active') === 'on', image, imageUrl: str(fd.get('imageUrl')) || null,
     }, u.email);
-    const { setEventDeposit } = await import('@/services/events');
+    const { setEventDeposit, setEventDinner } = await import('@/services/events');
     await setEventDeposit(savedId, cents(fd.get('deposit')) ?? null, u.email);
+    await setEventDinner(savedId, fd.get('dinnerOn') === 'on' ? (cents(fd.get('dinner')) ?? null) : null, u.email);
   } catch (e) { go(back, 'err', msg(e)); }
   revalidatePath('/dashboard/events'); revalidatePath('/en'); revalidatePath('/ar');
   go(`/dashboard/events/edit/${savedId}`, 'ok', 'Saved and published on the website');

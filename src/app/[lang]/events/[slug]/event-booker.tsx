@@ -24,21 +24,23 @@ function Submit({ label, busy }: { label: string; busy: string }) {
 
 export function EventBooker(props: {
   lang: string; slug: string; dates: DateChip[]; initialDate: string;
-  options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; depositCents?: number | null; currency: string; methods: Method[]; wallets?: WalletInfo;
+  options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; depositCents?: number | null; dinnerCents?: number | null; currency: string; methods: Method[]; wallets?: WalletInfo;
 }) {
-  const { lang, slug, dates, options, priceCents, guestPriceCents, depositCents = null, currency, methods, wallets } = props;
+  const { lang, slug, dates, options, priceCents, guestPriceCents, depositCents = null, dinnerCents = null, currency, methods, wallets } = props;
   const ar = lang === 'ar';
   const [date, setDate] = useState(props.initialDate);
   const [showAll, setShowAll] = useState(() => dates.findIndex((d) => d.date === props.initialDate) >= 6);
   const [qty, setQty] = useState(1);
   const [option, setOption] = useState(options[0]?.key ?? '');
   const [hotelGuest, setHotelGuest] = useState(false);
+  const [dinner, setDinner] = useState(false);
   const [method, setMethod] = useState<Method>(methods[0]);
 
   const left = dates.find((d) => d.date === date)?.left ?? null;
   const maxQty = Math.max(1, Math.min(20, left ?? 20));
   const unit = hotelGuest && guestPriceCents != null ? guestPriceCents : priceCents;
-  const total = unit * Math.min(qty, maxQty);
+  const dinnerEach = dinner && dinnerCents != null && dinnerCents > 0 ? dinnerCents : 0;
+  const total = (unit + dinnerEach) * Math.min(qty, maxQty);
   // Deposit events: only the deposit is sent now by InstaPay / Vodafone Cash; the rest is paid at the villa.
   const deposit = depositCents && (method === 'instapay' || method === 'vodafone_cash') ? Math.min(total, depositCents * Math.min(qty, maxQty)) : null;
   const chosen = useMemo(() => dates.find((d) => d.date === date), [dates, date]);
@@ -127,6 +129,19 @@ export function EventBooker(props: {
             <span>{ar ? `أنا مقيم في فيلا ليلى (سعر النزلاء ${fmt(guestPriceCents, currency, ar)})` : `I’m staying at Villa Layla (guest price ${fmt(guestPriceCents, currency, ar)})`}</span>
           </label>
         )}
+        {dinnerCents != null && dinnerCents > 0 && (
+          <label className={`evb-addon ${dinner ? 'on' : ''}`}>
+            <input type="checkbox" name="dinner" checked={dinner} onChange={(e) => setDinner(e.target.checked)} />
+            <span className="evb-addon-ic" aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 3v8a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M6 13v8M17 3c-1.7 0-3 2-3 5s1.3 4 3 4v9" /></svg>
+            </span>
+            <span className="evb-addon-t">
+              <b>{ar ? 'وجبة عشاء بيتي بجانب المسبح' : 'Home-cooked dinner by the pool'}</b>
+              <small>{ar ? 'اختياري · للفرد' : 'Optional · per person'}</small>
+            </span>
+            <span className="evb-addon-p num" dir="ltr">+{fmt(dinnerCents, currency, ar)}</span>
+          </label>
+        )}
         {hotelGuest && (
           <div className="evb-field">
             <label htmlFor="evb-stay">{ar ? 'رقم حجز الإقامة' : 'Your booking reference'}</label>
@@ -182,15 +197,22 @@ export function EventBooker(props: {
 
       <div className="evb-sum">
         <div>
-          <small>{chosen ? `${chosen.label} · ${Math.min(qty, maxQty)} × ${fmt(unit, currency, ar)}` : ''}</small>
+          <small>{chosen ? `${chosen.label} · ${Math.min(qty, maxQty)} × ${fmt(unit + dinnerEach, currency, ar)}` : ''}{dinnerEach > 0 ? (ar ? ' · شامل العشاء' : ' · dinner included') : ''}</small>
           <b className="num" dir="ltr">{fmt(total, currency, ar)}</b>
           {deposit != null && deposit < total && <small>{ar ? `الآن ${fmt(deposit, currency, ar)} · في الفيلا ${fmt(total - deposit, currency, ar)}` : `Now ${fmt(deposit, currency, ar)} · at the villa ${fmt(total - deposit, currency, ar)}`}</small>}
         </div>
         <Submit
-          label={method === 'paymob' ? (ar ? 'ادفع واحصل على التذكرة' : 'Pay & get ticket') : method === 'instapay' || method === 'vodafone_cash' ? (ar ? 'ابعت الحجز والإيصال' : 'Send booking & receipt') : (ar ? 'احجز مكاني' : 'Reserve my place')}
+          label={method === 'paymob' ? (ar ? 'ادفع واحصل على التذكرة' : 'Pay & get ticket') : (ar ? 'تأكيد الحجز عبر واتساب' : 'Confirm booking on WhatsApp')}
           busy={ar ? 'جارٍ الحجز…' : 'Booking…'}
         />
       </div>
+      {method !== 'paymob' && (
+        <p className="evb-fine evb-wa-note">
+          {ar ? 'بعد التأكيد يتسجل حجزك وتتحول لمحادثة واتساب الفيلا ' : 'Your booking is saved and you are taken to the villa’s WhatsApp '}
+          (<bdi dir="ltr">+20 104 055 1515</bdi>)
+          {ar ? ' والرسالة جاهزة ببياناتك، اضغط إرسال فقط.' : ' with a ready message — just press send.'}
+        </p>
+      )}
       <p className="evb-fine">{ar ? 'بالضغط على الحجز توافق على سياسات فيلا ليلى. تذكرتك تُرسل لك بعد الدفع ويمكنك فتحها في أي وقت من الرابط.' : 'By booking you agree to Villa Layla’s policies. Your ticket opens right after payment and stays available from its link.'}</p>
     </form>
   );

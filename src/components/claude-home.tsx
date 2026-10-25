@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { EventsSection, type EventCard } from './events-section';
+import { GuestFilms } from './guest-films';
 
 export type LiveRoomStatusMap = Record<
   string,
@@ -105,9 +106,6 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
   const [favs, setFavs] = useState<Set<string>>(new Set());
   const [modalRoom, setModalRoom] = useState<any | null>(null);
   const [modalPhotoIdx, setModalPhotoIdx] = useState(0);
-
-  // Films
-  const [filmIdx, setFilmIdx] = useState(0);
 
   // Tours horizontal scroll ref
   const toursScrollRef = useRef<HTMLDivElement | null>(null);
@@ -637,57 +635,6 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
       tag: isAr ? 'سهرة نيلية' : 'Evening',
       img: '/photos/gallery_and_hostel/cairo-city.jpg',
       incl: isAr ? ['بوفيه عشاء مفتوح', 'عروض تنورة وفولكلور', 'انتقالات ذهاب وعودة'] : ['Dinner buffet', 'Folk show', 'Transfers'],
-    },
-  ];
-
-  const FILMS = [
-    {
-      src: '/videos/guest-01.mp4',
-      poster: '/photos/gallery_and_hostel/qsvj2eqgcmaurlydc1v4.jpg',
-      title: isAr ? 'صباح هادئ بجانب المسبح' : 'Morning by the pool',
-      guest: '@villalaylacairo',
-      len: '0:32',
-      reel: 'https://instagram.com/villalaylacairo',
-    },
-    {
-      src: '/videos/guest-02.mp4',
-      poster: '/photos/gallery_and_hostel/yebqgf86gomv8a8uwdmh.jpg',
-      title: isAr ? 'جولة في أركان الفيلا التاريخية' : 'A tour of the villa',
-      guest: '@villalaylacairo',
-      len: '0:48',
-      reel: 'https://instagram.com/villalaylacairo',
-    },
-    {
-      src: '/videos/guest-03.mp4',
-      poster: '/photos/gallery_and_hostel/uylahffomrk009eqcdo8.jpeg',
-      title: isAr ? 'إفطار مصري في الحديقة' : 'Breakfast in the garden',
-      guest: '@villalaylacairo',
-      len: '0:21',
-      reel: 'https://instagram.com/villalaylacairo',
-    },
-    {
-      src: '/videos/guest-04.mp4',
-      poster: '/photos/gallery_and_hostel/vgl0mf1ggg1jafpj0wit.jpg',
-      title: isAr ? 'إقامتنا في غرفة شهرزاد' : 'Our room, Sheherazade',
-      guest: '@villalaylacairo',
-      len: '0:40',
-      reel: 'https://instagram.com/villalaylacairo',
-    },
-    {
-      src: '/videos/guest-05.mp4',
-      poster: '/photos/gallery_and_hostel/hsxz6so7xjzignn77oph.jpg',
-      title: isAr ? 'أمسية دافئة على التراس' : 'Evenings on the terrace',
-      guest: '@villalaylacairo',
-      len: '0:27',
-      reel: 'https://instagram.com/villalaylacairo',
-    },
-    {
-      src: '/videos/guest-06.mp4',
-      poster: '/photos/gallery_and_hostel/kiovp5fgbbt2luk4wopj.jpg',
-      title: isAr ? 'شوارع القاهرة القديمة' : 'Cairo from the gate',
-      guest: '@villalaylacairo',
-      len: '0:55',
-      reel: 'https://instagram.com/villalaylacairo',
     },
   ];
 
@@ -1312,38 +1259,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
             </div>
           </div>
 
-          <div className="stage">
-            <img src={FILMS[filmIdx].poster} alt={FILMS[filmIdx].title} />
-            <button
-              className="play-btn"
-              aria-label="Play video"
-              onClick={() => {
-                window.open(FILMS[filmIdx].reel, '_blank', 'noopener,noreferrer');
-              }}
-            >
-              <svg viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </button>
-            <div className="cap">
-              <b>{FILMS[filmIdx].title}</b>
-              <span>{isAr ? `تصوير ضيوفنا ${FILMS[filmIdx].guest}` : `Filmed by ${FILMS[filmIdx].guest}`}</span>
-            </div>
-          </div>
-
-          <div className="reel" id="reel">
-            {FILMS.map((f, idx) => (
-              <button
-                key={idx}
-                aria-current={idx === filmIdx}
-                onClick={() => setFilmIdx(idx)}
-                aria-label={f.title}
-              >
-                <img src={f.poster} alt="" loading="lazy" />
-                <span className="len">{f.len}</span>
-              </button>
-            ))}
-          </div>
+          <GuestFilms isAr={isAr} />
 
           <div className="films-ft">
             <span>

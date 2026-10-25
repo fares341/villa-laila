@@ -13,7 +13,7 @@ export type PayMethod = 'paymob' | 'instapay' | 'vodafone_cash' | 'cash';
 
 export type EventRow = Schedule & {
   id: string; slug: string; title: Loc; summary: Loc; description: Loc; includes: Loc[]; image: string | null;
-  price_cents: number; guest_price_cents: number | null; deposit_cents?: number | null; currency: string;
+  price_cents: number; guest_price_cents: number | null; deposit_cents?: number | null; dinner_cents?: number | null; currency: string;
   capacity: number | null; options: EventOption[]; pay_methods: PayMethod[]; note: Loc; active: boolean; sort_order: number;
 };
 
@@ -74,7 +74,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEvent | null> 
 }
 
 /** Every column except the image bytes. */
-export const EVENT_COLS = `id, slug, title, summary, description, includes, image, price_cents, guest_price_cents, deposit_cents, currency, start_time, end_time, recurrence, weekdays,
+export const EVENT_COLS = `id, slug, title, summary, description, includes, image, price_cents, guest_price_cents, deposit_cents, dinner_cents, currency, start_time, end_time, recurrence, weekdays,
   once_date, ends_on, capacity, options, pay_methods, note, active, sort_order, cost_per_attendee_cents, kind, (image_bytes IS NOT NULL) has_upload`;
 
 const HELD = `(status IN ('paid','pending_verification','pay_on_site') OR (status='awaiting_payment' AND (hold_expires_at IS NULL OR hold_expires_at > now())))`;
@@ -99,6 +99,8 @@ export async function seatsLeft(ev: PublicEvent): Promise<Record<string, number 
 export type EventBookingInput = {
   slug: string; date: string; quantity: number; optionKey?: string | null;
   isHotelGuest?: boolean; stayReference?: string | null;
+  /** Optional add-on: home-cooked dinner by the pool, per person (only when the event offers it). */
+  dinner?: boolean;
   fullName: string; email: string; phone?: string | null; language: string; payMethod: PayMethod;
 };
 
@@ -144,7 +146,9 @@ export async function createEventBooking(input: EventBookingInput) {
       if (taken + qty > ev.capacity) throw new BookingError('NO_AVAILABILITY');
     }
 
-    const total = unit * qty;
+    // Dinner add-on: (ticket + dinner) × people. The ticket price stays in unit_price_cents; dinner is kept apart for the kitchen.
+    const dinnerEach = input.dinner && ev.dinner_cents != null && Number(ev.dinner_cents) > 0 ? Number(ev.dinner_cents) : 0;
+    const total = (unit + dinnerEach) * qty;
     const status = input.payMethod === 'cash' || total === 0 ? 'pay_on_site' : 'awaiting_payment';
     // Deposit events: InstaPay / Vodafone Cash ask only the deposit now; the rest is paid at the villa (POS).
     const deposit = ev.deposit_cents && (input.payMethod === 'instapay' || input.payMethod === 'vodafone_cash') ? Math.min(total, Number(ev.deposit_cents) * qty) : null;
@@ -157,12 +161,12 @@ export async function createEventBooking(input: EventBookingInput) {
     }
     const row = (await c.query(
       `INSERT INTO event_bookings(ticket_code,event_id,event_date,quantity,option_key,is_hotel_guest,stay_reference,full_name,email,phone,language,
-         unit_price_cents,total_cents,currency,pay_method,status,hold_expires_at,deposit_cents)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, CASE WHEN $17::int IS NULL THEN NULL ELSE now() + make_interval(mins => $17::int) END, $18)
+         unit_price_cents,total_cents,currency,pay_method,status,hold_expires_at,deposit_cents,dinner,dinner_cents)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, CASE WHEN $17::int IS NULL THEN NULL ELSE now() + make_interval(mins => $17::int) END, $18, $19, $20)
        RETURNING *`,
       [code, ev.id, input.date, qty, optionKey, isGuest, stayRef, input.fullName.trim(), input.email.trim(), input.phone?.trim() || null, input.language,
-        unit, total, ev.currency, input.payMethod, status, holdMin, deposit])).rows[0];
-    await audit('website', 'event_booking.create', 'event_booking', row.id, { code, slug: ev.slug, date: input.date, qty, total, method: input.payMethod }, c as unknown as Q);
+        unit, total, ev.currency, input.payMethod, status, holdMin, deposit, dinnerEach > 0, dinnerEach])).rows[0];
+    await audit('website', 'event_booking.create', 'event_booking', row.id, { code, slug: ev.slug, date: input.date, qty, total, method: input.payMethod, dinner: dinnerEach > 0 }, c as unknown as Q);
     return { booking: row, event: ev };
   });
 }
@@ -269,6 +273,13 @@ export async function eventProfit(from: string, to: string) {
       COALESCE(sum(b.quantity) FILTER (WHERE b.status='pending_verification'),0)::int pending
     FROM events e LEFT JOIN event_bookings b ON b.event_id=e.id AND b.event_date BETWEEN $1 AND $2
     GROUP BY e.id ORDER BY revenue DESC, e.sort_order`, [from, to]);
+}
+
+/** Dinner add-on price per person (EGP cents); null = not offered on this event. */
+export async function setEventDinner(eventId: string, dinnerCents: number | null, actor: string) {
+  if (dinnerCents != null && !(Number.isInteger(dinnerCents) && dinnerCents > 0)) throw new BookingError('INVALID_INPUT', 'Dinner price must be more than 0');
+  await q(`UPDATE events SET dinner_cents=$2, updated_at=now() WHERE id=$1`, [eventId, dinnerCents]);
+  await audit(actor, 'event.dinner', 'event', eventId, { dinnerCents });
 }
 
 /** Deposit per ticket asked online (InstaPay / Vodafone Cash); null = pay the full price online. */

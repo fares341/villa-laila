@@ -311,7 +311,7 @@ export async function recordExchange(shiftId: string, staffId: string, input: { 
  */
 export async function unpaidEventTickets() {
   return q<any>(`SELECT b.id, b.ticket_code, b.full_name, b.phone, b.event_date, b.quantity, b.total_cents, b.paid_cents, (b.total_cents - b.paid_cents) due_cents,
-                   b.status, b.pay_method, b.checked_in_at, e.title,
+                   b.status, b.pay_method, b.checked_in_at, b.dinner, e.title,
                    EXISTS (SELECT 1 FROM online_payments o WHERE o.event_booking_id=b.id AND o.status='submitted') receipt_waiting
                  FROM event_bookings b JOIN events e ON e.id=b.event_id
                  WHERE b.status IN ('pay_on_site','awaiting_payment','pending_verification','paid') AND b.event_date >= (now() AT TIME ZONE 'Africa/Cairo')::date - 1
@@ -334,14 +334,14 @@ export async function posEvents() {
   for (const e of list) {
     const dates = e.dates.slice(0, 10);
     const left = await seatsLeft({ ...e, dates });
-    out.push({ id: e.id, title: e.title, price: e.price_cents, guestPrice: e.guest_price_cents, options: e.options, startTime: e.start_time,
+    out.push({ id: e.id, title: e.title, price: e.price_cents, guestPrice: e.guest_price_cents, dinner: e.dinner_cents ?? null, options: e.options, startTime: e.start_time,
       dates: dates.map((d) => ({ date: d, left: left[d] ?? null })).filter((d) => d.left == null || d.left > 0) });
   }
   return out.filter((e) => e.dates.length);
 }
 
 /** A ticket bought at the hostel on the POS (not booked online): created already paid, cash or card. */
-export async function sellEventTicket(shiftId: string, input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: PayMethod; walletRef?: string | null; cardPayer?: CardPayer | null; tipMinor?: number; staffName: string; staffId?: string | null; change?: ChangeInput | null }) {
+export async function sellEventTicket(shiftId: string, input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: PayMethod; walletRef?: string | null; cardPayer?: CardPayer | null; tipMinor?: number; staffName: string; staffId?: string | null; change?: ChangeInput | null; dinner?: boolean }) {
   const { EVENT_COLS, seatsTaken, makeTicketCode } = await import('../events');
   const { isBookableDate } = await import('@/lib/event-dates');
   const qty = Math.trunc(input.quantity);
@@ -371,12 +371,13 @@ export async function sellEventTicket(shiftId: string, input: { eventId: string;
     if (ev.capacity != null && (await seatsTaken(c as unknown as Q, ev.id, input.date)) + qty > ev.capacity) throw new BookingError('NO_AVAILABILITY', 'Not enough seats left that day');
     let code = makeTicketCode();
     for (let i = 0; i < 5 && (await c.query('SELECT 1 FROM event_bookings WHERE ticket_code=$1', [code])).rows[0]; i++) code = makeTicketCode();
-    const total = unit * qty;
+    const dinnerEach = input.dinner && ev.dinner_cents != null && Number(ev.dinner_cents) > 0 ? Number(ev.dinner_cents) : 0;
+    const total = (unit + dinnerEach) * qty;
     const b = (await c.query(`INSERT INTO event_bookings(ticket_code,event_id,event_date,quantity,option_key,is_hotel_guest,stay_reference,full_name,email,phone,language,
-        unit_price_cents,total_cents,currency,pay_method,status,paid_at,shift_id,staff_note,confirmed_at,paid_cents,pos_cents,pos_method,pos_paid_at,pos_ref)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'',$9,'en',$10,$11,$12,$13,'paid',now(),$14,$15,now(),$11,$11,$13,now(),$16) RETURNING id, ticket_code, total_cents`,
+        unit_price_cents,total_cents,currency,pay_method,status,paid_at,shift_id,staff_note,confirmed_at,paid_cents,pos_cents,pos_method,pos_paid_at,pos_ref,dinner,dinner_cents)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'',$9,'en',$10,$11,$12,$13,'paid',now(),$14,$15,now(),$11,$11,$13,now(),$16,$17,$18) RETURNING id, ticket_code, total_cents`,
       [code, ev.id, input.date, qty, optionKey, !!stayRef, stayRef, input.fullName.trim(), input.phone?.trim() || null, unit, total, ev.currency ?? 'EGP', payMethodOf(input.method), shiftId,
-        `Sold on the POS · shift #${sh.shift_no} · ${input.staffName}`, walletRef])).rows[0];
+        `Sold on the POS · shift #${sh.shift_no} · ${input.staffName}`, walletRef, dinnerEach > 0, dinnerEach])).rows[0];
     if (payer) await recordCardPayer(c as unknown as Q, payer, { amountCents: total, source: 'event', shiftId, staffName: input.staffName, paidFor: `Event ticket ${b.ticket_code}` });
     await addTip(c, { shiftId, staffId: input.staffId ?? null, method: input.method, currency: 'EGP', minor: input.tipMinor, rate: 1, eventBookingId: b.id, guest: input.fullName });
     await audit('pos:' + input.staffName, 'event_booking.pos_sale', 'event_booking', b.id, { qty, total, method: input.method, shift: sh.shift_no }, c as unknown as Q);

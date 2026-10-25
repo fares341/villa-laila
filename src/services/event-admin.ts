@@ -43,6 +43,7 @@ export function bookingText(b: any, head = 'حجز فعالية'): string {
     `${tr(b.title, 'ar')}`,
     `التاريخ: ${b.event_date} · ${b.start_time}–${b.end_time}`,
     `العدد: ${b.quantity}${opt ? ` · ${opt.ar || opt.en}` : ''}${b.is_hotel_guest ? ` · نزيل (${b.stay_reference})` : ''}`,
+    b.dinner ? `🍽 عشاء بيتي بجانب المسبح: ${b.quantity} وجبة (${money(Number(b.dinner_cents) * Number(b.quantity), b.currency)}) · بلّغ المطبخ` : '',
     `الاسم: ${b.full_name}`,
     `الموبايل: ${b.phone || '—'}`,
     `الإيميل: ${b.email}`,
@@ -50,6 +51,55 @@ export function bookingText(b: any, head = 'حجز فعالية'): string {
     `الحالة: ${STATUS_AR[b.status] ?? b.status}${b.confirmed_at && b.status !== 'cancelled' ? ' · متأكد' : ''}${b.attendance_confirmed_at ? ' · أكد الحضور' : ''}`,
     b.cancel_reason ? `سبب الإلغاء: ${b.cancel_reason}` : '',
   ].filter(Boolean).join('\n');
+}
+
+/**
+ * The guest's own message to the villa's WhatsApp after booking on the website (ready to send, in their language):
+ * event, date, tickets, dinner, total, payment, their details and the ticket code / link.
+ */
+export async function bookingWhatsAppLink(bookingId: string): Promise<string> {
+  const b = await bookingDetail(bookingId);
+  const { getSetting } = await import('./settings');
+  const hostel = await getSetting<any>('hostel').catch(() => null);
+  const num = String(hostel?.whatsapp || '+201040551515').replace(/\D/g, '');
+  const ar = b.language === 'ar';
+  const opt = b.option_key ? (b.options ?? []).find((o: any) => o.key === b.option_key) : null;
+  const when = `${dateLabel(b.event_date, ar ? 'ar' : 'en', { weekday: 'long', day: 'numeric', month: 'long' })} · ${timeLabel(b.start_time, ar ? 'ar' : 'en')}`;
+  const cur = (c: number) => (ar && b.currency === 'EGP' ? `${(Number(c) / 100).toLocaleString('en-US')} ج.م` : money(c, b.currency));
+  const pay = b.pay_method === 'cash' ? (ar ? 'الدفع في الفيلا' : 'Pay at the villa') : b.pay_method === 'paymob' ? (ar ? 'بطاقة (أونلاين)' : 'Card (online)') : walletLabel(b.pay_method, ar);
+  const dep = b.deposit_cents != null && Number(b.deposit_cents) < Number(b.total_cents) ? Number(b.deposit_cents) : null;
+  const lines = ar ? [
+    'مرحباً فيلا ليلى 👋',
+    'أرغب في تأكيد حجز فعالية:',
+    `• الفعالية: ${tr(b.title, 'ar')}${opt ? ` (${opt.ar || opt.en})` : ''}`,
+    `• الموعد: ${when}`,
+    `• عدد التذاكر: ${b.quantity}`,
+    `• عشاء بيتي بجانب المسبح: ${b.dinner ? `نعم (+${cur(Number(b.dinner_cents))} للفرد)` : 'لا'}`,
+    `• الإجمالي: ${cur(Number(b.total_cents))}${dep ? ` (عربون ${cur(dep)} والباقي في الفيلا)` : ''}`,
+    `• طريقة الدفع: ${pay}${b.status === 'pending_verification' ? ' · رفعت الإيصال' : ''}`,
+    `• الاسم: ${b.full_name}`,
+    `• الهاتف: ${b.phone || '—'}`,
+    `• الإيميل: ${b.email}`,
+    b.is_hotel_guest ? `• نزيل بالفيلا · رقم الحجز ${b.stay_reference}` : '',
+    `• كود الحجز: ${b.ticket_code}`,
+    `التذكرة: ${await ticketUrl(b)}`,
+  ] : [
+    'Hello Villa Layla 👋',
+    'I would like to confirm an event booking:',
+    `• Event: ${tr(b.title, 'en')}${opt ? ` (${opt.en || opt.ar})` : ''}`,
+    `• When: ${when}`,
+    `• Tickets: ${b.quantity}`,
+    `• Home-cooked dinner by the pool: ${b.dinner ? `Yes (+${cur(Number(b.dinner_cents))} per person)` : 'No'}`,
+    `• Total: ${cur(Number(b.total_cents))}${dep ? ` (deposit ${cur(dep)}, the rest at the villa)` : ''}`,
+    `• Payment: ${pay}${b.status === 'pending_verification' ? ' · receipt uploaded' : ''}`,
+    `• Name: ${b.full_name}`,
+    `• Phone: ${b.phone || '—'}`,
+    `• Email: ${b.email}`,
+    b.is_hotel_guest ? `• Staying at the villa · booking ${b.stay_reference}` : '',
+    `• Booking code: ${b.ticket_code}`,
+    `Ticket: ${await ticketUrl(b)}`,
+  ];
+  return `https://wa.me/${num}?text=${encodeURIComponent(lines.filter(Boolean).join('\n'))}`;
 }
 
 /* ───────── Messages to the guest ───────── */
@@ -61,8 +111,8 @@ async function guestText(kind: 'confirm' | 'cancel' | 'reminder', b: any, reason
   const when = `${dateLabel(b.event_date, ar ? 'ar' : 'en', { weekday: 'long', day: 'numeric', month: 'long' })} · ${timeLabel(b.start_time, ar ? 'ar' : 'en')}`;
   const link = await ticketUrl(b);
   if (kind === 'confirm') return ar
-    ? `أهلاً ${name}، حجزك في "${title}" يوم ${when} اتأكد. عدد الأشخاص: ${b.quantity}. تذكرتك: ${link}\nفيلا ليلى`
-    : `Hi ${name}, your booking for "${title}" on ${when} is confirmed. People: ${b.quantity}. Your ticket: ${link}\nVilla Layla`;
+    ? `أهلاً ${name}، حجزك في "${title}" يوم ${when} اتأكد. عدد الأشخاص: ${b.quantity}.${b.dinner ? ' معاه عشاء بيتي بجانب المسبح لكل فرد.' : ''} تذكرتك: ${link}\nفيلا ليلى`
+    : `Hi ${name}, your booking for "${title}" on ${when} is confirmed. People: ${b.quantity}.${b.dinner ? ' Home-cooked dinner by the pool included for each person.' : ''} Your ticket: ${link}\nVilla Layla`;
   if (kind === 'cancel') return ar
     ? `أهلاً ${name}، للأسف اتلغى حجزك في "${title}" يوم ${when} (كود ${b.ticket_code}).${reason ? ` السبب: ${reason}.` : ''} لو عندك أي سؤال رد علينا هنا.\nفيلا ليلى`
     : `Hi ${name}, your booking for "${title}" on ${when} (code ${b.ticket_code}) has been cancelled.${reason ? ` Reason: ${reason}.` : ''} Reply here if you have any question.\nVilla Layla`;
