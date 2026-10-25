@@ -40,6 +40,21 @@ export function EventBooker(props: {
   const [mealOpen, setMealOpen] = useState(false);
   const closeMeal = useCallback(() => setMealOpen(false), []);
   const isMealOption = (label: string) => /عشاء|dinner|meal|وجبة/i.test(label);
+  // An event can have both options like "game only" / "game + dinner" and the dinner add-on: keep them in step so
+  // the price is right (picking "+ dinner" ticks the add-on, unticking the add-on goes back to the option without it).
+  const hasDinner = dinnerCents != null && dinnerCents > 0;
+  const mealOpt = hasDinner ? options.find((o) => isMealOption(o.label)) : undefined;
+  const plainOpt = hasDinner ? options.find((o) => !isMealOption(o.label)) : undefined;
+  const pickOption = (key: string) => {
+    setOption(key);
+    if (mealOpt) setDinner(key === mealOpt.key);
+  };
+  const toggleDinner = (on: boolean) => {
+    setDinner(on);
+    if (mealOpt && on) setOption(mealOpt.key);
+    else if (mealOpt && !on && option === mealOpt.key && plainOpt) setOption(plainOpt.key);
+  };
+  useEffect(() => { if (mealOpt && option === mealOpt.key) setDinner(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Only hostel guests may pay at the villa; everyone else pays by InstaPay and is sent to WhatsApp.
   const shownMethods = methodsFor(methods, hotelGuest) as Method[];
   const [method, setMethod] = useState<Method>(shownMethods[0] ?? methods[0]);
@@ -138,8 +153,8 @@ export function EventBooker(props: {
           <div className="evb-opts" role="radiogroup" aria-label={ar ? 'النوع' : 'Option'}>
             {options.map((o) => (
               <label key={o.key} className={`evb-opt ${option === o.key ? 'on' : ''}`}>
-                <input type="radio" name="option" value={o.key} checked={option === o.key} onChange={() => setOption(o.key)} required />
-                {o.label}
+                <input type="radio" name="option" value={o.key} checked={option === o.key} onChange={() => pickOption(o.key)} required />
+                <span>{o.label}</span>
               </label>
             ))}
           </div>
@@ -167,7 +182,7 @@ export function EventBooker(props: {
         )}
         {dinnerCents != null && dinnerCents > 0 && (
           <label className={`evb-addon ${dinner ? 'on' : ''}`}>
-            <input type="checkbox" name="dinner" checked={dinner} onChange={(e) => setDinner(e.target.checked)} />
+            <input type="checkbox" name="dinner" checked={dinner} onChange={(e) => toggleDinner(e.target.checked)} />
             <span className="evb-addon-t">
               <b>{(dayMeal && (ar ? dayMeal.title.ar || dayMeal.title.en : dayMeal.title.en || dayMeal.title.ar)) || (ar ? 'أضف العشاء' : 'Add dinner')}</b>
             </span>

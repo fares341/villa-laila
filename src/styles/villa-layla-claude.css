@@ -1790,3 +1790,24 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .fab .ic { width: 40px; height: 40px; }
   .fabs { gap: 8px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* About text: emoji bullets keep their emoji; pasted links are short and tappable; nothing can push the page wider. */
+.evd-about, .evd-about * { overflow-wrap: anywhere; }
+.evd-about-list li.ic { padding-inline-start: 30px; }
+.evd-about-list li.ic::before { content: none; }
+.evd-about-ic { position: absolute; inset-inline-start: 0; top: .1em; width: 24px; text-align: center; font-size: 17px; line-height: 1.5; }
+.evd-link { color: var(--color-primary); font-weight: 700; text-decoration: underline; text-decoration-color: var(--color-gold); text-underline-offset: 3px; unicode-bidi: isolate; }
+.evd-link:hover { color: var(--color-primary-dark); }
+.evd-hero h1, .evd-hero p { overflow-wrap: anywhere; }
+
+/* Ticket options ("game only" / "game + dinner"): full-width cards that wrap, not pills. */
+.evb-opts { display: grid; gap: 8px; }
+.evb-opt { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 12px 14px; border-radius: var(--r-sm); line-height: 1.45; background: #fff; }
+.evb-opt span { min-width: 0; overflow-wrap: anywhere; }
+.evb-opt input { flex: none; width: 18px; height: 18px; margin: 0; }
+
+/* A single date fills the row. */
+.evb-date:only-child { grid-column: 1 / -1; }
+
+/* Meal photo: a light placeholder while it loads (no big dark box on slow phones). */
+.evmeal-img, .evb-meal-cover { background: #EFE4D2; min-height: 120px; }
