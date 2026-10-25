@@ -641,38 +641,73 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
   const REVIEWS = [
     {
       n: isAr ? 'أحمد حسن' : 'Ahmed Hassan',
-      trip: isAr ? 'رحلة الصحراء البيضاء' : 'Black & White Desert',
+      trip: isAr ? 'رحلة الصحراء البيضاء · Booking.com' : 'Black & White Desert · Booking.com',
       t: isAr
         ? 'كرم ضيافة استثنائي، مسبح رائع وغرف نظيفة للغاية. موقع مثالي لزيارة القاهرة التاريخية، ورحلة الصحراء كانت قمة المتعة.'
         : 'Warm hospitality, a great pool and clean rooms. Perfect base for Islamic Cairo, and the White Desert tour was the highlight.',
     },
     {
       n: isAr ? 'توم ويلسون' : 'Tom Wilson',
-      trip: isAr ? 'رحلة الإسكندرية' : 'Alexandria day trip',
+      trip: isAr ? 'رحلة الإسكندرية · Booking.com' : 'Alexandria day trip · Booking.com',
       t: isAr
-        ? 'جوهرة مخفية في القاهرة. الفريق يعرف كل تفاصيل المدينة ونظموا لنا يوماً رائعاً في الإسكندرية بسيارة خاصة مريحة.'
-        : 'A hidden gem. The staff know Cairo inside out and set up a brilliant day trip to Alexandria.',
+        ? 'جوهرة مخفية في وسط القاهرة. الفريق يعرف كل تفاصيل المدينة ونظموا لنا يوماً رائعاً في الإسكندرية بسيارة خاصة مريحة.'
+        : 'A hidden gem in central Cairo. The staff know the city inside out and set up a brilliant day trip to Alexandria.',
     },
     {
       n: isAr ? 'إيما تومبسون' : 'Emma Thompson',
-      trip: isAr ? 'عنبر البنات' : 'Female dorm',
+      trip: isAr ? 'عنبر البنات الواسع · Hostelworld' : 'Spacious female dorm · Hostelworld',
       t: isAr
-        ? 'قيمة ممتازة مقابل السعر، حديقة هادئة وإنترنت سريع جداً للعمل. عنبر البنات آمن ومريح ومكيّف بالكامل.'
-        : 'Great value, a lovely garden and Wi-Fi fast enough to work. The female dorm felt safe, clean, and comfortable.',
+        ? 'قيمة ممتازة مقابل السعر، حديقة هادئة ومسبح منعش، والواي فاي سريع جداً للعمل. عنبر البنات آمن ومريح ومكيّف بالكامل.'
+        : 'Great value, a lovely garden and refreshing pool. Fast Wi-Fi for remote work, and the female dorm felt very safe, clean, and comfortable.',
     },
     {
       n: isAr ? 'سارة جونسون' : 'Sarah Johnson',
-      trip: isAr ? 'إقامة فردية' : 'Solo stay',
+      trip: isAr ? 'إقامة فردية - غرفة أميرة · Booking.com' : 'Solo stay - Amira room · Booking.com',
       t: isAr
-        ? 'المسبح والإفطار اللذيذ والرحلات المنظمة جعلت رحلتي كمسافرة بمفردي آمنة وسلسة جداً. سأعود بكل تأكيد.'
-        : 'The pool, the breakfast and the tours the staff arranged made it so easy as a solo traveller. Will definitely return.',
+        ? 'المسبح والإفطار اللذيذ والرحلات المنظمة جعلت رحلتي كمسافرة بمفردي آمنة وسلسة جداً. طابع الفيلا التاريخي ساحر للغاية.'
+        : 'The pool, the breakfast and the tours the staff arranged made it so easy as a solo traveller. Vintage villa with historic charm!',
     },
     {
       n: isAr ? 'ماركو رودريغيز' : 'Marco Rodriguez',
-      trip: isAr ? 'غرفة ابن بطوطة' : 'Ibn Battuta room',
+      trip: isAr ? 'غرفة ابن بطوطة · Booking.com' : 'Ibn Battuta room · Booking.com',
       t: isAr
-        ? 'أحببت غرفة ابن بطوطة وتصميمها المميز. استقبال المطار ورحلة الأهرامات مع المرشد رتبها فريق العمل باحترافية.'
-        : 'Loved the Ibn Battuta room. Airport pickup and the pyramids tour were all handled seamlessly by the team.',
+        ? 'أحببت غرفة ابن بطوطة وتصميمها المميز. استقبال المطار ورحلة الأهرامات مع المرشد رتبها فريق العمل باحترافية وسلاسة.'
+        : 'Loved the Ibn Battuta room. Airport pickup and the pyramids tour were all handled seamlessly and professionally by the team.',
+    },
+    {
+      n: isAr ? 'كلارا بيكر' : 'Clara Becker',
+      trip: isAr ? 'عنبر ٦ بنات · Hostelworld' : '6-bed female dorm · Hostelworld',
+      t: isAr
+        ? 'واحة من الهدوء والاسترخاء في قلب القاهرة! الحديقة والمسبح خياليان بعد يوم طويل في المعالم السياحية، والأسرة مريحة ونظيفة.'
+        : 'An oasis of calm in the heart of Cairo! The garden and pool are fantastic after a long day of sightseeing, beds are super clean.',
+    },
+    {
+      n: isAr ? 'جوليان لوران' : 'Julien Laurent',
+      trip: isAr ? 'غرفة السيدة الفرنسية · Booking.com' : 'French Lady room · Booking.com',
+      t: isAr
+        ? 'فيلا تاريخية أصيلة بأسقف عالية وديكور كلاسيكي راقٍ. الإفطار اليومي في الحديقة المشمسة كان بداية لا تُنسى لكل صباح.'
+        : 'Authentic historic villa with royal ceilings and classic decor. Daily breakfast in the sunny garden was the best way to start each day.',
+    },
+    {
+      n: isAr ? 'جيسيكا تايلور' : 'Jessica Taylor',
+      trip: isAr ? 'جولة أهرامات الجيزة · Booking.com' : 'Giza Pyramids tour · Booking.com',
+      t: isAr
+        ? 'طاقم الاستقبال متعاون ولطيف للغاية على مدار الساعة. رتبوا لنا التنقلات والجولات بأسعار ممتازة وأمان كامل. تجربة ١٠ من ١٠.'
+        : 'The front desk team is incredibly helpful and friendly 24/7. They arranged our airport rides and tours safely at great rates. 10/10.',
+    },
+    {
+      n: isAr ? 'عمر السيد' : 'Omar Al-Sayed',
+      trip: isAr ? 'جناح شهرزاد الملكي · Booking.com' : 'Sheherazade royal suite · Booking.com',
+      t: isAr
+        ? 'جناح شهرزاد فخم وواسع وتكييفه ممتاز. المسبح نظيف والهدوء التام يجعلك تنسى أنك في وسط القاهرة. تجربة فندقية راقية.'
+        : 'Sheherazade suite is spacious, elegant and quiet. The pool is crystal clean and the serene garden makes you forget you are in central Cairo.',
+    },
+    {
+      n: isAr ? 'لوكاس فيبر' : 'Lukas Weber',
+      trip: isAr ? 'عنبر شباب ٨ أسرّة · Hostelworld' : '8-bed male dorm · Hostelworld',
+      t: isAr
+        ? 'أفضل مكان أقمت فيه في مصر! مساحات عمل مريحة وإنترنت ممتاز، ولقاء مسافرين رائعين حول المسبح مساءً. أنصح به بشدة.'
+        : 'The best hostel I stayed at in Egypt! Great workspaces, fast internet, and wonderful fellow travelers around the pool in the evening.',
     },
   ];
 
@@ -1298,10 +1333,17 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
 
           <div className="platforms">
             <div className="plat">
-              <b>9.9</b>
+              <b>9.5</b>
+              <span>
+                <strong>Booking.com</strong>
+                {isAr ? 'استثنائي · 500+ تقييم حقيقي' : 'Exceptional · 500+ verified reviews'}
+              </span>
+            </div>
+            <div className="plat">
+              <b>9.8</b>
               <span>
                 <strong>Hostelworld</strong>
-                {isAr ? 'تقييم ممتاز من المسافرين' : 'Superb solo & dorm reviews'}
+                {isAr ? 'تقييم ممتاز للمسافرين والعنابر' : 'Superb solo & dorm reviews'}
               </span>
             </div>
           </div>
