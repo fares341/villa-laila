@@ -1811,3 +1811,13 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 /* Meal photo: a light placeholder while it loads (no big dark box on slow phones). */
 .evmeal-img, .evb-meal-cover { background: #EFE4D2; min-height: 120px; }
+
+/* Automatic translation (any browser language the site isn't written in): hide Google's bar and pop-ups. */
+html.vl-mt body { top: 0 !important; position: static !important; }
+.goog-te-banner-frame, iframe.skiptranslate, .skiptranslate > iframe, #goog-gt-tt, .goog-te-balloon-frame, .goog-tooltip, .VIpgJd-ZVi9od-ORHb-OEVmcd, .VIpgJd-ZVi9od-aZ2wEe-wOHMyf, .VIpgJd-yAWNEb-L7lbkb { display: none !important; visibility: hidden !important; }
+.goog-text-highlight, font[style*="background-color"] { background: none !important; box-shadow: none !important; }
+.vl-mt-pill { position: fixed; z-index: 75; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); inset-inline-start: max(14px, env(safe-area-inset-left, 0px)); display: inline-flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 999px; background: rgba(36,28,20,.88); color: #fff; font: 700 13px/1 var(--f); box-shadow: 0 10px 24px -12px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); direction: ltr; }
+.vl-mt-pill svg { color: var(--color-gold-light); }
+.vl-mt-pill button { padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,.14); color: #fff; font: inherit; border: 0; cursor: pointer; }
+.vl-mt-pill button:hover { background: rgba(255,255,255,.24); }
+@media (max-width: 760px) { .vl-mt-pill { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); } }

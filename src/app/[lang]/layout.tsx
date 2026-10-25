@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { isSiteLang, dict } from '@/i18n/site';
 import type { Metadata } from 'next';
+import { AutoTranslate } from '@/components/auto-translate';
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
   const { lang } = await params;
@@ -19,6 +20,7 @@ export default async function LangLayout({ children, params }: { children: React
   return (
     <div lang={lang} dir={lang === 'ar' ? 'rtl' : 'ltr'} className={lang === 'ar' ? 'ar-font' : undefined}>
       {children}
+      <AutoTranslate />
     </div>
   );
 }
