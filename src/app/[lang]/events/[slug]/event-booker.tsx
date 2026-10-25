@@ -145,8 +145,7 @@ export function EventBooker(props: {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 3v8a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M6 13v8M17 3c-1.7 0-3 2-3 5s1.3 4 3 4v9" /></svg>
             </span>
             <span className="evb-addon-t">
-              <b>{ar ? 'وجبة عشاء بيتي بجانب المسبح' : 'Home-cooked dinner by the pool'}</b>
-              <small>{ar ? 'اختياري · للفرد' : 'Optional · per person'}</small>
+              <b>{(dayMeal && (ar ? dayMeal.title.ar || dayMeal.title.en : dayMeal.title.en || dayMeal.title.ar)) || (ar ? 'أضف العشاء' : 'Add dinner')}</b>
             </span>
             <span className="evb-addon-p num" dir="ltr">+{fmt(dinnerCents, currency, ar)}</span>
           </label>
