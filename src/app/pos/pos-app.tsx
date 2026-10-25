@@ -1310,7 +1310,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
             </div>
             <div className="pos-field"><label>Tickets</label>
               <div className="pos-qty big"><button onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Less"><Icon name="minus" /></button><span className="num">{qty}</span><button onClick={() => setQty((q) => Math.min(left ?? 20, q + 1))} aria-label="More"><Icon name="plus" /></button></div></div>
-            {ev?.dinner ? <label className="pos-check"><input type="checkbox" checked={dinner} onChange={(e) => setDinner(e.target.checked)} /> 🍽 Home-cooked dinner by the pool (+{egp(Number(ev.dinner))} per person)</label> : null}
+            {ev?.dinner ? <label className="pos-check"><input type="checkbox" checked={dinner} onChange={(e) => setDinner(e.target.checked)} /> Home-cooked dinner by the pool (+{egp(Number(ev.dinner))} per person)</label> : null}
             {ev && <p className="pos-fine">{egp(unit)} per ticket{dinnerEach ? ' with dinner' : ''}{guest && ev.guestPrice != null ? ` (hotel guest price for ${guest.full_name}; the normal price is used if they are not staying that night)` : ev.guestPrice != null ? `. Hotel guests pay ${egp(Number(ev.guestPrice))}: choose the guest on the left first.` : ''}</p>}
           </>
         )
@@ -1326,7 +1326,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
                     <div className="who">
                       <b>{b.full_name}</b>
                       <small>{title(b.title)} · {dayLabel(b.event_date)} · {b.quantity} ticket{b.quantity === 1 ? '' : 's'} · {b.ticket_code}</small>
-                      {b.dinner && <small className="warn">🍽 With dinner by the pool × {b.quantity}</small>}
+                      {b.dinner && <small className="warn">With dinner by the pool × {b.quantity}</small>}
                       {Number(b.paid_cents) > 0 && Number(b.due_cents) > 0 && <small>Deposit {egp(Number(b.paid_cents))} paid online of {egp(Number(b.total_cents))}</small>}
                       {pending && <small className="warn">InstaPay / Vodafone receipt waiting for a manager (Payments to check). Do not take the money again.</small>}
                     </div>
@@ -1342,7 +1342,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
                 );
               })}</ul>)}
           </>
-        ) : <p className="pos-fine"><b>{pick.full_name}</b> · {title(pick.title)} · {dayLabel(pick.event_date)} · ticket {pick.ticket_code}{pick.dinner ? ` · 🍽 dinner × ${pick.quantity}` : ''}
+        ) : <p className="pos-fine"><b>{pick.full_name}</b> · {title(pick.title)} · {dayLabel(pick.event_date)} · ticket {pick.ticket_code}{pick.dinner ? ` · with dinner × ${pick.quantity}` : ''}
               {Number(pick.paid_cents) > 0 && <> · total {egp(Number(pick.total_cents))}, deposit {egp(Number(pick.paid_cents))} already paid online</>} <button className="pos-link" onClick={() => setPick(null)}>change</button></p>
       )}
       {ready && (

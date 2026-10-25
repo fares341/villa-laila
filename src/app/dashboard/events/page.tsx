@@ -115,7 +115,7 @@ async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
         {bookings.length === 0 ? <Empty>No event bookings in this period.</Empty> : (
           [...byDay.entries()].map(([day, rows]) => (
             <div key={day} className="mb-5">
-              <h3 className="mb-2 font-semibold text-cocoa-800">{new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(day + 'T12:00:00Z'))}{day === today && ' · today'}{dinners(rows) > 0 && <span className="ms-2 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">🍽 {dinners(rows)} dinner{dinners(rows) === 1 ? '' : 's'} for the kitchen</span>}</h3>
+              <h3 className="mb-2 font-semibold text-cocoa-800">{new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(day + 'T12:00:00Z'))}{day === today && ' · today'}{dinners(rows) > 0 && <span className="ms-2 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">{dinners(rows)} dinner{dinners(rows) === 1 ? '' : 's'} for the kitchen</span>}</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-left text-slate-600"><tr><th className="py-1.5">Ticket</th><th>Event</th><th>Guest</th><th>Qty</th><th>Total</th><th>Status</th><th /></tr></thead>
@@ -128,7 +128,7 @@ async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
                       return (
                         <tr key={b.id} className="border-t border-slate-100 align-top">
                           <td className="py-2 font-mono"><Link className="underline" href={`/${b.language || 'en'}/tickets/${b.ticket_code}`}>{b.ticket_code}</Link></td>
-                          <td>{tr(b.title, 'en')} <span className="text-slate-500">{b.start_time}</span>{opt && <div className="text-xs text-slate-600">{opt}</div>}{b.dinner && <div className="text-xs font-semibold text-amber-800">🍽 + Dinner by the pool × {b.quantity}</div>}</td>
+                          <td>{tr(b.title, 'en')} <span className="text-slate-500">{b.start_time}</span>{opt && <div className="text-xs text-slate-600">{opt}</div>}{b.dinner && <div className="text-xs font-semibold text-amber-800">+ Dinner by the pool × {b.quantity}</div>}</td>
                           <td>{b.full_name}<div className="text-xs text-slate-600">{b.phone || b.email}</div>{b.is_hotel_guest && <div className="text-xs text-emerald-800">Hotel guest {b.stay_reference}</div>}</td>
                           <td className="num">{b.quantity}</td>
                           <td className="whitespace-nowrap">{fmt(Number(b.total_cents), b.currency)}<div className="text-xs text-slate-500">{METHOD[b.pay_method] ?? b.pay_method}</div></td>
