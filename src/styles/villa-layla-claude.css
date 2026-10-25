@@ -1693,15 +1693,14 @@
 .evb-meal-link.has-img .evb-meal-t b { font-size: 16px; letter-spacing: .01em; }
 .evb-meal-link.has-img .evb-meal-t small { color: #8A6A3E; font-size: 13px; font-weight: 700; }
 
-/* Event "About": one tidy card — lead paragraph, sub-headings, gold-dot list, what the ticket includes. */
-.evd-about { margin-top: 28px; padding: clamp(20px, 3.4vw, 34px); background: #fff; border: 1px solid var(--color-border); border-radius: var(--r-lg); box-shadow: 0 14px 34px -24px rgba(47,41,37,.35); position: relative; overflow: hidden; }
-.evd-about::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: 0; width: 4px; background: linear-gradient(180deg, var(--color-gold-light), var(--color-gold)); }
-.evd-about-h { display: grid; gap: 4px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--color-border); }
-.evd-about-k { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--color-gold); }
-.evd-info .evd-about-h h2 { margin: 0 !important; font-size: clamp(22px, 2.4vw, 28px); }
-.evd-about-body { display: grid; gap: 14px; max-width: 68ch; }
-.evd-about-body p { margin: 0; color: var(--color-text); line-height: 1.85; font-size: 15.5px; }
-.evd-about-body p.evd-about-lead { font-size: 17.5px; font-weight: 600; color: var(--color-primary-dark); line-height: 1.75; }
+/* Event "About": an editorial intro, not a box — gold heading, the first sentence as a big tagline, calm body. */
+.evd-about { margin-top: 36px; padding-top: 28px; border-top: 1px solid var(--color-border); display: grid; gap: 16px; }
+.evd-info .evd-about-k { display: flex; align-items: center; gap: 10px; margin: 0 !important; font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--color-gold); }
+.evd-about-k::before { content: ""; width: 28px; height: 2px; border-radius: 2px; background: var(--color-gold); }
+.evd-about-tag { position: relative; margin: 0; max-width: 30ch; font-size: clamp(22px, 2.6vw, 30px); font-weight: 800; line-height: 1.45; color: var(--color-primary-dark); letter-spacing: -.005em; }
+[dir="rtl"] .evd-about-tag { line-height: 1.6; }
+.evd-about-body { display: grid; gap: 14px; max-width: 62ch; }
+.evd-about-body p { margin: 0; color: var(--color-text-secondary); line-height: 1.9; font-size: 16px; }
 .evd-about-body h3, .evd-about-inc h3 { margin: 6px 0 0; font-size: 16px; font-weight: 800; color: var(--color-primary-dark); }
 .evd-about-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .evd-about-list li { position: relative; padding-inline-start: 22px; line-height: 1.75; color: var(--color-text); }
@@ -1710,7 +1709,8 @@
 .evd-about-inc ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 10px 16px; }
 .evd-about-inc li { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; font-weight: 600; color: var(--color-primary-dark); line-height: 1.5; }
 .evd-about-inc svg { flex: none; width: 20px; height: 20px; padding: 3px; border-radius: 50%; background: var(--color-primary-dark); color: var(--color-gold-light); }
-.evd-about-note { margin: 16px 0 0; padding: 12px 14px; border-radius: var(--r-sm); background: var(--color-section-light); color: var(--color-primary-dark); font-weight: 600; font-size: 14px; }
+.evd-about-note { display: flex; gap: 10px; align-items: flex-start; margin: 0; color: var(--color-text-secondary); font-size: 14px; font-weight: 600; line-height: 1.7; }
+.evd-about-note svg { flex: none; margin-top: 2px; color: var(--color-gold); }
 
 /* The chosen date's meal, in full beside the booking box (replaces the "The food" photo box on dinner events). */
 .evmeal { padding: 12px; border: 1px solid var(--color-gold); border-radius: 22px; background: linear-gradient(160deg, #FFFCF5 0%, #F7ECD8 100%); box-shadow: inset 0 0 0 5px #FFFCF5, inset 0 0 0 6px rgba(210,154,69,.45), 0 18px 36px -20px rgba(92,62,24,.55); }
@@ -1757,7 +1757,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .evd-facts div { padding: 12px 14px; }
   .evd-facts div:has(.evd-where), .evd-facts div:nth-child(3):nth-last-child(2) { grid-column: 1 / -1; }
   .evd-facts dd { font-size: 15px; }
-  .evd-about { margin-top: 20px; }
+  .evd-about { margin-top: 26px; padding-top: 22px; }
   .evd-book { padding: 18px 16px; border-radius: var(--r); }
   /* Dates: two per row so the list stays short. */
   .evb-dates { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; }
