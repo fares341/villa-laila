@@ -311,12 +311,12 @@ export async function recordExchange(shiftId: string, staffId: string, input: { 
  */
 export async function unpaidEventTickets() {
   return q<any>(`SELECT b.id, b.ticket_code, b.full_name, b.phone, b.event_date, b.quantity, b.total_cents, b.paid_cents, (b.total_cents - b.paid_cents) due_cents,
-                   b.status, b.pay_method, b.checked_in_at, b.dinner, e.title,
+                   b.status, b.pay_method, b.checked_in_at, b.dinner, b.is_hotel_guest, b.stay_reference, e.title,
                    EXISTS (SELECT 1 FROM online_payments o WHERE o.event_booking_id=b.id AND o.status='submitted') receipt_waiting
                  FROM event_bookings b JOIN events e ON e.id=b.event_id
                  WHERE b.status IN ('pay_on_site','awaiting_payment','pending_verification','paid') AND b.event_date >= (now() AT TIME ZONE 'Africa/Cairo')::date - 1
                    AND b.event_date <= (now() AT TIME ZONE 'Africa/Cairo')::date + 30
-                 ORDER BY (b.total_cents - b.paid_cents > 0 AND b.status <> 'pending_verification') DESC, b.event_date, b.full_name LIMIT 150`);
+                 ORDER BY ((b.total_cents - b.paid_cents > 0 OR (b.is_hotel_guest AND b.status <> 'paid')) AND b.status <> 'pending_verification') DESC, b.event_date, b.full_name LIMIT 150`);
 }
 
 export async function checkInEventTicket(bookingId: string, staffName: string) {
@@ -341,7 +341,7 @@ export async function posEvents() {
 }
 
 /** A ticket bought at the hostel on the POS (not booked online): created already paid, cash or card. */
-export async function sellEventTicket(shiftId: string, input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: PayMethod; walletRef?: string | null; cardPayer?: CardPayer | null; tipMinor?: number; staffName: string; staffId?: string | null; change?: ChangeInput | null; dinner?: boolean }) {
+export async function sellEventTicket(shiftId: string, input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: PayMethod; walletRef?: string | null; cardPayer?: CardPayer | null; tipMinor?: number; staffName: string; staffId?: string | null; change?: ChangeInput | null; dinner?: boolean; pwywCents?: number }) {
   const { EVENT_COLS, seatsTaken, makeTicketCode } = await import('../events');
   const { isBookableDate } = await import('@/lib/event-dates');
   const qty = Math.trunc(input.quantity);
@@ -361,18 +361,18 @@ export async function sellEventTicket(shiftId: string, input: { eventId: string;
       if (!opt) throw new BookingError('INVALID_INPUT', 'Choose the option');
       optionKey = opt.key;
     }
-    // Hotel guest staying that night pays the guest price.
+    // Hostel guest staying that night: pay what you want (the amount they choose, for all their tickets).
     let unit = Number(ev.price_cents), stayRef: string | null = null;
-    if (input.reservationId && ev.guest_price_cents != null) {
+    if (input.reservationId) {
       const st = (await c.query(`SELECT reference FROM reservations WHERE id=$1 AND status IN ('pending','confirmed','checked_in') AND check_in <= $2::date AND check_out >= $2::date`, [input.reservationId, input.date])).rows[0];
-      if (st) { unit = Number(ev.guest_price_cents); stayRef = st.reference; }
+      if (st) { unit = Math.round(Math.max(0, Math.round(Number(input.pwywCents ?? 0))) / qty); stayRef = st.reference; }
     }
     await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['ev:' + ev.id + ':' + input.date]);
     if (ev.capacity != null && (await seatsTaken(c as unknown as Q, ev.id, input.date)) + qty > ev.capacity) throw new BookingError('NO_AVAILABILITY', 'Not enough seats left that day');
     let code = makeTicketCode();
     for (let i = 0; i < 5 && (await c.query('SELECT 1 FROM event_bookings WHERE ticket_code=$1', [code])).rows[0]; i++) code = makeTicketCode();
     const dinnerEach = input.dinner && ev.dinner_cents != null && Number(ev.dinner_cents) > 0 ? Number(ev.dinner_cents) : 0;
-    const total = (unit + dinnerEach) * qty;
+    const total = stayRef ? Math.max(0, Math.round(Number(input.pwywCents ?? 0))) + dinnerEach * qty : (unit + dinnerEach) * qty;
     const b = (await c.query(`INSERT INTO event_bookings(ticket_code,event_id,event_date,quantity,option_key,is_hotel_guest,stay_reference,full_name,email,phone,language,
         unit_price_cents,total_cents,currency,pay_method,status,paid_at,shift_id,staff_note,confirmed_at,paid_cents,pos_cents,pos_method,pos_paid_at,pos_ref,dinner,dinner_cents)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'',$9,'en',$10,$11,$12,$13,'paid',now(),$14,$15,now(),$11,$11,$13,now(),$16,$17,$18) RETURNING id, ticket_code, total_cents`,
@@ -387,18 +387,23 @@ export async function sellEventTicket(shiftId: string, input: { eventId: string;
 }
 
 /** Event ticket paid on the POS: cash into the drawer or card on the machine (foreign card payers on the daily list). */
-export async function payEventTicket(shiftId: string, input: { bookingId: string; method: PayMethod; walletRef?: string | null; staffName: string; staffId?: string | null; cardPayer?: CardPayer | null; tipMinor?: number; change?: ChangeInput | null }) {
+export async function payEventTicket(shiftId: string, input: { bookingId: string; method: PayMethod; walletRef?: string | null; staffName: string; staffId?: string | null; cardPayer?: CardPayer | null; tipMinor?: number; change?: ChangeInput | null; pwywCents?: number }) {
   const payer = input.method === 'card' ? cleanPayer(input.cardPayer) : null;
   const walletRef = walletRefOf(payMethodOf(input.method), input.walletRef);
   const sh = (await q<any>(`SELECT shift_no FROM cash_shifts WHERE id=$1 AND status='open'`, [shiftId]))[0];
   if (!sh) throw new BookingError('BAD_STATE', 'The shift is closed');
+  const pwyw = Math.max(0, Math.round(Number(input.pwywCents ?? 0)));
+  if (pwyw > 100_000_00) throw new BookingError('INVALID_INPUT', 'Amount too large');
   return tx(async (c) => {
+    // Hostel guest: the ticket is pay what you want; the amount they choose is added to the booking now.
+    if (pwyw > 0) await c.query(`UPDATE event_bookings SET total_cents = total_cents + $2, unit_price_cents = unit_price_cents + round($2::numeric / quantity)::int, updated_at=now()
+                                 WHERE id=$1 AND is_hotel_guest AND status IN ('pay_on_site','awaiting_payment')`, [input.bookingId, pwyw]);
     // Only what is left (a deposit paid online stays paid online).
     const b = (await c.query(`UPDATE event_bookings SET status='paid', paid_at=now(), hold_expires_at=NULL, shift_id=$2,
                                 pay_method=CASE WHEN paid_cents > 0 THEN pay_method ELSE $3 END,
                                 pos_cents=total_cents - paid_cents, pos_method=$3, pos_paid_at=now(), paid_cents=total_cents, pos_ref=$5,
                                 staff_note=COALESCE(staff_note || ' · ', '') || $4, updated_at=now()
-                              WHERE id=$1 AND status IN ('pay_on_site','awaiting_payment','expired') AND total_cents > paid_cents RETURNING id, pos_cents total_cents, ticket_code`,
+                              WHERE id=$1 AND status IN ('pay_on_site','awaiting_payment','expired') AND (total_cents > paid_cents OR is_hotel_guest) RETURNING id, pos_cents total_cents, ticket_code`,
       [input.bookingId, shiftId, payMethodOf(input.method), `Rest paid ${input.method} on the POS · shift #${sh.shift_no} · ${input.staffName}`, walletRef])).rows[0];
     if (!b) throw new BookingError('BAD_STATE', 'This ticket is already paid, its receipt is being checked, or it was cancelled');
     if (payer) await recordCardPayer(c as unknown as Q, payer, { amountCents: Number(b.total_cents), source: 'event', shiftId, staffName: input.staffName, paidFor: `Event ticket ${b.ticket_code}` });

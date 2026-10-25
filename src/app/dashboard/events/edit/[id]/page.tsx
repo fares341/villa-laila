@@ -76,7 +76,7 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
             <div className="grid grid-cols-2 gap-3">
               <div><Lbl htmlFor="e-p">Ticket price (EGP)</Lbl><input id="e-p" name="price" type="number" min={0} step="0.01" required defaultValue={v(e.price_cents)} className={Input} /></div>
               <div><Lbl htmlFor="e-c">Cost per attendee (EGP)</Lbl><input id="e-c" name="cost" type="number" min={0} step="0.01" defaultValue={v(e.cost_per_attendee_cents)} className={Input} /></div>
-              <div><Lbl htmlFor="e-g">Hotel guest price</Lbl><input id="e-g" name="guestPrice" type="number" min={0} step="0.01" placeholder="Same" defaultValue={v(e.guest_price_cents)} className={Input} /></div>
+              <div><Lbl>Hostel guests</Lbl><p className="rounded-lg border border-cocoa-200 bg-cocoa-50 px-3 py-2 text-sm text-slate-700">Pay what you want, at the villa (entered on the POS). The dinner add-on keeps its price.</p><input type="hidden" name="guestPrice" value={v(e.guest_price_cents)} /></div>
               <div><Lbl htmlFor="e-cap">Capacity per date</Lbl><input id="e-cap" name="capacity" type="number" min={1} placeholder="Unlimited" defaultValue={e.capacity ?? ''} className={Input} /></div>
             </div>
             {!isNew && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">Profit per ticket: <b>{fmt(profitPer)}</b>{e.capacity ? <> · full house: <b>{fmt(profitPer * e.capacity)}</b></> : null}</p>}

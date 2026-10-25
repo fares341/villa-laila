@@ -684,7 +684,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
                   <b>{(e.title && typeof e.title === 'object' ? e.title.en || e.title.ar : e.title) || 'Event'}</b>
                   <small>Next: {dayLabel(e.dates[0]?.date)}{e.startTime ? ` · ${String(e.startTime).slice(0, 5)}` : ''}{e.dates[0]?.left != null ? ` · ${e.dates[0].left} seats` : ''}</small>
                   <span className="pos-price num">{egp(Number(e.price))}</span>
-                  {e.guestPrice != null && <span className="pos-tour-fig"><span>Hotel guest {egp(Number(e.guestPrice))}</span></span>}
+                  <span className="pos-tour-fig"><span>Hostel guests: pay what you want</span></span>
                 </button>))])
               : tab === 'tours' && !search
               ? (shown as Tour[]).map((t) => (
@@ -1266,6 +1266,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
   const [ref, setRef] = useState('');
   const [payer, setPayer] = useState<Payer>(newPayer(guest));
   const [tip, setTip] = useState('');
+  const [pwywStr, setPwywStr] = useState('');
   const [checkIn, setCheckIn] = useState(false);
   const [dinner, setDinner] = useState(false);
   const [chg, setChg] = useState<ChangeState>(newChange);
@@ -1276,13 +1277,16 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
   useEffect(() => { if (ev && !date) setDate(ev.dates[0]?.date ?? ''); if (ev?.options?.length && !opt) setOpt(ev.options[0].key); }, [ev, date, opt]);
   const title = (t: any) => (t && typeof t === 'object' ? t.en || t.ar : t) || 'Event';
   const dinnerEach = ev && dinner && ev.dinner ? Number(ev.dinner) : 0;
-  const unit = (ev ? (guest && ev.guestPrice != null ? Number(ev.guestPrice) : Number(ev.price)) : 0) + dinnerEach;
-  const total = mode === 'sell' ? unit * qty : Number(pick?.due_cents ?? 0);
+  // Hostel guests pay what they want for the ticket (any amount, all tickets together); dinner keeps its price.
+  const pwywOn = mode === 'sell' ? !!guest : !!pick?.is_hotel_guest;
+  const pwyw = pwywOn ? toCents(pwywStr) : 0;
+  const unit = (ev ? (guest ? 0 : Number(ev.price)) : 0) + dinnerEach;
+  const total = mode === 'sell' ? unit * qty + pwyw : Number(pick?.due_cents ?? 0) + pwyw;
   const s = qy.trim().toLowerCase();
   const shown = (list ?? []).filter((b) => !s || `${b.full_name} ${b.ticket_code} ${b.phone ?? ''}`.toLowerCase().includes(s)).slice(0, 12);
   const left = ev?.dates.find((d: any) => d.date === date)?.left;
-  const ready = mode === 'sell' ? !!ev && !!date && name.trim().length >= 2 && qty >= 1 : !!pick && Number(pick.due_cents) > 0;
-  const payable = (b: any) => Number(b.due_cents) > 0 && b.status !== 'pending_verification';
+  const ready = mode === 'sell' ? !!ev && !!date && name.trim().length >= 2 && qty >= 1 : !!pick && (Number(pick.due_cents) > 0 || !!pick.is_hotel_guest);
+  const payable = (b: any) => (Number(b.due_cents) > 0 || (b.is_hotel_guest && b.status !== 'paid')) && b.status !== 'pending_verification';
   const toPay = (list ?? []).filter(payable).length;
   return (
     <Modal title="Event tickets" onClose={onClose}>
@@ -1311,7 +1315,8 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
             <div className="pos-field"><label>Tickets</label>
               <div className="pos-qty big"><button onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Less"><Icon name="minus" /></button><span className="num">{qty}</span><button onClick={() => setQty((q) => Math.min(left ?? 20, q + 1))} aria-label="More"><Icon name="plus" /></button></div></div>
             {ev?.dinner ? <label className="pos-check"><input type="checkbox" checked={dinner} onChange={(e) => setDinner(e.target.checked)} /> Home-cooked dinner by the pool (+{egp(Number(ev.dinner))} per person)</label> : null}
-            {ev && <p className="pos-fine">{egp(unit)} per ticket{dinnerEach ? ' with dinner' : ''}{guest && ev.guestPrice != null ? ` (hotel guest price for ${guest.full_name}; the normal price is used if they are not staying that night)` : ev.guestPrice != null ? `. Hotel guests pay ${egp(Number(ev.guestPrice))}: choose the guest on the left first.` : ''}</p>}
+            {ev && <p className="pos-fine">{guest ? `Hostel guest (${guest.full_name}): pay what you want for the ticket${dinnerEach ? `, + ${egp(dinnerEach)} dinner per person` : ''}. If they are not staying that night the normal price ${egp(Number(ev.price))} is used.` : `${egp(unit)} per ticket${dinnerEach ? ' with dinner' : ''}. Hostel guests pay what they want: choose the guest on the left first.`}</p>}
+            {ev && guest && <AmountPad label="Guest pays for the tickets (pay what you want)" value={pwywStr} onChange={setPwywStr} unit="EGP" />}
           </>
         )
       ) : (
@@ -1330,7 +1335,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
                       {Number(b.paid_cents) > 0 && Number(b.due_cents) > 0 && <small>Deposit {egp(Number(b.paid_cents))} paid online of {egp(Number(b.total_cents))}</small>}
                       {pending && <small className="warn">InstaPay / Vodafone receipt waiting for a manager (Payments to check). Do not take the money again.</small>}
                     </div>
-                    {payable(b) ? <button className="pos-btn primary" onClick={() => setPick(b)}>Take {egp(Number(b.due_cents))}</button>
+                    {payable(b) ? <button className="pos-btn primary" onClick={() => setPick(b)}>{b.is_hotel_guest ? `Hostel guest · pay what you want${Number(b.due_cents) > 0 ? ` + ${egp(Number(b.due_cents))}` : ''}` : `Take ${egp(Number(b.due_cents))}`}</button>
                       : pending ? <span className="pos-badge">Being checked</span>
                       : b.checked_in_at ? <span className="pos-badge green"><Icon name="check" size={14} /> Checked in</span>
                       : <button className="pos-btn" onClick={async () => {
@@ -1347,6 +1352,7 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
       )}
       {ready && (
         <>
+          {mode === 'booked' && pick?.is_hotel_guest && <AmountPad label={`Hostel guest${pick.stay_reference ? ` (${pick.stay_reference})` : ''}: pay what you want for the tickets`} value={pwywStr} onChange={setPwywStr} unit="EGP" />}
           <MethodPicker value={m} onChange={setM} />
           {m === 'card' && <CardPayerFields value={payer} onChange={setPayer} />}
           <WalletRef method={m} value={ref} onChange={setRef} />
@@ -1362,8 +1368,8 @@ function EventPayModal({ onClose, onDone, guest, initialEvent = null }: { onClos
           setBusy(true); setErr(null);
           const common = { method: m, cardPayer: m === 'card' ? payerOut(payer) : null, tipMinor: toCents(tip), walletRef: isWal(m) ? ref.trim() : null, change: m === 'cash' ? changeOut(chg) : null };
           const r = mode === 'sell'
-            ? await posSellEvent({ eventId: evId!, date, quantity: qty, dinner, optionKey: opt || null, fullName: name, phone: phone || null, reservationId: guest?.id ?? null, ...common })
-            : await posPayEvent({ bookingId: pick.id, ...common });
+            ? await posSellEvent({ eventId: evId!, date, quantity: qty, dinner, optionKey: opt || null, fullName: name, phone: phone || null, reservationId: guest?.id ?? null, pwywCents: pwyw, ...common })
+            : await posPayEvent({ bookingId: pick.id, pwywCents: pwyw, ...common });
           setBusy(false);
           if (!r.ok) { setErr(r.error); return; }
           if (mode === 'booked' && checkIn) await posCheckInEvent(pick.id);

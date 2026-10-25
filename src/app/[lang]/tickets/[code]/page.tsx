@@ -11,7 +11,7 @@ import { qrSvg } from '@/lib/qr';
 import { siteBase } from '@/lib/base-url';
 import { currentUser } from '@/lib/auth';
 import { can } from '@/lib/permissions';
-import { retryEventPaymobAction, submitEventWalletAction, confirmAttendanceAction } from '../../events/actions';
+import { retryEventPaymobAction, confirmAttendanceAction } from '../../events/actions';
 import { staffCheckInTicketAction } from '@/app/dashboard/events/actions';
 import { CopyButton } from '@/components/copy-button';
 import { bookingWhatsAppLink } from '@/services/event-admin';
@@ -41,7 +41,6 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
   const firstName = String(b.full_name).split(/\s+/)[0];
   const villaWa = await bookingWhatsAppLink(b.id).catch(() => null);
   const wallets = await getWallets();
-  const ip = wallets.instapay;
   const methods = liveMethods(ev, wallets);
   const walletMethods = (['instapay', 'vodafone_cash'] as const).filter((m) => methods.includes(m));
   const staff = await currentUser().catch(() => null);
@@ -129,25 +128,14 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
                     <button className="btn btn-book" type="submit">{L('Pay now', 'ادفع الآن')}</button>
                   </form>
                 )}
-                {walletMethods.map((m) => (
-                  <form key={m} action={submitEventWalletAction} className="tk-pay-card">
-                    <input type="hidden" name="lang" value={lang} /><input type="hidden" name="code" value={b.ticket_code} /><input type="hidden" name="method" value={m} />
-                    <h3>{m === 'instapay' ? 'InstaPay' : L('Vodafone Cash', 'فودافون كاش')}</h3>
-                    <ol className="tk-steps">
-                      <li>{L('Send', 'حوّل')} <b dir="ltr">{dueNow}</b></li>
-                      {m === 'instapay' && ip.address && <li>{L('To InstaPay address', 'على عنوان InstaPay')} <b dir="ltr" className="sel">{ip.address}</b></li>}
-                      {m === 'instapay' && ip.phone && <li>{L('Or to mobile number', 'أو على رقم')} <b dir="ltr" className="sel">{ip.phone}</b></li>}
-                      {m === 'vodafone_cash' && <li>{L('To Vodafone Cash number', 'على رقم فودافون كاش')} <b dir="ltr" className="sel">{wallets.vodafone_cash.number}</b></li>}
-                      <li>{L('Account name', 'اسم الحساب')}: <b>{m === 'instapay' ? ip.name : wallets.vodafone_cash.name}</b></li>
-                      <li>{L('Upload the receipt here', 'ارفع صورة الإيصال هنا')}</li>
-                    </ol>
-                    {m === 'instapay' && ip.link && <a className="btn btn-line btn-sm" href={ip.link} target="_blank" rel="noopener noreferrer">{L('Open InstaPay link', 'افتح رابط InstaPay')}</a>}
-                    <div className="evb-field"><label htmlFor={`${m}-name`}>{L('Sender name', 'اسم المحوِّل')}</label><input id={`${m}-name`} name="payerName" required minLength={2} maxLength={80} defaultValue={b.full_name} /></div>
-                    <div className="evb-field"><label htmlFor={`${m}-ref`}>{L('Transaction number (if shown)', 'رقم العملية (لو موجود)')}</label><input id={`${m}-ref`} name="payerRef" maxLength={60} dir="ltr" /></div>
-                    <div className="evb-field"><label htmlFor={`${m}-proof`}>{L('Receipt screenshot (required)', 'صورة الإيصال (مطلوبة)')}</label><input id={`${m}-proof`} name="proof" type="file" accept="image/*,application/pdf" required /></div>
-                    <button className="btn btn-primary" type="submit">{L('Send the receipt', 'ابعت الإيصال')}</button>
-                  </form>
-                ))}
+                {/* InstaPay / Vodafone Cash: no receipt upload here; reception sends the number on WhatsApp. */}
+                {walletMethods.length > 0 && (
+                  <div className="tk-pay-card">
+                    <h3>{walletMethods.map((m) => (m === 'instapay' ? 'InstaPay' : L('Vodafone Cash', 'فودافون كاش'))).join(' / ')}</h3>
+                    <p>{L('Send us your booking on WhatsApp; reception replies with the number to transfer to and confirms your ticket.', 'ابعتلنا حجزك على واتساب، والاستقبال هيرد عليك بالرقم اللي تحوّل عليه ويأكد تذكرتك.')}</p>
+                    {villaWa && <a className="btn btn-whatsapp" href={villaWa} target="_blank" rel="noopener noreferrer">{L('Send booking on WhatsApp', 'ابعت الحجز على واتساب')}</a>}
+                  </div>
+                )}
                 {!paymobEnabled(b.currency) && !walletMethods.length && (
                   <div className="tk-pay-card">
                     <p>{L('Online payment isn’t available right now. Message us and we’ll sort it out.', 'الدفع أونلاين غير متاح الآن. راسلنا وهنظبطها.')}</p>

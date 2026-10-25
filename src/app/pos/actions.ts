@@ -291,7 +291,7 @@ export async function posEventTickets(): Promise<ActionResult<any[]>> {
   try { await device(); await cashier(); return { ok: true, data: await unpaidEventTickets() }; } catch (e) { return fail(e); }
 }
 
-export async function posPayEvent(input: { bookingId: string; method: PayMethod; walletRef?: string | null; cardPayer?: { name: string; nationality: string; passport: string } | null; tipMinor?: number; change?: ChangeInput | null }): Promise<ActionResult<any>> {
+export async function posPayEvent(input: { bookingId: string; method: PayMethod; walletRef?: string | null; cardPayer?: { name: string; nationality: string; passport: string } | null; tipMinor?: number; change?: ChangeInput | null; pwywCents?: number }): Promise<ActionResult<any>> {
   try {
     await device();
     const me = await cashier();
@@ -327,7 +327,7 @@ export async function posEventList(): Promise<ActionResult<any[]>> {
   try { await device(); await cashier(); return { ok: true, data: await posEvents() }; } catch (e) { return fail(e); }
 }
 
-export async function posSellEvent(input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: PayMethod; walletRef?: string | null; cardPayer?: { name: string; nationality: string; passport: string } | null; tipMinor?: number; change?: ChangeInput | null; dinner?: boolean }): Promise<ActionResult<any>> {
+export async function posSellEvent(input: { eventId: string; date: string; quantity: number; optionKey?: string | null; fullName: string; phone?: string | null; reservationId?: string | null; method: PayMethod; walletRef?: string | null; cardPayer?: { name: string; nationality: string; passport: string } | null; tipMinor?: number; change?: ChangeInput | null; dinner?: boolean; pwywCents?: number }): Promise<ActionResult<any>> {
   try {
     await device();
     const me = await cashier();

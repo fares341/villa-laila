@@ -47,7 +47,7 @@ export function bookingText(b: any, head = 'حجز فعالية'): string {
     `الاسم: ${b.full_name}`,
     `الموبايل: ${b.phone || '—'}`,
     `الإيميل: ${b.email}`,
-    `الإجمالي: ${money(b.total_cents, b.currency)} · ${b.pay_method === 'cash' ? 'كاش في المكان' : b.pay_method === 'paymob' ? 'بطاقة (Paymob)' : walletLabel(b.pay_method, true)}`,
+    `الإجمالي: ${b.is_hotel_guest ? `نزيل · ادفع اللي تحبه (يتسجل على البي او اس)${Number(b.total_cents) ? ` + ${money(b.total_cents, b.currency)} عشاء` : ''}` : money(b.total_cents, b.currency)} · ${b.pay_method === 'cash' ? 'كاش في المكان' : b.pay_method === 'paymob' ? 'بطاقة (Paymob)' : walletLabel(b.pay_method, true)}`,
     `الحالة: ${STATUS_AR[b.status] ?? b.status}${b.confirmed_at && b.status !== 'cancelled' ? ' · متأكد' : ''}${b.attendance_confirmed_at ? ' · أكد الحضور' : ''}`,
     b.cancel_reason ? `سبب الإلغاء: ${b.cancel_reason}` : '',
   ].filter(Boolean).join('\n');
@@ -66,7 +66,11 @@ export async function bookingWhatsAppLink(bookingId: string): Promise<string> {
   const opt = b.option_key ? (b.options ?? []).find((o: any) => o.key === b.option_key) : null;
   const when = `${dateLabel(b.event_date, ar ? 'ar' : 'en', { weekday: 'long', day: 'numeric', month: 'long' })} · ${timeLabel(b.start_time, ar ? 'ar' : 'en')}`;
   const cur = (c: number) => (ar && b.currency === 'EGP' ? `${(Number(c) / 100).toLocaleString('en-US')} ج.م` : money(c, b.currency));
-  const pay = b.pay_method === 'cash' ? (ar ? 'الدفع في الفيلا' : 'Pay at the villa') : b.pay_method === 'paymob' ? (ar ? 'بطاقة (أونلاين)' : 'Card (online)') : walletLabel(b.pay_method, ar);
+  const pay = b.pay_method === 'cash' ? (ar ? 'كاش في الفيلا' : 'Cash at the villa')
+    : b.pay_method === 'paymob' ? (ar ? 'بطاقة (أونلاين)' : 'Card (online)')
+    : ar ? `${walletLabel(b.pay_method, true)} — ابعتولي الرقم من فضلكم` : `${walletLabel(b.pay_method, false)} — please send me the number`;
+  const guest = !!b.is_hotel_guest;
+  const dinnerTotal = b.dinner ? Number(b.dinner_cents) * Number(b.quantity) : 0;
   const dep = b.deposit_cents != null && Number(b.deposit_cents) < Number(b.total_cents) ? Number(b.deposit_cents) : null;
   const lines = ar ? [
     'مرحباً فيلا ليلى 👋',
@@ -75,8 +79,8 @@ export async function bookingWhatsAppLink(bookingId: string): Promise<string> {
     `• الموعد: ${when}`,
     `• عدد التذاكر: ${b.quantity}`,
     `• عشاء بيتي بجانب المسبح: ${b.dinner ? `نعم (+${cur(Number(b.dinner_cents))} للفرد)` : 'لا'}`,
-    `• الإجمالي: ${cur(Number(b.total_cents))}${dep ? ` (عربون ${cur(dep)} والباقي في الفيلا)` : ''}`,
-    `• طريقة الدفع: ${pay}${b.status === 'pending_verification' ? ' · رفعت الإيصال' : ''}`,
+    guest ? `• سعر التذكرة: نزيل بالفيلا · ادفع اللي تحبه${dinnerTotal ? ` + العشاء ${cur(dinnerTotal)}` : ''}` : `• الإجمالي: ${cur(Number(b.total_cents))}${dep ? ` (عربون ${cur(dep)} والباقي في الفيلا)` : ''}`,
+    `• طريقة الدفع: ${pay}`,
     `• الاسم: ${b.full_name}`,
     `• الهاتف: ${b.phone || '—'}`,
     `• الإيميل: ${b.email}`,
@@ -90,8 +94,8 @@ export async function bookingWhatsAppLink(bookingId: string): Promise<string> {
     `• When: ${when}`,
     `• Tickets: ${b.quantity}`,
     `• Home-cooked dinner by the pool: ${b.dinner ? `Yes (+${cur(Number(b.dinner_cents))} per person)` : 'No'}`,
-    `• Total: ${cur(Number(b.total_cents))}${dep ? ` (deposit ${cur(dep)}, the rest at the villa)` : ''}`,
-    `• Payment: ${pay}${b.status === 'pending_verification' ? ' · receipt uploaded' : ''}`,
+    guest ? `• Ticket: hostel guest · pay what you want${dinnerTotal ? ` + dinner ${cur(dinnerTotal)}` : ''}` : `• Total: ${cur(Number(b.total_cents))}${dep ? ` (deposit ${cur(dep)}, the rest at the villa)` : ''}`,
+    `• Payment: ${pay}`,
     `• Name: ${b.full_name}`,
     `• Phone: ${b.phone || '—'}`,
     `• Email: ${b.email}`,

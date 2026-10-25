@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { bookEventAction } from '../actions';
+import { MealLink, MealModal } from './meal-modal';
 
 type DateChip = { date: string; label: string; sub: string; left: number | null };
 type Method = 'paymob' | 'instapay' | 'vodafone_cash' | 'cash';
@@ -26,7 +27,7 @@ export function EventBooker(props: {
   lang: string; slug: string; dates: DateChip[]; initialDate: string;
   options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; depositCents?: number | null; dinnerCents?: number | null; currency: string; methods: Method[]; wallets?: WalletInfo;
 }) {
-  const { lang, slug, dates, options, priceCents, guestPriceCents, depositCents = null, dinnerCents = null, currency, methods, wallets } = props;
+  const { lang, slug, dates, options, priceCents, depositCents = null, dinnerCents = null, currency, methods } = props;
   const ar = lang === 'ar';
   const [date, setDate] = useState(props.initialDate);
   const [showAll, setShowAll] = useState(() => dates.findIndex((d) => d.date === props.initialDate) >= 6);
@@ -34,15 +35,19 @@ export function EventBooker(props: {
   const [option, setOption] = useState(options[0]?.key ?? '');
   const [hotelGuest, setHotelGuest] = useState(false);
   const [dinner, setDinner] = useState(false);
+  const [mealOpen, setMealOpen] = useState(false);
+  const closeMeal = useCallback(() => setMealOpen(false), []);
+  const isMealOption = (label: string) => /عشاء|dinner|meal|وجبة/i.test(label);
   const [method, setMethod] = useState<Method>(methods[0]);
 
   const left = dates.find((d) => d.date === date)?.left ?? null;
   const maxQty = Math.max(1, Math.min(20, left ?? 20));
-  const unit = hotelGuest && guestPriceCents != null ? guestPriceCents : priceCents;
+  // Hostel guests: the ticket is pay what you want (at the villa); only the dinner, if chosen, has a price.
+  const unit = hotelGuest ? 0 : priceCents;
   const dinnerEach = dinner && dinnerCents != null && dinnerCents > 0 ? dinnerCents : 0;
   const total = (unit + dinnerEach) * Math.min(qty, maxQty);
   // Deposit events: only the deposit is sent now by InstaPay / Vodafone Cash; the rest is paid at the villa.
-  const deposit = depositCents && (method === 'instapay' || method === 'vodafone_cash') ? Math.min(total, depositCents * Math.min(qty, maxQty)) : null;
+  const deposit = !hotelGuest && depositCents && (method === 'instapay' || method === 'vodafone_cash') ? Math.min(total, depositCents * Math.min(qty, maxQty)) : null;
   const chosen = useMemo(() => dates.find((d) => d.date === date), [dates, date]);
 
   const M: Record<Method, { t: string; d: string; icon: React.ReactNode }> = {
@@ -53,12 +58,12 @@ export function EventBooker(props: {
     },
     instapay: {
       t: 'InstaPay',
-      d: ar ? 'حوّل على حساب InstaPay بتاعنا وارفع صورة الإيصال. بنأكد الحجز أول ما نراجع التحويل.' : 'Send the amount to our InstaPay account and upload the receipt. We confirm your booking as soon as we check it.',
+      d: ar ? 'بعد ما تبعت رسالة الحجز على واتساب، الاستقبال هيبعتلك رقم InstaPay تحوّل عليه.' : 'After you send the booking message on WhatsApp, reception sends you the InstaPay details.',
       icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg>,
     },
     vodafone_cash: {
       t: ar ? 'فودافون كاش' : 'Vodafone Cash',
-      d: ar ? 'حوّل على رقم فودافون كاش بتاعنا وارفع صورة الإيصال. بنأكد الحجز أول ما نراجع التحويل.' : 'Send the amount to our Vodafone Cash number and upload the receipt. We confirm your booking as soon as we check it.',
+      d: ar ? 'بعد ما تبعت رسالة الحجز على واتساب، الاستقبال هيبعتلك رقم فودافون كاش تحوّل عليه.' : 'After you send the booking message on WhatsApp, reception sends you the Vodafone Cash number.',
       icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><rect x="6" y="2.5" width="12" height="19" rx="2.5" /><path d="M10.5 18.5h3" /></svg>,
     },
     cash: {
@@ -123,11 +128,16 @@ export function EventBooker(props: {
             ))}
           </div>
         )}
-        {guestPriceCents != null && (
-          <label className="evb-check">
-            <input type="checkbox" name="hotelGuest" checked={hotelGuest} onChange={(e) => setHotelGuest(e.target.checked)} />
-            <span>{ar ? `أنا مقيم في فيلا ليلى (سعر النزلاء ${fmt(guestPriceCents, currency, ar)})` : `I’m staying at Villa Layla (guest price ${fmt(guestPriceCents, currency, ar)})`}</span>
-          </label>
+        {options.some((o) => isMealOption(o.label)) && !(dinnerCents != null && dinnerCents > 0) && <MealLink ar={ar} onOpen={() => setMealOpen(true)} />}
+        <label className="evb-check">
+          <input type="checkbox" name="hotelGuest" checked={hotelGuest} onChange={(e) => setHotelGuest(e.target.checked)} />
+          <span>{ar ? 'أنا نازل في فيلا ليلى · التذكرة «ادفع اللي تحبه»' : 'I’m staying at Villa Layla · ticket is “pay what you want”'}</span>
+        </label>
+        {hotelGuest && (
+          <div className="evb-field">
+            <label htmlFor="evb-stay">{ar ? 'رقم حجز الإقامة' : 'Your booking reference'}</label>
+            <input id="evb-stay" name="stayRef" required placeholder="VL-XXXXXX" dir="ltr" autoCapitalize="characters" maxLength={20} />
+          </div>
         )}
         {dinnerCents != null && dinnerCents > 0 && (
           <label className={`evb-addon ${dinner ? 'on' : ''}`}>
@@ -142,12 +152,8 @@ export function EventBooker(props: {
             <span className="evb-addon-p num" dir="ltr">+{fmt(dinnerCents, currency, ar)}</span>
           </label>
         )}
-        {hotelGuest && (
-          <div className="evb-field">
-            <label htmlFor="evb-stay">{ar ? 'رقم حجز الإقامة' : 'Your booking reference'}</label>
-            <input id="evb-stay" name="stayRef" required placeholder="VL-XXXXXX" dir="ltr" autoCapitalize="characters" maxLength={20} />
-          </div>
-        )}
+        {dinnerCents != null && dinnerCents > 0 && <MealLink ar={ar} onOpen={() => setMealOpen(true)} />}
+        {mealOpen && <MealModal ar={ar} priceLabel={dinnerCents ? fmt(dinnerCents, currency, ar) : null} onClose={closeMeal} />}
       </fieldset>
 
       <fieldset className="evb-step">
@@ -171,34 +177,28 @@ export function EventBooker(props: {
             </label>
           ))}
         </div>
-        {(method === 'instapay' || method === 'vodafone_cash') && wallets && (
+        {(method === 'instapay' || method === 'vodafone_cash') && (
           <div className="evb-wallet">
-            {deposit != null && deposit < total && <p className="evb-fine"><b>{ar ? 'عربون فقط الآن' : 'Deposit only now'}</b>: {fmt(deposit, currency, ar)} · {ar ? 'الباقي' : 'the rest'} {fmt(total - deposit, currency, ar)} {ar ? 'تدفعه في الفيلا' : 'is paid at the villa'}.</p>}
-            <p className="evb-wallet-h">{ar ? 'حوّل' : 'Send'} <b dir="ltr">{fmt(deposit ?? total, currency, ar)}</b> {method === 'instapay' ? (ar ? 'على InstaPay:' : 'by InstaPay to:') : (ar ? 'على فودافون كاش:' : 'by Vodafone Cash to:')}</p>
-            <dl>
-              {method === 'instapay' && wallets.instapay.address && <div><dt>{ar ? 'العنوان' : 'Address'}</dt><dd dir="ltr" className="sel">{wallets.instapay.address}</dd></div>}
-              {method === 'instapay' && wallets.instapay.phone && <div><dt>{ar ? 'الرقم' : 'Number'}</dt><dd dir="ltr" className="sel">{wallets.instapay.phone}</dd></div>}
-              {method === 'vodafone_cash' && <div><dt>{ar ? 'الرقم' : 'Number'}</dt><dd dir="ltr" className="sel">{wallets.vodafone_cash.number}</dd></div>}
-              <div><dt>{ar ? 'باسم' : 'Name'}</dt><dd>{method === 'instapay' ? wallets.instapay.name : wallets.vodafone_cash.name}</dd></div>
-            </dl>
-            {method === 'instapay' && wallets.instapay.link && <a className="btn btn-line btn-sm" href={wallets.instapay.link} target="_blank" rel="noopener noreferrer">{ar ? 'افتح رابط InstaPay' : 'Open InstaPay link'}</a>}
-            <div className="evb-field">
-              <label htmlFor="evb-proof">{ar ? 'صورة الإيصال' : 'Receipt screenshot'}</label>
-              <input id="evb-proof" name="proof" type="file" accept="image/*,application/pdf" required />
-            </div>
-            <div className="evb-field">
-              <label htmlFor="evb-ref">{ar ? 'رقم العملية (لو موجود)' : 'Transaction number (if shown)'}</label>
-              <input id="evb-ref" name="payerRef" dir="ltr" maxLength={60} />
-            </div>
-            <p className="evb-fine">{ar ? 'الحجز بيتأكد بعد ما نراجع التحويل، وبيوصلك تأكيد على واتساب.' : 'Your booking is confirmed once we check the transfer, and you get the confirmation on WhatsApp.'}</p>
+            {deposit != null && deposit < total && <p className="evb-fine"><b>{ar ? 'عربون فقط' : 'Deposit only'}</b>: {fmt(deposit, currency, ar)} · {ar ? 'الباقي' : 'the rest'} {fmt(total - deposit, currency, ar)} {ar ? 'تدفعه في الفيلا' : 'is paid at the villa'}.</p>}
+            <p className="evb-fine">{ar ? `مفيش تحويل دلوقتي: بعد تأكيد الحجز هتتحول لواتساب الفيلا، والاستقبال هيرد عليك برقم ${method === 'instapay' ? 'InstaPay' : 'فودافون كاش'} والمبلغ.` : `Nothing to transfer now: after you confirm, you go to the villa’s WhatsApp and reception replies with the ${method === 'instapay' ? 'InstaPay' : 'Vodafone Cash'} details and the amount.`}</p>
           </div>
         )}
       </fieldset>
 
       <div className="evb-sum">
         <div>
-          <small>{chosen ? `${chosen.label} · ${Math.min(qty, maxQty)} × ${fmt(unit + dinnerEach, currency, ar)}` : ''}{dinnerEach > 0 ? (ar ? ' · شامل العشاء' : ' · dinner included') : ''}</small>
-          <b className="num" dir="ltr">{fmt(total, currency, ar)}</b>
+          {hotelGuest ? (
+            <>
+              <small>{chosen ? `${chosen.label} · ${Math.min(qty, maxQty)} ${ar ? 'تذكرة' : 'ticket(s)'}` : ''}{ar ? ' · نزيل الفيلا' : ' · hostel guest'}</small>
+              <b className="evb-pwyw">{ar ? 'ادفع اللي تحبه' : 'Pay what you want'}</b>
+              {dinnerEach > 0 && <small className="evb-pwyw-dinner">{ar ? `+ العشاء ${fmt(total, currency, ar)} (لـ ${Math.min(qty, maxQty)} ${Math.min(qty, maxQty) === 1 ? 'فرد' : 'أفراد'})` : `+ dinner ${fmt(total, currency, ar)} (${Math.min(qty, maxQty)} × ${fmt(dinnerEach, currency, ar)})`}</small>}
+            </>
+          ) : (
+            <>
+              <small>{chosen ? `${chosen.label} · ${Math.min(qty, maxQty)} × ${fmt(unit + dinnerEach, currency, ar)}` : ''}{dinnerEach > 0 ? (ar ? ' · شامل العشاء' : ' · dinner included') : ''}</small>
+              <b className="num" dir="ltr">{fmt(total, currency, ar)}</b>
+            </>
+          )}
           {deposit != null && deposit < total && <small>{ar ? `الآن ${fmt(deposit, currency, ar)} · في الفيلا ${fmt(total - deposit, currency, ar)}` : `Now ${fmt(deposit, currency, ar)} · at the villa ${fmt(total - deposit, currency, ar)}`}</small>}
         </div>
         <Submit
@@ -213,7 +213,7 @@ export function EventBooker(props: {
           {ar ? ' والرسالة جاهزة ببياناتك، اضغط إرسال فقط.' : ' with a ready message — just press send.'}
         </p>
       )}
-      <p className="evb-fine">{ar ? 'بالضغط على الحجز توافق على سياسات فيلا ليلى. تذكرتك تُرسل لك بعد الدفع ويمكنك فتحها في أي وقت من الرابط.' : 'By booking you agree to Villa Layla’s policies. Your ticket opens right after payment and stays available from its link.'}</p>
+      <p className="evb-fine">{ar ? 'بالضغط على تأكيد الحجز توافق على سياسات فيلا ليلى. تذكرتك ورابطها بيوصلوك في رسالة واتساب.' : 'By booking you agree to Villa Layla’s policies. Your ticket link is in the WhatsApp message.'}</p>
     </form>
   );
 }

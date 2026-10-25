@@ -5,7 +5,7 @@ import { upcomingDates, isBookableDate, type Schedule } from '@/lib/event-dates'
 import { BookingError } from './errors';
 import { audit } from './audit';
 import { paymobEnabled } from './paymob';
-import { getWallets, walletOn, type Wallets } from './wallets';
+import { getWallets, type Wallets } from './wallets';
 
 export type Loc = { en?: string; ar?: string; [k: string]: string | undefined };
 export type EventOption = { key: string; en: string; ar: string };
@@ -24,9 +24,14 @@ export const tr = (v: Loc | null | undefined, lang: string) => (v ? v[lang] || v
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const makeTicketCode = () => 'EV-' + Array.from({ length: 6 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
 
-/** Payment methods this event accepts that are actually switched on right now. */
+/**
+ * Payment methods this event accepts that are actually switched on right now.
+ * InstaPay / Vodafone Cash only need to be switched on (EGP): the guest books, goes to WhatsApp, and reception sends the
+ * number there, so no account details have to be on the website.
+ */
 export function liveMethods(ev: Pick<EventRow, 'pay_methods' | 'currency'>, w: Wallets): PayMethod[] {
-  return ev.pay_methods.filter((m) => (m === 'paymob' ? paymobEnabled(ev.currency) : m === 'instapay' || m === 'vodafone_cash' ? walletOn(w, m, ev.currency) : m === 'cash'));
+  const egp = (ev.currency || 'EGP').toUpperCase() === 'EGP';
+  return ev.pay_methods.filter((m) => (m === 'paymob' ? paymobEnabled(ev.currency) : m === 'instapay' ? egp && w.instapay.enabled : m === 'vodafone_cash' ? egp && w.vodafone_cash.enabled : m === 'cash'));
 }
 
 function toPublic(e: EventRow, w: Wallets, now = new Date()): PublicEvent {
@@ -126,17 +131,18 @@ export async function createEventBooking(input: EventBookingInput) {
       optionKey = opt.key;
     }
 
-    // Guest price only for a real stay reference that covers the event date.
+    // Hostel guests (a real stay that covers the event date): pay what you want, at the villa. No fixed ticket price
+    // online; only the dinner add-on, if chosen, has a price.
     let unit = ev.price_cents;
     let isGuest = false;
     let stayRef: string | null = null;
-    if (input.isHotelGuest && ev.guest_price_cents != null) {
+    if (input.isHotelGuest) {
       stayRef = (input.stayReference || '').trim().toUpperCase();
       const stay = (await c.query(
         `SELECT 1 FROM reservations WHERE reference=$1 AND status IN ('pending','confirmed','checked_in') AND check_in <= $2::date AND check_out >= $2::date`,
         [stayRef, input.date])).rows[0];
       if (!stay) throw new BookingError('INVALID_INPUT', 'stay_reference');
-      unit = ev.guest_price_cents;
+      unit = 0;
       isGuest = true;
     }
 
@@ -149,9 +155,9 @@ export async function createEventBooking(input: EventBookingInput) {
     // Dinner add-on: (ticket + dinner) × people. The ticket price stays in unit_price_cents; dinner is kept apart for the kitchen.
     const dinnerEach = input.dinner && ev.dinner_cents != null && Number(ev.dinner_cents) > 0 ? Number(ev.dinner_cents) : 0;
     const total = (unit + dinnerEach) * qty;
-    const status = input.payMethod === 'cash' || total === 0 ? 'pay_on_site' : 'awaiting_payment';
+    const status = input.payMethod === 'cash' || total === 0 || isGuest ? 'pay_on_site' : 'awaiting_payment';
     // Deposit events: InstaPay / Vodafone Cash ask only the deposit now; the rest is paid at the villa (POS).
-    const deposit = ev.deposit_cents && (input.payMethod === 'instapay' || input.payMethod === 'vodafone_cash') ? Math.min(total, Number(ev.deposit_cents) * qty) : null;
+    const deposit = !isGuest && ev.deposit_cents && (input.payMethod === 'instapay' || input.payMethod === 'vodafone_cash') ? Math.min(total, Number(ev.deposit_cents) * qty) : null;
     const holdMin = status === 'awaiting_payment' ? HOLD_MIN[input.payMethod] : null;
     let code = makeTicketCode();
     for (let i = 0; i < 5; i++) {
