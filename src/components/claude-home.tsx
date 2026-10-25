@@ -1093,7 +1093,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
 
                     <div className="ttl">
                       <h3>{r.name}</h3>
-                      <span className="ar-name">{r.ar}</span>
+                      {!isAr && <span className="ar-name">{r.ar}</span>}
                     </div>
 
                     <p className="desc">{r.desc}</p>
@@ -1163,7 +1163,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
                 <div>
                   <span className="kicker">{modalRoom.perBed ? modalRoom.tag : (isAr ? 'غرفة خاصة' : 'Private room')}</span>
                   <h3>{modalRoom.name}</h3>
-                  <div className="ar-font text-bronze text-xl mt-1">{modalRoom.ar}</div>
+                  {!isAr && <div className="ar-font text-bronze text-xl mt-1">{modalRoom.ar}</div>}
                 </div>
 
                 <p style={{ color: 'var(--color-text-secondary)' }}>{modalRoom.desc}</p>
