@@ -239,7 +239,10 @@ export function ClaudeFooter({ lang }: { lang: string }) {
             </p>
             <div className="foot-rates">
               <span className="foot-rate">
-                <b>9.9</b>Hostelworld
+                <b>9.5</b>Booking.com
+              </span>
+              <span className="foot-rate">
+                <b>9.8</b>Hostelworld
               </span>
             </div>
             <div className="foot-ctas">

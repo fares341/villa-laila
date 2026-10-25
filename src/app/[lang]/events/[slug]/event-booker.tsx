@@ -15,11 +15,12 @@ const fmt = (cents: number, cur: string, ar: boolean) => {
   return ar && cur === 'EGP' ? `${v} ج.م` : `${cur} ${v}`;
 };
 
-function Submit({ label, busy }: { label: string; busy: string }) {
+function Submit({ label, busy, loading }: { label: string; busy: string; loading?: boolean }) {
   const { pending } = useFormStatus();
+  const isBusy = pending || loading;
   return (
-    <button type="submit" className={`btn btn-book evb-submit ${pending ? 'loading' : ''}`} disabled={pending} aria-busy={pending}>
-      {pending ? busy : label}
+    <button type="submit" className={`btn btn-book evb-submit ${isBusy ? 'loading' : ''}`} disabled={isBusy} aria-busy={isBusy}>
+      {isBusy ? busy : label}
     </button>
   );
 }
@@ -37,6 +38,77 @@ export function EventBooker(props: {
   const [hotelGuest, setHotelGuest] = useState(false);
   const [pwywStr, setPwywStr] = useState('');
   const [dinner, setDinner] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    if (method === 'paymob') return; // Paymob checkout runs via server action
+
+    e.preventDefault();
+    if (submitting) return;
+
+    const form = e.currentTarget;
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    setSubmitting(true);
+    const fd = new FormData(form);
+
+    const buildFallbackWa = () => {
+      const num = '201040551515';
+      const optObj = options.find((o) => o.key === option);
+      const optText = optObj ? ` (${optObj.label})` : '';
+      const when = chosen ? `${chosen.label} (${date})` : date;
+      const payLabel = method === 'cash' ? (ar ? 'كاش في المكان' : 'Cash at the villa')
+        : method === 'instapay' ? 'InstaPay'
+        : method === 'vodafone_cash' ? (ar ? 'فودافون كاش' : 'Vodafone Cash') : method;
+      const lines = (ar ? [
+        'مرحباً فيلا ليلى 👋',
+        'أرغب في تأكيد حجز فعالية:',
+        `• الفعالية: ${slug}${optText}`,
+        `• الموعد: ${when}`,
+        `• عدد التذاكر: ${n}`,
+        `• العشاء: ${dinner ? `نعم (${n} وجبة)` : 'لا'}`,
+        hotelGuest ? `• نزيل بالفيلا · ادفع اللي تحبه${pwyw != null ? ` · سأدفع ${fmt(pwyw, currency, ar)}` : ''}` : '',
+        `• الإجمالي: ${fmt(grand, currency, ar)}`,
+        `• طريقة الدفع: ${payLabel}`,
+        `• الاسم: ${String(fd.get('fullName') || '')}`,
+        `• الموبايل: ${String(fd.get('phone') || '')}`,
+        `• الإيميل: ${String(fd.get('email') || '')}`,
+      ] : [
+        'Hello Villa Layla 👋',
+        'I would like to confirm an event booking:',
+        `• Event: ${slug}${optText}`,
+        `• When: ${when}`,
+        `• Tickets: ${n}`,
+        `• Dinner: ${dinner ? `Yes (${n} meal)` : 'No'}`,
+        hotelGuest ? `• Hostel guest · pay what you want${pwyw != null ? ` · I will pay ${fmt(pwyw, currency, ar)}` : ''}` : '',
+        `• Total: ${fmt(grand, currency, ar)}`,
+        `• Payment: ${payLabel}`,
+        `• Name: ${String(fd.get('fullName') || '')}`,
+        `• Phone: ${String(fd.get('phone') || '')}`,
+        `• Email: ${String(fd.get('email') || '')}`,
+      ]).filter(Boolean).join(String.fromCharCode(10));
+      return `https://wa.me/${num}?text=${encodeURIComponent(lines)}`;
+    };
+
+    try {
+      const res = await fetch('/api/events/book', {
+        method: 'POST',
+        body: fd,
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok && data?.waUrl) {
+        window.location.href = data.waUrl;
+        return;
+      }
+    } catch (err) {
+      console.error('[Event booking submit error]:', err);
+    }
+
+    window.location.href = buildFallbackWa();
+  };
   const [mealOpen, setMealOpen] = useState(false);
   const closeMeal = useCallback(() => setMealOpen(false), []);
   const isMealOption = (label: string) => /عشاء|dinner|meal|وجبة/i.test(label);
@@ -105,7 +177,7 @@ export function EventBooker(props: {
   };
 
   return (
-    <form action={bookEventAction} className="evb">
+    <form action={bookEventAction} onSubmit={handleSubmit} className="evb">
       <input type="hidden" name="lang" value={lang} />
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="date" value={date} />
@@ -248,7 +320,8 @@ export function EventBooker(props: {
         </div>
         <Submit
           label={method === 'paymob' ? (ar ? 'ادفع واحصل على التذكرة' : 'Pay & get ticket') : (ar ? 'تأكيد الحجز عبر واتساب' : 'Confirm booking on WhatsApp')}
-          busy={ar ? 'جارٍ الحجز…' : 'Booking…'}
+          busy={ar ? 'جارٍ تحويلك لواتساب…' : 'Connecting to WhatsApp…'}
+          loading={submitting}
         />
       </div>
       {method !== 'paymob' && (

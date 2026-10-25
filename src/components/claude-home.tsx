@@ -872,7 +872,10 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
           <div className="hero-foot">
             <div className="scores">
               <span className="score">
-                <b>9.9</b>Hostelworld
+                <b>9.5</b>Booking.com
+              </span>
+              <span className="score">
+                <b>9.8</b>Hostelworld
               </span>
               <span className="score" style={{ paddingInlineStart: '12px' }}>
                 {isAr ? 'أفضل سعر مضمون عند الحجز المباشر' : 'Best rate when you book direct'}
