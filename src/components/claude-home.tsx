@@ -588,53 +588,64 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
 
   const TOURS = [
     {
-      name: isAr ? 'أهرامات الجيزة والمتحف المصري الكبير' : 'Giza Pyramids + Grand Egyptian Museum',
-      dur: isAr ? '٦–٨ ساعات' : '6–8 hrs',
+      name: isAr ? 'أهرامات الجيزة وسقارة وميت رهينة' : 'Pyramids of Giza, Saqqara & Memphis',
+      dur: isAr ? '٧–٨ ساعات · تبدأ 8:30 ص' : '7–8 hrs · Starts 8:30 AM',
       tag: isAr ? 'الأكثر طلباً' : 'Most booked',
       img: '/photos/gallery_and_hostel/grand.avif',
-      incl: isAr ? ['مرشد مصريات مرخص', 'سيارة خاصة مكيفة', 'أبو الهول والبانوراما'] : ['Egyptologist guide', 'A/C transport', 'Sphinx'],
+      incl: isAr
+        ? ['أهرامات الجيزة الثلاثة وأبو الهول والبانوراما', 'سقارة وهرم زوسر وهرم تيتي وأوناس (دخول أوناس مجاناً)', 'ميت رهينة أول عاصمة لمصر ومتحف رمسيس الثاني المفتوح', 'سيارة خاصة مكيفة وانتقالات كاملة من الفيلا']
+        : ['Three Pyramids of Giza & Great Sphinx', 'Saqqara step pyramid, Titi & Unas (Free entry to Unas!)', 'Memphis & open-air King Ramses II museum', 'Private A/C transport & pickup from villa'],
+      excl: isAr ? 'لا يشمل: تذاكر دخول المزارات' : 'Exclude: The entrance fees',
     },
     {
-      name: isAr ? 'سفاري الصحراء السوداء والبيضاء' : 'Black & White Desert Safari',
+      name: isAr ? 'سفاري الصحراء السوداء والبيضاء' : 'The Black & White Desert Safari',
       dur: isAr ? 'يومان / ليلة واحدة' : '2 days / 1 night',
-      tag: isAr ? 'مغامرة' : 'Adventure',
+      tag: isAr ? 'مغامرة وتخييم' : 'Adventure & Camping',
       img: '/photos/gallery_and_hostel/white-dessert-egypt.png',
-      incl: isAr ? ['سيارات دفع رباعي 4x4', 'تخييم وعشاء بدوي', 'رصد النجوم'] : ['4WD', 'Camping & meals', 'Stargazing'],
+      incl: isAr
+        ? ['انتقال مبكر للواحات البحرية والغداء بالقرية', 'سفاري جيب 4x4 للصحراء السوداء وجبل الكريستال وصخور المشروم', 'كثبان العقبات وتزلج الرمال والعيون الكبريتية الحارة والباردة', 'تخييم كامل بالصحراء البيضاء الجديدة مع عشاء المشويات والإفطار']
+        : ['Early morning pickup to Bahariya oasis & village lunch', '4x4 Jeep to Black Desert, Crystal Mountain & Mushroom rocks', 'Agabat sand dunes, sandboarding & cold/hot springs', 'Camping at New White Desert with BBQ dinner & breakfast'],
+      excl: isAr ? 'لا يشمل: تذاكر الدخول' : 'Exclude: The entrance fees',
     },
     {
-      name: isAr ? 'مغامرة واحة الفيوم وبحيرة قارون' : 'Fayoum Oasis Adventure',
-      dur: isAr ? '١٠ ساعات' : '10 hrs',
-      tag: isAr ? 'طبيعة' : 'Nature',
-      img: '/photos/gallery_and_hostel/white-dessert-safari-package-holiday-tours.png',
-      incl: isAr ? ['وادي الريان وشلالاته', 'البحيرة المسحورة', 'وادي الحيتان'] : ['Wadi El Rayan', 'Magic Lake', 'Valley of Whales'],
-    },
-    {
-      name: isAr ? 'سقارة وميت رهينة وهرم زوسر' : 'Saqqara & Memphis',
-      dur: isAr ? '٦–٨ ساعات' : '6–8 hrs',
-      tag: isAr ? 'تاريخ' : 'History',
-      img: '/photos/gallery_and_hostel/Sakkara_Image-by-DEZALB-from-Pixabay.jpg',
-      incl: isAr ? ['الهرم المدرج', 'تمثال رمسيس الثاني', 'سيارة خاصة مكيفة'] : ['Step Pyramid', 'Ramses II Colossus', 'Private A/C car'],
-    },
-    {
-      name: isAr ? 'القاهرة الإسلامية والقبطية وخان الخليلي' : 'Islamic & Coptic Cairo',
-      dur: isAr ? '٦–٧ ساعات' : '6–7 hrs',
-      tag: isAr ? 'ثقافة وتراث' : 'Culture',
-      img: '/photos/gallery_and_hostel/Sultan_Hassan_Mosque___Madrasa.jpg',
-      incl: isAr ? ['جامع السلطان حسن', 'الكنيسة المعلقة', 'شارع المعز'] : ['Sultan Hassan Mosque', 'Hanging Church', 'El Moez St'],
-    },
-    {
-      name: isAr ? 'الإسكندرية عروس البحر المتوسط' : 'Alexandria from Cairo',
+      name: isAr ? 'الإسكندرية عروس البحر المتوسط' : 'Alexandria Day Trip',
       dur: isAr ? 'يوم كامل' : 'Full day',
-      tag: isAr ? 'رحلة يومية' : 'Day trip',
+      tag: isAr ? 'رحلة ساحلية' : 'Day trip',
       img: '/photos/gallery_and_hostel/Qaitbay_Citadel.jpg',
-      incl: isAr ? ['قلعة قايتباي', 'مكتبة الإسكندرية', 'المقابر الرومانية'] : ['Qaitbay Citadel', 'Alexandria Library', 'Catacombs'],
+      incl: isAr
+        ? ['مكتبة الإسكندرية الصرح الثقافي العالمي', 'مقابر كوم الشقافة الرومانية التاريخية', 'قلعة قايتباي الأثرية على البحر مباشرة', 'عمود السواري وسيارة خاصة مكيفة وانتقالات مريحة']
+        : ['Bibliotheca Alexandrina (Alexandria Library)', 'Catacombs of Kom El Shoqafa', 'Historic Citadel of Qaitbay by the sea', 'Pompey’s Pillar & comfortable private A/C car'],
+      excl: isAr ? 'لا يشمل: تذاكر الدخول' : 'Exclude: Entrance fees',
     },
     {
-      name: isAr ? 'عشاء فاخر في رحلة نيلية مسائية' : 'Evening Nile Dinner Cruise',
-      dur: isAr ? '٣–٤ ساعات' : '3–4 hrs',
-      tag: isAr ? 'سهرة نيلية' : 'Evening',
+      name: isAr ? 'سهرة العشاء النيلي الفاخر' : 'Nile Dinner Cruise',
+      dur: isAr ? 'ساعتان إبحار' : '2 hours',
+      tag: isAr ? 'سهرة نيلية' : 'Evening cruise',
       img: '/photos/gallery_and_hostel/cairo-city.jpg',
-      incl: isAr ? ['بوفيه عشاء مفتوح', 'عروض تنورة وفولكلور', 'انتقالات ذهاب وعودة'] : ['Dinner buffet', 'Folk show', 'Transfers'],
+      incl: isAr
+        ? ['إبحار ساعتان في النيل مع بوفيه عشاء مفتوح فاخر', 'موسيقى حية وتخت شرقي أصيل', 'عروض تنورة صوفية ورقص شرقي فلكلوري', 'شاملة تذاكر الدخول وسيارة خاصة مع سائق ذهاباً وإياباً']
+        : ['2-hour Nile cruise with luxury open buffet dinner', 'Live oriental music performance', 'Authentic Sufi Tanoura dance & belly dance show', 'Entrance fees and private car with driver included'],
+      excl: isAr ? 'لا يشمل: المشروبات والمياه' : 'Exclude: Drinks and water',
+    },
+    {
+      name: isAr ? 'جولة القاهرة القديمة ومتحف الحضارة' : 'Old Cairo & Civilization Museum Tour',
+      dur: isAr ? 'يوم كامل' : 'Full day tour',
+      tag: isAr ? 'تاريخ وتراث' : 'Heritage & History',
+      img: '/photos/gallery_and_hostel/Sultan_Hassan_Mosque___Madrasa.jpg',
+      incl: isAr
+        ? ['القاهرة القبطية: كنيسة المغارة (أبي سرجة) والكنيسة المعلقة', 'القاهرة الإسلامية: قلعة صلاح الدين الأيوبي وجامع محمد علي', 'المتحف القومي للحضارة المصرية (NMEC) وقاعة المومياوات', 'سيارة خاصة مكيفة مع مرشد سياحي وانتقالات الفندق']
+        : ['Coptic: The Cavern Church (Abu Serga) & The Hanging Church', 'Islamic: Citadel of Salah El Din & Mohamed Ali Mosque', 'National Museum of Egyptian Civilization (NMEC)', 'Private A/C vehicle & licensed guide'],
+      excl: isAr ? 'لا يشمل: تذاكر الدخول' : 'Exclude: Entrance fees',
+    },
+    {
+      name: isAr ? 'مغامرة واحة الفيوم وسفاري وادي الحيتان' : 'Fayoum Oasis & Safari Day Trip',
+      dur: isAr ? 'يوم كامل' : 'Day trip',
+      tag: isAr ? 'طبيعة وسفاري' : 'Nature & Safari',
+      img: '/photos/gallery_and_hostel/fayoum-magic-lake.jpg',
+      incl: isAr
+        ? ['وادي الريان والشلالات وجبل المدورة البانورامي', 'تزلج على الرمال الناعمة في الكثبان الذهبية (Sandboarding)', 'سفاري وادي الحيتان (موقع تراث عالمي) والبحيرة المسحورة', 'زيارة قرية تونس ومدارس الفخار التقليدية + وجبة غداء طازجة']
+        : ['Wadi El Rayan waterfalls & panoramic Mudawara hills', 'Sandboarding on golden desert dunes', 'Safari to Valley of Whales (Wadi El Hitan) & Magic Lake', 'Tunis Village & pottery schools visit + Fresh local Lunch'],
+      excl: isAr ? 'لا يشمل: تذاكر الدخول' : 'Exclude: Entrance fees',
     },
   ];
 
@@ -1259,17 +1270,22 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
                       <li key={k}>{item}</li>
                     ))}
                   </ul>
-                  <div className="row">
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                      {isAr ? 'السعر عند الطلب' : 'Price on request'}
+                  {t.excl && (
+                    <div style={{ fontSize: '12px', color: '#b91c1c', fontWeight: 600, marginTop: '8px', padding: '4px 8px', background: '#fef2f2', borderRadius: '6px' }}>
+                      {t.excl}
+                    </div>
+                  )}
+                  <div className="row" style={{ marginTop: '12px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+                      {isAr ? 'الأسعار عبر واتساب الاستقبال' : 'Inquire on WhatsApp'}
                     </span>
                     <a
                       className="btn btn-wa btn-sm"
-                      href={wa(isAr ? `استفسار عن رحلة ${t.name}` : `Inquiry for ${t.name}`)}
+                      href={wa(isAr ? `مرحباً، أود الاستفسار عن موعد وسعر رحلة: ${t.name}` : `Hello, I’d like to inquire about dates and price for: ${t.name}`)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      {isAr ? 'اسأل واتساب' : 'Ask on WhatsApp'}
+                      {isAr ? 'احجز عبر واتساب' : 'Book on WhatsApp'}
                     </a>
                   </div>
                 </div>
