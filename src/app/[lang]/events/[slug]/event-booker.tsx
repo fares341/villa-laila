@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { bookEventAction } from '../actions';
-import { MealLink, MealModal, type DayMeal } from './meal-modal';
+import { MealLink, MealModal, DATE_EVENT, type DayMeal } from './meal-modal';
 
 type DateChip = { date: string; label: string; sub: string; left: number | null };
 type Method = 'paymob' | 'instapay' | 'vodafone_cash' | 'cash';
@@ -53,6 +53,8 @@ export function EventBooker(props: {
   // Weekly menu: the dishes of the chosen date's weekday (0 = Sunday).
   const dayMeal = date ? menu[new Date(date + 'T12:00:00Z').getUTCDay()] ?? null : null;
   const dayName = chosen?.label ?? null;
+  // The meal card beside the booking box shows the chosen date's meal.
+  useEffect(() => { if (date) window.dispatchEvent(new CustomEvent(DATE_EVENT, { detail: date })); }, [date]);
 
   const M: Record<Method, { t: string; d: string; icon: React.ReactNode }> = {
     paymob: {
@@ -138,7 +140,6 @@ export function EventBooker(props: {
           <span>{ar ? 'أنا نازل في فيلا ليلى · التذكرة «ادفع اللي تحبه»' : 'I’m staying at Villa Layla · ticket is “pay what you want”'}</span>
         </label>
         {hotelGuest && <p className="evb-fine">{ar ? 'بنتأكد إنك نازل عندنا في الفيلا بالاسم والرقم. التذكرة بتدفع فيها اللي تحبه، والعشاء بسعره العادي.' : 'We check your stay at the villa with your name and phone. You pay what you want for the ticket; dinner is at its normal price.'}</p>}
-        {dinnerCents != null && dinnerCents > 0 && <MealLink ar={ar} meal={dayMeal} day={dayName} onOpen={() => setMealOpen(true)} />}
         {dinnerCents != null && dinnerCents > 0 && (
           <label className={`evb-addon ${dinner ? 'on' : ''}`}>
             <input type="checkbox" name="dinner" checked={dinner} onChange={(e) => setDinner(e.target.checked)} />

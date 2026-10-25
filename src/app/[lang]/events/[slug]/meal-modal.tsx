@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 type Loc = { ar?: string; en?: string };
@@ -94,5 +94,42 @@ export function MealModal({ ar, priceLabel, onClose, meal, day }: { ar: boolean;
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** Fired by the booking box when the guest picks another date, so the meal card beside it follows. */
+export const DATE_EVENT = 'evb:date';
+
+/**
+ * The meal of the chosen date, shown in full beside the booking box (no tap needed): the whole photo in a gold
+ * frame, its name, a short description and what is on the plate. Follows the date picked in the booking box.
+ */
+export function DayMealCard({ ar, menu, dates, initialDate, priceLabel }: { ar: boolean; menu: Record<number, DayMeal | null>; dates: { date: string; label: string }[]; initialDate: string; priceLabel?: string | null }) {
+  const [date, setDate] = useState(initialDate);
+  useEffect(() => {
+    const on = (e: Event) => { const d = (e as CustomEvent<string>).detail; if (d) setDate(d); };
+    window.addEventListener(DATE_EVENT, on);
+    return () => window.removeEventListener(DATE_EVENT, on);
+  }, []);
+  const set = date ? menu[new Date(date + 'T12:00:00Z').getUTCDay()] ?? null : null;
+  const m = set ?? STANDARD;
+  const day = set ? dates.find((x) => x.date === date)?.label ?? null : null;
+  const title = t(m.title, ar);
+  const desc = t(m.description, ar);
+  return (
+    <section className="evmeal" aria-labelledby="evmealH" dir={ar ? 'rtl' : 'ltr'}>
+      {m.img && <img className="evmeal-img" src={m.img} alt={title} loading="lazy" decoding="async" />}
+      <div className="evmeal-body">
+        <span className="evmeal-k">{day ? (ar ? `عشاء ${day}` : `Dinner · ${day}`) : (ar ? 'عشاء الليلة' : 'Tonight’s dinner')}</span>
+        <h2 id="evmealH">{title}</h2>
+        {desc && <p className="evmeal-desc">{desc}</p>}
+        {m.dishes.length > 0 && (
+          <ul className="evmeal-dishes">
+            {m.dishes.map((x, i) => <li key={i}>{t(x, ar)}</li>)}
+          </ul>
+        )}
+        {priceLabel && <p className="evmeal-price">{ar ? 'طبق كامل للفرد' : 'A full plate per person'} · <b dir="ltr">+{priceLabel}</b></p>}
+      </div>
+    </section>
   );
 }

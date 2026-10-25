@@ -1711,3 +1711,16 @@
 .evd-about-inc li { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; font-weight: 600; color: var(--color-primary-dark); line-height: 1.5; }
 .evd-about-inc svg { flex: none; width: 20px; height: 20px; padding: 3px; border-radius: 50%; background: var(--color-primary-dark); color: var(--color-gold-light); }
 .evd-about-note { margin: 16px 0 0; padding: 12px 14px; border-radius: var(--r-sm); background: var(--color-section-light); color: var(--color-primary-dark); font-weight: 600; font-size: 14px; }
+
+/* The chosen date's meal, in full beside the booking box (replaces the "The food" photo box on dinner events). */
+.evmeal { padding: 12px; border: 1px solid var(--color-gold); border-radius: 22px; background: linear-gradient(160deg, #FFFCF5 0%, #F7ECD8 100%); box-shadow: inset 0 0 0 5px #FFFCF5, inset 0 0 0 6px rgba(210,154,69,.45), 0 18px 36px -20px rgba(92,62,24,.55); }
+.evmeal-img { display: block; width: 100%; height: auto; border-radius: 14px; background: #2f2925; box-shadow: 0 0 0 1px rgba(210,154,69,.5), 0 6px 16px -8px rgba(47,41,37,.45); }
+.evmeal-body { display: grid; gap: 10px; padding: 16px 10px 8px; text-align: center; justify-items: center; }
+.evmeal-k { font-size: 12.5px; font-weight: 800; letter-spacing: .08em; color: var(--color-gold); }
+.evmeal-k::before, .evmeal-k::after { content: ""; display: inline-block; vertical-align: middle; width: 22px; height: 1px; margin-inline: 8px; background: var(--color-gold); }
+.evmeal h2 { margin: 0 !important; font-size: clamp(21px, 2.2vw, 25px); color: var(--color-primary-dark); line-height: 1.3; }
+.evmeal-desc { margin: 0; color: var(--color-text-secondary); font-size: 14.5px; line-height: 1.7; max-width: 40ch; }
+.evmeal-dishes { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.evmeal-dishes li { padding: 6px 14px; border-radius: 999px; background: #fff; border: 1px solid rgba(210,154,69,.45); color: var(--color-primary-dark); font-size: 13.5px; font-weight: 700; }
+.evmeal-price { margin: 4px 0 0; padding-top: 10px; border-top: 1px dashed rgba(210,154,69,.55); width: 100%; color: #8A6A3E; font-size: 13.5px; font-weight: 700; }
+.evmeal-price b { color: var(--color-primary-dark); }

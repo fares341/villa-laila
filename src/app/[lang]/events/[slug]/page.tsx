@@ -6,6 +6,7 @@ import { getPublicEvent, seatsLeft, tr, eventMedia } from '@/services/events';
 import { getWallets } from '@/services/wallets';
 import { toEmbed } from '@/content/videos';
 import { MealGallery } from './meal-gallery';
+import { DayMealCard } from './meal-modal';
 import { HeroMedia } from './hero-media';
 import { priceLabel, whenLabel } from '@/services/event-view';
 import { scheduleLabel, timeLabel, dateLabel } from '@/lib/event-dates';
@@ -56,6 +57,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
     const isNear = when !== dateLabel(d, lang); // Today / Tomorrow
     return { date: d, label: isNear ? when : weekday, sub: isNear ? `${weekday} · ${dateLabel(d, lang, { day: 'numeric', month: 'long' })}` : dateLabel(d, lang, { day: 'numeric', month: 'long' }), left: left[d] };
   });
+  const initialDate = sp.date && dates.some((d) => d.date === sp.date && d.left !== 0) ? sp.date : dates.find((d) => d.left !== 0)?.date ?? '';
+  const menu = ev.dinner_cents ? await weeklyMenu() : {};
   const errMsg = sp.error ? L(ERR[sp.error] ?? ERR[sp.error.split(':')[0]] ?? ERR.generic) : null;
   const schedule = scheduleLabel(ev, lang, (d) => dateLabel(d, lang, { weekday: 'long', day: 'numeric', month: 'long' }));
   const time = `${timeLabel(ev.start_time, lang)} – ${timeLabel(ev.end_time, lang)}`;
@@ -110,7 +113,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           </div>
 
           <div className="evd-side">
-          <MealGallery lang={lang} photos={meals.map((m) => ({ id: m.id, src: m.src, caption: m.caption }))} />
+          {ev.dinner_cents
+            ? <DayMealCard ar={isAr} menu={menu} dates={dates} initialDate={initialDate} priceLabel={priceLabel(ev.dinner_cents, ev.currency, lang)} />
+            : <MealGallery lang={lang} photos={meals.map((m) => ({ id: m.id, src: m.src, caption: m.caption }))} />}
           <aside className="evd-book" id="book" aria-labelledby="bookH">
             <h2 id="bookH">{isAr ? 'احجز تذكرتك' : 'Book your ticket'}</h2>
             {errMsg && <p role="alert" className="form-msg">{errMsg}</p>}
@@ -129,13 +134,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 lang={lang}
                 slug={ev.slug}
                 dates={dates}
-                initialDate={sp.date && dates.some((d) => d.date === sp.date && d.left !== 0) ? sp.date : dates.find((d) => d.left !== 0)?.date ?? ''}
+                initialDate={initialDate}
                 options={ev.options.map((o) => ({ key: o.key, label: isAr ? o.ar : o.en }))}
                 priceCents={ev.price_cents}
                 guestPriceCents={ev.guest_price_cents}
                 depositCents={ev.deposit_cents ?? null}
                 dinnerCents={ev.dinner_cents ?? null}
-                menu={ev.dinner_cents ? await weeklyMenu() : {}}
+                menu={menu}
                 currency={ev.currency}
                 methods={ev.methods}
                 wallets={{
