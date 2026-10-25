@@ -162,6 +162,12 @@ export async function notifyAttendance(bookingId: string) {
   await toAll(`${b.full_name} أكد إنه جاي · ${tr(b.title, 'ar')} ${b.start_time} · ${b.quantity} فرد (${b.ticket_code})`);
 }
 
+/** A WhatsApp to a taxi driver that could not go out automatically: one tap for the owner to send it. */
+export async function notifyDriverMessage(what: string, wa: WaResult) {
+  if (wa.sent) return;
+  await toAll(what + (wa.link ? '\nاضغط الزرار وابعتها للسواق على واتساب.' : '\nرقم السواق مش مظبوط.'), waKb(wa, 'ابعت للسواق على واتساب'));
+}
+
 export async function notifyReminder(b: any, wa: WaResult) {
   if (wa.sent) return; // sent automatically; nothing for the owner to do
   await toAll(`تذكير الحضور لـ ${b.full_name} (${tr(b.title, 'ar')} ${b.start_time}).${wa.link ? ' اضغط الزرار وابعته على واتساب.' : ' الضيف مش كاتب رقم.'}`, waKb(wa, 'ابعت التذكير على واتساب'));

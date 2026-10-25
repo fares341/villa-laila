@@ -15,7 +15,7 @@ import { audit } from '@/services/audit';
 import { setSetting } from '@/services/settings';
 import { redistribute, reassignTask } from '@/services/pms/tasks';
 import { refreshRates, setManualRates, setOtherRate } from '@/services/pms/fx';
-import { createTaxi, setTaxiStatus, setTaxiConfirmed, setTaxiPrices } from '@/services/pms/taxi';
+import { createTaxi, assignDriver, saveDriver, setDriverActive, setTaxiStatus, setTaxiConfirmed, setTaxiPrices } from '@/services/pms/taxi';
 
 const msg = (e: unknown) => (e instanceof BookingError ? (e.message && e.message !== e.code ? e.message : e.code.replace(/_/g, ' ').toLowerCase()) : (console.error('[pms action]', e), 'Something went wrong'));
 const safe = (v: FormDataEntryValue | null, fallback: string) => { const s = String(v || ''); return s.startsWith('/') && !s.startsWith('//') ? s : fallback; };
@@ -391,14 +391,48 @@ export async function fxOtherSave(fd: FormData) {
 export async function taxiCreate(fd: FormData) {
   const u = await requireUser('frontdesk.use');
   const back = safe(fd.get('back'), '/dashboard/taxi');
+  let sent: boolean | null = null;
   try {
-    await createTaxi({
+    const t = await createTaxi({
       reservationId: str(fd.get('reservationId')) || null, guestName: str(fd.get('guestName')), phone: str(fd.get('phone')) || null, room: str(fd.get('room')) || null,
       direction: str(fd.get('direction')) as any, airport: str(fd.get('airport')) as any, date: str(fd.get('date')), time: str(fd.get('time')), note: str(fd.get('note')) || null,
-      userId: u.id, actor: u.email,
+      userId: u.id, actor: u.email, driverId: str(fd.get('driverId')) || null,
     });
+    sent = t.driverWa ? t.driverWa.sent : null;
   } catch (e) { go(back, 'err', msg(e)); }
-  revalidatePath('/dashboard/taxi'); go(back, 'ok', 'Taxi booked. A reminder to message the guest was added to the right shift.');
+  revalidatePath('/dashboard/taxi');
+  go(back, 'ok', 'Taxi booked. A reminder to message the guest was added to the right shift.' + (sent === true ? ' The driver got the trip on WhatsApp.' : sent === false ? ' Send the trip to the driver with the green WhatsApp button.' : ''));
+}
+
+export async function taxiDriverAssign(fd: FormData) {
+  const u = await requireUser('frontdesk.use');
+  let sent: boolean | null = null;
+  try { const wa = await assignDriver(str(fd.get('id')), str(fd.get('driverId')) || null, u.email); sent = wa ? wa.sent : null; }
+  catch (e) { go('/dashboard/taxi', 'err', msg(e)); }
+  revalidatePath('/dashboard/taxi');
+  go('/dashboard/taxi', 'ok', sent === true ? 'Driver set · he got the trip on WhatsApp (reminder 30 min before is automatic)' : sent === false ? 'Driver set · WhatsApp isn’t connected yet: press “Send to driver” to send the trip' : 'Driver removed');
+}
+
+export async function taxiDriverSave(fd: FormData) {
+  const u = await requireUser('frontdesk.use');
+  try { await saveDriver({ id: str(fd.get('id')) || null, name: str(fd.get('name')), phone: str(fd.get('phone')), car: str(fd.get('car')) || null }, u.email); }
+  catch (e) { go('/dashboard/taxi#drivers', 'err', msg(e)); }
+  revalidatePath('/dashboard/taxi'); go('/dashboard/taxi#drivers', 'ok', 'Driver saved');
+}
+
+export async function taxiDriverActive(fd: FormData) {
+  const u = await requireUser('frontdesk.use');
+  await setDriverActive(str(fd.get('id')), str(fd.get('active')) === '1', u.email);
+  revalidatePath('/dashboard/taxi'); go('/dashboard/taxi#drivers', 'ok', str(fd.get('active')) === '1' ? 'Driver back on the list' : 'Driver removed from the list');
+}
+
+export async function taxiTemplatesSave(fd: FormData) {
+  const u = await requireUser('settings.manage');
+  const { getWhatsAppConfig, saveWhatsAppConfig } = await import('@/services/whatsapp');
+  const cur = await getWhatsAppConfig();
+  await saveWhatsAppConfig({ ...cur, template_driver_job: str(fd.get('tplJob')), template_driver_reminder: str(fd.get('tplReminder')) });
+  await audit(u.email, 'taxi.templates', 'settings', null, {});
+  revalidatePath('/dashboard/taxi'); go('/dashboard/taxi#templates', 'ok', 'Template names saved');
 }
 
 export async function taxiStatus(fd: FormData) {

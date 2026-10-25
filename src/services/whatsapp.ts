@@ -8,13 +8,14 @@ import { getSetting, setSetting } from './settings';
  * template names there. Without these settings nothing is sent automatically: the admin bot gets a one-tap
  * wa.me link with the message already written instead.
  */
-export type WhatsAppConfig = { token: string; phone_number_id: string; template_lang: string; template_reminder: string; template_cancel: string; template_confirm: string };
+export type WhatsAppConfig = { token: string; phone_number_id: string; template_lang: string; template_reminder: string; template_cancel: string; template_confirm: string; template_driver_job: string; template_driver_reminder: string };
 
 export async function getWhatsAppConfig(): Promise<WhatsAppConfig> {
   const s = ((await getSetting<any>('whatsapp').catch(() => null)) ?? {}) as Partial<WhatsAppConfig>;
   return {
     token: s.token || process.env.WHATSAPP_TOKEN || '', phone_number_id: s.phone_number_id || process.env.WHATSAPP_PHONE_NUMBER_ID || '',
     template_lang: s.template_lang || 'ar', template_reminder: s.template_reminder || '', template_cancel: s.template_cancel || '', template_confirm: s.template_confirm || '',
+    template_driver_job: s.template_driver_job || '', template_driver_reminder: s.template_driver_reminder || '',
   };
 }
 export async function saveWhatsAppConfig(v: WhatsAppConfig) { await setSetting('whatsapp', v); }

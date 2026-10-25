@@ -15,6 +15,7 @@ import { syncHostelworldData } from '@/services/hostelworld-sync';
 import { adminPollLoop, notifyNewEventBooking, getAdminBotConfig } from '@/services/admin-bot';
 import { sendDueReminders } from '@/services/event-admin';
 import { sendDailyCardPayersReport } from '@/services/pms/card-payers';
+import { sendDueDriverReminders } from '@/services/pms/taxi';
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), '[worker]', ...a);
 
@@ -32,6 +33,9 @@ async function tick() {
     // Event bookings: reminder an hour before (WhatsApp + attendance link), and owner alerts the website could not send.
     const rem = await sendDueReminders().catch((e) => { console.error('[event reminders]', e); return 0; });
     if (rem) log('event reminders sent:', rem);
+    // Airport taxi: remind the driver 30 minutes before the trip.
+    const drv = await sendDueDriverReminders().catch((e) => { console.error('[taxi reminders]', e); return 0; });
+    if (drv) log('taxi driver reminders:', drv);
     if ((await getAdminBotConfig()).token) {
       const missed = await q<any>(`SELECT id FROM event_bookings WHERE admin_notified_at IS NULL AND created_at < now() - interval '1 minute' AND created_at > now() - interval '2 days' AND status NOT IN ('expired') LIMIT 20`);
       for (const r of missed) await notifyNewEventBooking(r.id).catch((e) => console.error('[admin bot]', e.message));

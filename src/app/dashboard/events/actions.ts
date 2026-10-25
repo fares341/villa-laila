@@ -99,6 +99,7 @@ export async function saveWhatsAppAction(f: FormData) {
   await requireUser('settings.manage');
   const cur = await getWhatsAppConfig();
   await saveWhatsAppConfig({
+    ...cur, // keeps the taxi-driver template names (set on the Airport taxi page)
     token: S(f, 'token') || cur.token, phone_number_id: S(f, 'phoneNumberId'), template_lang: S(f, 'templateLang') || 'ar',
     template_reminder: S(f, 'tplReminder'), template_cancel: S(f, 'tplCancel'), template_confirm: S(f, 'tplConfirm'),
   });
