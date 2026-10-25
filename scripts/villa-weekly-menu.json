@@ -1,0 +1,158 @@
+{
+  "days": [
+    {
+      "day": "monday",
+      "title_ar": "طاجن لحمة بالبصل المكرمل",
+      "title_en": "Beef & Caramelised Onion Tagen",
+      "dishes": [
+        {
+          "ar": "أرز مصري مفلفل بالشعرية",
+          "en": "Egyptian vermicelli rice"
+        },
+        {
+          "ar": "شوربة لسان عصفور ساخنة",
+          "en": "Warm orzo soup"
+        },
+        {
+          "ar": "سلطة خضراء بلدي طازجة",
+          "en": "Fresh Egyptian salad"
+        }
+      ],
+      "desc_ar": "لحمة طرية مطهية على نار هادية مع البصل المكرمل في صوص غني.",
+      "desc_en": "Tender beef slowly cooked with onions in a rich Egyptian sauce.",
+      "image": "/photos/events/meals/beef-onion-tagen.webp"
+    },
+    {
+      "day": "tuesday",
+      "title_ar": "مكرونة بشاميل وفراخ بانيه مقرمشة",
+      "title_en": "Macarona Béchamel & Crispy Chicken Pane",
+      "dishes": [
+        {
+          "ar": "شوربة كريمة أو خضار",
+          "en": "Creamy soup"
+        },
+        {
+          "ar": "بطاطس محمرة وسلطة كول سلو",
+          "en": "Crispy fries & coleslaw"
+        },
+        {
+          "ar": "سلطة خضراء طازجة",
+          "en": "Fresh green salad"
+        }
+      ],
+      "desc_ar": "صينية مكرونة بشاميل غنية باللحم المفروم مع صدور فراخ بانيه متبلة ومقرمشة.",
+      "desc_en": "Traditional Egyptian baked béchamel pasta with seasoned crispy breaded chicken fillets.",
+      "image": "/photos/events/meals/beef-onion-tagen.webp"
+    },
+    {
+      "day": "wednesday",
+      "title_ar": "كفتة مشوية على الفحم وأرز بسمتي",
+      "title_en": "Charcoal-Grilled Kofta & Basmati Rice",
+      "dishes": [
+        {
+          "ar": "أرز أصفر بالخلطة والمكسرات",
+          "en": "Spiced yellow basmati rice"
+        },
+        {
+          "ar": "سلطة طحينة وسلطة بلدي",
+          "en": "Tahini dip & Egyptian salad"
+        },
+        {
+          "ar": "خبز بلدي سخن وشوربة لسان عصفور",
+          "en": "Warm baladi bread & orzo soup"
+        }
+      ],
+      "desc_ar": "كفتة لحم بلدي مشوية على الفحم مع خلطة الأعشاب والبهارات الشرقية الأصيلة.",
+      "desc_en": "Authentic Egyptian beef kofta skewers grilled over charcoal, served with tahini and fresh bread.",
+      "image": "/photos/events/meals/beef-onion-tagen.webp"
+    },
+    {
+      "day": "thursday",
+      "title_ar": "طاجن خضار مشكل باللحمة البقري",
+      "title_en": "Mixed Vegetables & Beef Tagine",
+      "dishes": [
+        {
+          "ar": "أرز مصري حبة وحبة",
+          "en": "Two-tone Egyptian rice"
+        },
+        {
+          "ar": "شوربة لسان عصفور بالليمون",
+          "en": "Orzo soup with lemon"
+        },
+        {
+          "ar": "سلطة بلدي ومخللات مصرية",
+          "en": "Fresh salad & Egyptian pickles"
+        }
+      ],
+      "desc_ar": "طاجن فخار في الفرن يجمع قطع اللحم البقري الطرية مع البطاطس والكوسة والجزر.",
+      "desc_en": "Slow-cooked oven clay pot with tender beef chunks and farm-fresh mixed vegetables.",
+      "image": "/photos/events/meals/beef-onion-tagen.webp"
+    },
+    {
+      "day": "friday",
+      "title_ar": "فراخ مشوية على الطريقة المصرية ومحاشي مشكلة",
+      "title_en": "Egyptian Roast Chicken & Stuffed Vegetables",
+      "dishes": [
+        {
+          "ar": "محاشي مشكلة (كوسة، بتنجان، فلفل)",
+          "en": "Mixed Egyptian Mahshi"
+        },
+        {
+          "ar": "ملوخية مصرية خضراء بالطشة",
+          "en": "Fresh green Molokhia"
+        },
+        {
+          "ar": "شوربة فراخ وسلطة طماطم بالثوم",
+          "en": "Rich broth & garlic tomato salad"
+        }
+      ],
+      "desc_ar": "وليمة الجمعة المصرية الأصيلة: نصف فرخة مشوية بتتبيلة الأعشاب مع تشكيلة محاشي وملوخية خضراء.",
+      "desc_en": "The iconic Friday feast: perfectly spiced roast chicken with assorted Egyptian mahshi and fresh molokhia.",
+      "image": "/photos/events/meals/beef-onion-tagen.webp"
+    },
+    {
+      "day": "saturday",
+      "title_ar": "طاجن كوارع وفتة بالخل والثوم أو طاجن عكاوي",
+      "title_en": "Traditional Egyptian Fatteh & Beef Stew",
+      "dishes": [
+        {
+          "ar": "فتة مصرية بالعيش المحمص والصلصة",
+          "en": "Egyptian garlic-vinegar fatteh"
+        },
+        {
+          "ar": "شوربة غنية وسلطة بلدي",
+          "en": "Rich bone broth & salad"
+        },
+        {
+          "ar": "طحينة ومخللات بلدية",
+          "en": "Tahini & house pickles"
+        }
+      ],
+      "desc_ar": "طبق الفتة المصرية التراثي مع صلصة الثوم والخل وقطع اللحم الشهية.",
+      "desc_en": "Hearty traditional Egyptian fatteh layered with crispy bread, rice, and garlic-vinegar tomato sauce.",
+      "image": "/photos/events/meals/beef-onion-tagen.webp"
+    },
+    {
+      "day": "sunday",
+      "title_ar": "طاجن لحمة بالبصل المكرمل والأرز المصري",
+      "title_en": "Beef & Caramelised Onion Tagen",
+      "dishes": [
+        {
+          "ar": "أرز مصري بالشعرية",
+          "en": "Egyptian vermicelli rice"
+        },
+        {
+          "ar": "شوربة لسان عصفور",
+          "en": "Orzo soup"
+        },
+        {
+          "ar": "سلطة بلدي طازجة",
+          "en": "Fresh Egyptian salad"
+        }
+      ],
+      "desc_ar": "لحمة طرية مطهية على نار هادية مع البصل المكرمل في صوص غني بجانب المسبح.",
+      "desc_en": "Tender beef slowly cooked with onions in a rich Egyptian sauce by the pool.",
+      "image": "/photos/events/meals/beef-onion-tagen.webp"
+    }
+  ]
+}
