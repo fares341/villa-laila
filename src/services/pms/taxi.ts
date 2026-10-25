@@ -133,8 +133,11 @@ export async function saveDriver(input: { id?: string | null; name: string; phon
   if (name.length < 2) throw new BookingError('INVALID_INPUT', 'Write the driver’s name');
   if (!phone) throw new BookingError('INVALID_INPUT', 'Write the driver’s WhatsApp number (e.g. 010… or +20…)');
   const car = input.car?.trim().slice(0, 60) || null;
-  const id = input.id
-    ? (await q<{ id: string }>(`UPDATE taxi_drivers SET name=$2, phone=$3, car=$4 WHERE id=$1 RETURNING id`, [input.id, name, phone, car]))[0]?.id
+  // Same number already on the list: update that driver (and bring him back) instead of adding him twice.
+  const same = input.id ? null : (await q<{ id: string }>(`SELECT id FROM taxi_drivers WHERE phone=$1 ORDER BY active DESC LIMIT 1`, [phone]))[0]?.id;
+  if (same) await q(`UPDATE taxi_drivers SET active=true WHERE id=$1`, [same]);
+  const id = input.id || same
+    ? (await q<{ id: string }>(`UPDATE taxi_drivers SET name=$2, phone=$3, car=COALESCE($4, car) WHERE id=$1 RETURNING id`, [input.id || same, name, phone, car]))[0]?.id
     : (await q<{ id: string }>(`INSERT INTO taxi_drivers(name, phone, car) VALUES($1,$2,$3) RETURNING id`, [name, phone, car]))[0].id;
   if (!id) throw new BookingError('NOT_FOUND', 'driver');
   await audit(actor, 'taxi.driver_save', 'taxi_driver', id, { name });

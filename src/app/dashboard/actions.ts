@@ -1,4 +1,5 @@
 'use server';
+import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { okMedia } from '@/services/site-content';
 import { headers } from 'next/headers';
@@ -76,6 +77,19 @@ export async function createReservationAction(f: FormData) {
     if (unit) { const ru = (await q<any>('SELECT id FROM reservation_units WHERE reservation_id=$1', [res.id])); if (ru.length === 1) { try { await reassignUnit(ru[0].id, unit, u.email); } catch { /* kept auto-assigned bed */ } } }
   }).catch((e) => { if (isRedirect(e) && id) redirect(`/dashboard/reservations/${id}?ok=${enc('Reservation created.')}`); throw e; });
 }
+export async function cmDoneAction(f: FormData) {
+  const u = await requireUser('reservation.view');
+  const { markChannelBlocked } = await import('@/services/channel-blocks');
+  await markChannelBlocked(S(f, 'id'), u.email);
+  revalidatePath('/dashboard', 'layout');
+}
+export async function cmReleasedAction(f: FormData) {
+  const u = await requireUser('reservation.view');
+  const { markChannelReleased } = await import('@/services/channel-blocks');
+  await markChannelReleased(S(f, 'id'), u.email);
+  revalidatePath('/dashboard', 'layout');
+}
+
 export async function confirmAction(f: FormData) {
   const u = await requireUser('reservation.confirm'); const id = S(f, 'id');
   return run(`/dashboard/reservations/${id}`, async () => {

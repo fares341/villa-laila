@@ -162,6 +162,24 @@ export async function notifyAttendance(bookingId: string) {
   await toAll(`${b.full_name} أكد إنه جاي · ${tr(b.title, 'ar')} ${b.start_time} · ${b.quantity} فرد (${b.ticket_code})`);
 }
 
+/** New room booking from the website: confirm it, and block the beds in the channel manager. */
+export async function notifyNewRoomBooking(reservationId: string) {
+  const r = (await q<any>(`SELECT r.reference, r.check_in::text ci, r.check_out::text co, r.guests_count, r.total_cents, r.currency, g.full_name, g.phone, g.nationality, t.name->>'ar' t_ar, t.name->>'en' t_en
+    FROM reservations r JOIN guests g ON g.id=r.guest_id LEFT JOIN room_types t ON t.id=r.room_type_id WHERE r.id=$1`, [reservationId]))[0];
+  if (!r) return;
+  await toAll([
+    `🛎 حجز غرفة جديد من الموقع · ${r.reference}`,
+    `الاسم: ${r.full_name}${r.nationality ? ` (${r.nationality})` : ''}`,
+    `الموبايل: ${r.phone || '—'}`,
+    `الغرفة: ${r.t_ar || r.t_en || '—'} · ${r.guests_count} فرد`,
+    `من ${r.ci} لـ ${r.co}`,
+    `الإجمالي: ${(Number(r.total_cents) / 100).toLocaleString('en-US')} ${r.currency}`,
+    '',
+    '١) أكّد الحجز من الداش بورد (Reservations).',
+    '٢) اقفل نفس السرير/الأوضة في الشانل مانجر (Little Hotelier) وعلّم «Done in the channel manager».',
+  ].join('\n'));
+}
+
 /** A WhatsApp to a taxi driver that could not go out automatically: one tap for the owner to send it. */
 export async function notifyDriverMessage(what: string, wa: WaResult) {
   if (wa.sent) return;

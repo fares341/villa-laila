@@ -416,14 +416,14 @@ export async function taxiDriverAssign(fd: FormData) {
 export async function taxiDriverSave(fd: FormData) {
   const u = await requireUser('frontdesk.use');
   try { await saveDriver({ id: str(fd.get('id')) || null, name: str(fd.get('name')), phone: str(fd.get('phone')), car: str(fd.get('car')) || null }, u.email); }
-  catch (e) { go('/dashboard/taxi#drivers', 'err', msg(e)); }
-  revalidatePath('/dashboard/taxi'); go('/dashboard/taxi#drivers', 'ok', 'Driver saved');
+  catch (e) { go('/dashboard/taxi', 'err', msg(e)); }
+  revalidatePath('/dashboard/taxi'); go('/dashboard/taxi', 'ok', 'Driver saved');
 }
 
 export async function taxiDriverActive(fd: FormData) {
   const u = await requireUser('frontdesk.use');
   await setDriverActive(str(fd.get('id')), str(fd.get('active')) === '1', u.email);
-  revalidatePath('/dashboard/taxi'); go('/dashboard/taxi#drivers', 'ok', str(fd.get('active')) === '1' ? 'Driver back on the list' : 'Driver removed from the list');
+  revalidatePath('/dashboard/taxi'); go('/dashboard/taxi', 'ok', str(fd.get('active')) === '1' ? 'Driver back on the list' : 'Driver removed from the list');
 }
 
 export async function taxiTemplatesSave(fd: FormData) {
@@ -432,7 +432,7 @@ export async function taxiTemplatesSave(fd: FormData) {
   const cur = await getWhatsAppConfig();
   await saveWhatsAppConfig({ ...cur, template_driver_job: str(fd.get('tplJob')), template_driver_reminder: str(fd.get('tplReminder')) });
   await audit(u.email, 'taxi.templates', 'settings', null, {});
-  revalidatePath('/dashboard/taxi'); go('/dashboard/taxi#templates', 'ok', 'Template names saved');
+  revalidatePath('/dashboard/taxi'); go('/dashboard/taxi', 'ok', 'Template names saved');
 }
 
 export async function taxiStatus(fd: FormData) {

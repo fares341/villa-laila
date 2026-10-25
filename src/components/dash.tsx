@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ChannelAlert } from './channel-alert';
 import type { SessionUser } from '@/lib/auth';
 import { can } from '@/lib/permissions';
 import { logoutAction } from '@/app/dashboard/actions';
@@ -92,6 +93,7 @@ export async function DashShell({ user, children }: { user: SessionUser; childre
         </div>
       </aside>
       <div className="min-w-0 flex-1 p-4 md:p-8">
+        {can(user.role, 'reservation.view') && <ChannelAlert />}
         {children}
         <DashboardAgent user={user} />
       </div>

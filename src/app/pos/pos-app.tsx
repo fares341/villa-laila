@@ -739,12 +739,10 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
       {modal === 'menu' && (
         <Modal title="More" onClose={() => setModal(null)}>
           <div className="pos-menu">
-            <button className="pos-btn" onClick={() => setModal('change')}><Icon name="clock" /> Change to give back{st.changeOwed?.length ? ` (${st.changeOwed.length})` : ''}</button>
             <button className="pos-btn" onClick={() => setModal('expense')}><Icon name="receipt" /> Paid from drawer (expense)</button>
             <button className="pos-btn" onClick={() => setModal('exchange')}><Icon name="arrow-left-right" /> Money exchange (foreign cash → EGP)</button>
             {st.takers?.length > 0 && <button className="pos-btn" onClick={() => setModal('taken')}><Icon name="wallet" /> Taken by owner</button>}
-            <a className="pos-btn" href="/dashboard" target="_blank" rel="noopener"><Icon name="door-open" /> Front desk (Today)</a>
-            <a className="pos-btn" href="/dashboard" target="_blank" rel="noopener"><Icon name="layout-dashboard" /> Dashboard</a>
+            <a className="pos-btn" href="/dashboard" target="_blank" rel="noopener"><Icon name="layout-dashboard" /> Dashboard (Today)</a>
             <p className="pos-fine">Device signed in as {device}.</p>
           </div>
         </Modal>

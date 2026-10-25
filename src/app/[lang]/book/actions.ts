@@ -41,6 +41,8 @@ export async function submitBooking(formData: FormData) {
       guestNotes: v.notes || undefined, facts: { nationality: v.nationality ? normalizeNationality(v.nationality) : undefined, id_governorate: v.idGovernorate ? normalizeGovernorate(v.idGovernorate) : undefined }, actor: 'website',
     });
     ref = res.reference;
+    // Owner's Telegram: confirm it and block the beds in the channel manager.
+    import('@/services/admin-bot').then((m) => m.notifyNewRoomBooking(res.id)).catch((e) => console.error('[admin bot room]', e));
   } catch (e) {
     if (e instanceof BookingError && e.code === 'POLICY_BLOCKED') return back('blocked_' + (((e.detail as any)?.key as string) ?? 'x'));
     if (e instanceof BookingError) return back(e.code.toLowerCase());

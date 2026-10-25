@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Input, Lbl } from '@/components/dash-ui';
 import { Icon } from '@/components/icons';
 
@@ -37,6 +37,21 @@ export function BookingFields({ types, units, busy, today, siteLabel, siteLink, 
 
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const pickedHere = picked.filter((id) => rows.some((r) => r.id === id && !r.taken));
+
+  // Our price right now for what is being booked (reception still types the amount the guest really pays).
+  const qUnits = type?.kind === 'dorm' ? Math.max(guests, pickedHere.length) : Math.max(1, pickedHere.length);
+  const [price, setPrice] = useState<{ total: number; perUnit: number; nights: number; units: number; currency: string; lines: { date: string; unitPriceCents: number }[]; demo: boolean } | { error: string } | null>(null);
+  useEffect(() => {
+    if (!typeId || !datesOk) { setPrice(null); return; }
+    const ctl = new AbortController();
+    const t = setTimeout(() => {
+      fetch(`/api/dashboard/quote?type=${typeId}&in=${checkIn}&out=${checkOut}&units=${qUnits}`, { signal: ctl.signal })
+        .then((r) => r.json()).then((j) => setPrice(j.ok ? { total: j.totalCents, perUnit: j.perUnitCents, nights: j.nights, units: j.units, currency: j.currency, lines: j.lines, demo: j.demo } : { error: j.error || 'No price' }))
+        .catch(() => {});
+    }, 250);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [typeId, checkIn, checkOut, qUnits, datesOk]);
+  const money = (c: number, cur: string) => `${cur} ${(c / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 
   const siteUrl = (() => {
     if (!siteLink || !siteParams || !datesOk) return null;
@@ -87,6 +102,19 @@ export function BookingFields({ types, units, busy, today, siteLabel, siteLink, 
           {free < need && datesOk && <span className="block text-red-800">Not enough free {type?.kind === 'dorm' ? 'beds' : 'rooms'} of this type for these nights.</span>}
         </p>
       </fieldset>
+
+      {price && ('error' in price
+        ? <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">Our price: {price.error}. Type the agreed amount below.</p>
+        : (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-950" aria-live="polite">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="font-semibold">Our price now for this booking</span>
+              <b className="text-lg tabular-nums">{money(price.total, price.currency)}</b>
+            </div>
+            <p className="text-xs text-emerald-900/80">{price.nights} night{price.nights > 1 ? 's' : ''} × {price.units} {type?.kind === 'dorm' ? `bed${price.units > 1 ? 's' : ''}` : `room${price.units > 1 ? 's' : ''}`} · {new Set(price.lines.map((l) => l.unitPriceCents)).size === 1 ? `${money(price.lines[0]?.unitPriceCents ?? 0, price.currency)} a night` : `${money(Math.min(...price.lines.map((l) => l.unitPriceCents)), price.currency)}–${money(Math.max(...price.lines.map((l) => l.unitPriceCents)), price.currency)} a night`}{price.demo ? ' · sample rates, check the Rooms page' : ''}</p>
+            <p className="mt-1 text-[11px] text-emerald-900/70">For reference only: type below what the guest actually pays (the site’s price, or what you agreed).</p>
+          </div>
+        ))}
 
       {siteLabel && (siteUrl
         ? <a href={siteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-semibold text-lapis-700 underline"><Icon name="external-link" size={14} /> See the price on {siteLabel} for these dates</a>

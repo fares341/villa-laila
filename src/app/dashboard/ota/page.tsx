@@ -86,8 +86,9 @@ export default async function OtaBookings({ searchParams }: { searchParams: Prom
                       <td className="text-xs">{r.beds ?? r.tname?.en}</td>
                       <td className="whitespace-nowrap text-right tabular-nums">{fmt(Number(r.charges))}</td>
                       <td className="whitespace-nowrap text-right tabular-nums">{fmt(Number(r.paid))}{Number(r.channel_prepaid_cents) > 0 && <div className="text-[11px] text-slate-500">site {fmt(Number(r.channel_prepaid_cents))}</div>}</td>
-                      <td className={`whitespace-nowrap text-right font-semibold tabular-nums ${due > 0 ? 'text-red-800' : 'text-emerald-700'}`}>{due > 0 ? fmt(due) : 'Paid'}</td>
-                      <td className="pl-3"><Badge status={r.status} /></td>
+                      <td className={`whitespace-nowrap text-right font-semibold tabular-nums ${due > 0 ? 'text-red-800' : 'text-emerald-700'}`}>{due > 0 ? fmt(due) : 'Paid'}
+                        {due > 0 && ['confirmed', 'checked_in', 'pending'].includes(r.status) && <a href={`/pos?guest=${r.id}`} target="_blank" rel="noopener" className="mt-1 block text-[11px] font-semibold text-lapis-700 underline">Collect on POS</a>}</td>
+                      <td className="pl-3"><Badge status={r.status} />{r.status === 'pending' && <Link href={`/dashboard/reservations/${r.id}`} className="mt-1 block text-[11px] font-semibold text-red-800 underline">Confirm</Link>}</td>
                     </tr>); })}
                 </tbody>
               </table>
