@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { bookEventAction } from '../actions';
 import { MealLink, MealModal, DATE_EVENT, type DayMeal } from './meal-modal';
+import { methodsFor } from '@/lib/event-pay';
 
 type DateChip = { date: string; label: string; sub: string; left: number | null };
 type Method = 'paymob' | 'instapay' | 'vodafone_cash' | 'cash';
@@ -39,7 +40,11 @@ export function EventBooker(props: {
   const [mealOpen, setMealOpen] = useState(false);
   const closeMeal = useCallback(() => setMealOpen(false), []);
   const isMealOption = (label: string) => /عشاء|dinner|meal|وجبة/i.test(label);
-  const [method, setMethod] = useState<Method>(methods[0]);
+  // Only hostel guests may pay at the villa; everyone else pays by InstaPay and is sent to WhatsApp.
+  const shownMethods = methodsFor(methods, hotelGuest) as Method[];
+  const [method, setMethod] = useState<Method>(shownMethods[0] ?? methods[0]);
+  // Ticking / unticking "staying at the villa" picks the first method of the new list (guests: pay at the villa).
+  useEffect(() => { if (shownMethods.length) setMethod(shownMethods[0]); }, [hotelGuest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const left = dates.find((d) => d.date === date)?.left ?? null;
   const maxQty = Math.max(1, Math.min(20, left ?? 20));
@@ -181,11 +186,12 @@ export function EventBooker(props: {
 
       <fieldset className="evb-step">
         <legend><span className="evb-n">4</span>{ar ? 'الدفع' : 'Payment'}</legend>
-        {depositCents != null && depositCents > 0 && (methods.includes('instapay') || methods.includes('vodafone_cash')) && (
+        {depositCents != null && depositCents > 0 && (shownMethods.includes('instapay') || shownMethods.includes('vodafone_cash')) && (
           <p className="evb-fine">{ar ? `مع InstaPay أو فودافون كاش تدفع عربون ${fmt(depositCents, currency, ar)} للتذكرة الآن، والباقي في الفيلا يوم الإيفنت.` : `With InstaPay or Vodafone Cash you send a deposit of ${fmt(depositCents, currency, ar)} per ticket now, and pay the rest at the villa on the day.`}</p>
         )}
+        {shownMethods.length === 0 && <p className="evb-fine">{ar ? 'الدفع أونلاين مش متاح دلوقتي. لو نازل في الفيلا علّم «أنا نازل في فيلا ليلى»، أو كلمنا على واتساب.' : 'Online payment isn’t available right now. If you are staying at the villa, tick “I’m staying at Villa Layla”, or message us on WhatsApp.'}</p>}
         <div className="evb-pay" role="radiogroup">
-          {methods.map((m) => (
+          {shownMethods.map((m) => (
             <label key={m} className={`evb-method ${method === m ? 'on' : ''}`}>
               <input type="radio" name="payMethod" value={m} checked={method === m} onChange={() => setMethod(m)} />
               <span className="ic">{M[m].icon}</span>

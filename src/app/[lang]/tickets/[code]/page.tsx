@@ -6,6 +6,7 @@ import { priceLabel } from '@/services/event-view';
 import { paymobEnabled } from '@/services/paymob';
 import { getWallets } from '@/services/wallets';
 import { liveMethods } from '@/services/events';
+import { methodsFor } from '@/lib/event-pay';
 import { timeLabel, dateLabel } from '@/lib/event-dates';
 import { qrSvg } from '@/lib/qr';
 import { siteBase } from '@/lib/base-url';
@@ -41,7 +42,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
   const firstName = String(b.full_name).split(/\s+/)[0];
   const villaWa = await bookingWhatsAppLink(b.id).catch(() => null);
   const wallets = await getWallets();
-  const methods = liveMethods(ev, wallets);
+  const methods = methodsFor(liveMethods(ev, wallets), !!b.is_hotel_guest);
   const walletMethods = (['instapay', 'vodafone_cash'] as const).filter((m) => methods.includes(m));
   const staff = await currentUser().catch(() => null);
   const canCheckIn = !!staff && can(staff.role, 'events.bookings');

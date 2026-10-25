@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import { methodsFor } from '@/lib/event-pay';
 import { q, tx } from '@/lib/db';
 import type { Q } from '@/lib/db';
 import { upcomingDates, isBookableDate, type Schedule } from '@/lib/event-dates';
@@ -122,7 +123,8 @@ export async function createEventBooking(input: EventBookingInput) {
     const ev = (await c.query(`SELECT ${EVENT_COLS} FROM events WHERE slug=$1 AND active`, [input.slug])).rows[0] as EventRow | undefined;
     if (!ev) throw new BookingError('NOT_FOUND', 'event');
     if (!isBookableDate(ev, input.date)) throw new BookingError('INVALID_DATES');
-    if (!liveMethods(ev, wallets).includes(input.payMethod)) throw new BookingError('INVALID_INPUT', 'pay_method');
+    // Only hostel guests may pay at the villa; everyone else pays by InstaPay (see methodsFor).
+    if (!methodsFor(liveMethods(ev, wallets), !!input.isHotelGuest).includes(input.payMethod)) throw new BookingError('INVALID_INPUT', 'pay_method');
 
     let optionKey: string | null = null;
     if (ev.options.length) {
