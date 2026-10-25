@@ -1,3 +1,13 @@
+import '@fontsource/almarai/300.css';
+import '@fontsource/almarai/400.css';
+import '@fontsource/almarai/700.css';
+import '@fontsource/almarai/800.css';
+import '@fontsource/plus-jakarta-sans/300.css';
+import '@fontsource/plus-jakarta-sans/400.css';
+import '@fontsource/plus-jakarta-sans/500.css';
+import '@fontsource/plus-jakarta-sans/600.css';
+import '@fontsource/plus-jakarta-sans/700.css';
+import '@fontsource/plus-jakarta-sans/800.css';
 import '@fontsource-variable/inter';
 import '@fontsource-variable/noto-sans-arabic';
 import '@fontsource-variable/el-messiri';
@@ -26,7 +36,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const lang = (await headers()).get('x-lang') ?? 'en';
   return (
     <html lang={lang} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      <head />
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
+        />
+      </head>
       <body className="min-h-screen antialiased">{children}</body>
     </html>
   );

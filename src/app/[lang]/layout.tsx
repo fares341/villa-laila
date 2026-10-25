@@ -7,7 +7,7 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
   if (!isSiteLang(lang)) return {};
   const d = dict(lang);
   return {
-    title: { default: d.meta.title, template: '%s · Villa Layla' }, description: d.meta.description,
+    title: { default: d.meta.title, template: '%s — Villa Layla' }, description: d.meta.description,
     alternates: { languages: { en: '/en', es: '/es', fr: '/fr', ar: '/ar' } },
     openGraph: { title: d.meta.title, description: d.meta.description, locale: lang },
   };
@@ -16,5 +16,9 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
 export default async function LangLayout({ children, params }: { children: React.ReactNode; params: Promise<{ lang: string }> }) {
   const { lang } = await params;
   if (!isSiteLang(lang)) notFound();
-  return <>{children}</>;
+  return (
+    <div lang={lang} dir={lang === 'ar' ? 'rtl' : 'ltr'} className={lang === 'ar' ? 'ar-font' : undefined}>
+      {children}
+    </div>
+  );
 }

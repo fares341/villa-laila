@@ -1,9 +1,17 @@
+@import '../styles/villa-layla-claude.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import '../styles/villa-layla-claude.css';
 
-:root { --clay: #b66a3b; --olive: #505d2c; --sand: #f7f1e8; --ink: #2b1d14; }
+:root {
+  --clay: #b66a3b;
+  --olive: #505d2c;
+  --sand: #f7f1e8;
+  --ink: #2b1d14;
+  --f: "Plus Jakarta Sans", "Almarai", "Segoe UI", Tahoma, system-ui, -apple-system, sans-serif;
+  --f-ar: "Almarai", "Plus Jakarta Sans", Tahoma, "Segoe UI", sans-serif;
+}
+
 html { scroll-behavior: smooth; }
 :focus-visible { outline: 3px solid #d29a45; outline-offset: 2px; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
@@ -13,6 +21,65 @@ html { scroll-behavior: smooth; }
   input, select, textarea, .v-field, .field {
     font-size: 16px !important;
   }
+}
+
+/* ==========================================================================
+   Arabic Typography & Brand Font System (Almarai)
+   Enforces the brand font Almarai on all devices (mobile & desktop)
+   ========================================================================== */
+:lang(ar),
+[dir="rtl"],
+[lang="ar"],
+.ar-font,
+.ar,
+.ar-root {
+  font-family: var(--f-ar) !important;
+}
+
+html[lang="ar"] body,
+html[lang="ar"] button,
+html[lang="ar"] input,
+html[lang="ar"] select,
+html[lang="ar"] textarea,
+[dir="rtl"] body,
+[dir="rtl"] button,
+[dir="rtl"] input,
+[dir="rtl"] select,
+[dir="rtl"] textarea {
+  font-family: var(--f-ar) !important;
+}
+
+html[lang="ar"] h1,
+html[lang="ar"] h2,
+html[lang="ar"] h3,
+html[lang="ar"] h4,
+html[lang="ar"] h5,
+html[lang="ar"] h6,
+[dir="rtl"] h1,
+[dir="rtl"] h2,
+[dir="rtl"] h3,
+[dir="rtl"] h4,
+[dir="rtl"] h5,
+[dir="rtl"] h6 {
+  font-family: var(--f-ar) !important;
+  letter-spacing: 0 !important;
+  line-height: 1.3;
+}
+
+/* Numbers and prices inside Arabic text stay in Latin Jakarta for clean readability */
+html[lang="ar"] .num,
+[dir="rtl"] .num,
+html[lang="ar"] .price b,
+[dir="rtl"] .price b,
+html[lang="ar"] .score b,
+[dir="rtl"] .score b,
+html[lang="ar"] .plat b,
+[dir="rtl"] .plat b,
+html[lang="ar"] .foot-rate b,
+[dir="rtl"] .foot-rate b,
+html[lang="ar"] .hrs dd,
+[dir="rtl"] .hrs dd {
+  font-family: var(--f) !important;
 }
 
 /* geometric lattice reminiscent of mashrabiya screens — pure CSS, no assets */
@@ -31,10 +98,10 @@ html { scroll-behavior: smooth; }
 /* ───────────── Villa Layla v2 (public site) ─────────────
    Idea: Cairo's blue enamel street signs — Arabic over Latin, white keyline — as the one memorable device.
    Everything else stays quiet: plaster grounds, lapis ink, bougainvillea for the single action colour. */
-.site { background: #eef0e8; color: #1e2a4a; font-family: 'Readex Pro Variable', system-ui, sans-serif; }
-[dir='rtl'] .site { font-family: 'Readex Pro Variable', system-ui, sans-serif; }
-.site .kufi, [dir='rtl'] .site .kufi { font-family: 'El Messiri Variable', 'Readex Pro Variable', sans-serif; letter-spacing: 0; }
-.site h1, .site h2, .site h3 { font-family: 'El Messiri Variable', 'Readex Pro Variable', sans-serif; font-weight: 600; line-height: 1.1; }
+.site { background: #eef0e8; color: #1e2a4a; font-family: 'Almarai', 'Readex Pro Variable', system-ui, sans-serif; }
+[dir='rtl'] .site { font-family: 'Almarai', 'Readex Pro Variable', system-ui, sans-serif; }
+.site .kufi, [dir='rtl'] .site .kufi { font-family: 'Almarai', 'El Messiri Variable', sans-serif; letter-spacing: 0; }
+.site h1, .site h2, .site h3 { font-family: 'Almarai', 'El Messiri Variable', sans-serif; font-weight: 700; line-height: 1.2; }
 .site p { line-height: 1.65; }
 .site h1, .site h2 { letter-spacing: -0.01em; }
 [dir='rtl'] .site h1, [dir='rtl'] .site h2, [dir='rtl'] .site h3 { letter-spacing: 0; line-height: 1.3; }
