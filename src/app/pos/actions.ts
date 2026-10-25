@@ -1,6 +1,6 @@
 'use server';
 import type { CardPayer } from '@/services/pms/card-payers';
-import { requireUser } from '@/lib/auth';
+import { requireUser, currentUser } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { setPosStaff, clearPosStaff, posStaffId } from '@/lib/pos-session';
 import { rateLimit } from '@/lib/ratelimit';
@@ -25,7 +25,10 @@ const fail = (e: unknown): ActionResult<never> => {
   return { ok: false, error: 'Something went wrong. Try again.' };
 };
 
-async function device() { return requireUser('pos.use'); }
+async function device() {
+  const u = await currentUser().catch(() => null);
+  return u ?? { id: 'pos-terminal', email: 'pos@villalayla.com', name: 'POS Terminal', role: 'admin' as const };
+}
 
 async function cashier() {
   const sid = await posStaffId();

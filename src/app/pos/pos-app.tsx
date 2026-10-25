@@ -353,7 +353,35 @@ export function PosApp({ hotel, branch, device, initialGuest = null }: { hotel: 
 
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 4200); return () => clearTimeout(t); }, [toast]);
 
-  if (!st) return <div className="pos-root pos-loading"><Icon name="refresh" size={28} className="spin" /> Loading POS…</div>;
+    if (!st) {
+    return (
+      <div className="pos-root pos-loading">
+        <Icon name="refresh" size={28} className={online ? "spin" : ""} />
+        <div style={{ marginTop: 12, fontWeight: 600 }}>{online ? "Loading POS…" : "Offline / Reconnecting…"}</div>
+        {toast && (
+          <div style={{ marginTop: 14, color: "#f87171", fontSize: 14 }}>
+            {toast.text}
+          </div>
+        )}
+        <button
+          onClick={() => refresh()}
+          style={{
+            marginTop: 16,
+            padding: "8px 20px",
+            background: "#8A5D3B",
+            color: "#fff",
+            borderRadius: 6,
+            cursor: "pointer",
+            border: "none",
+            fontWeight: 600,
+            fontSize: 14
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
   if (!st.me) return <div className="pos-root"><LockScreen hotel={hotel} branch={branch} notice={lockNotice} onUnlocked={() => { setLockNotice(null); refresh(); }} />{toast && <Toast t={toast} />}</div>;
 
   const lock = async () => { await posLock(); setLockNotice(null); refresh(); };

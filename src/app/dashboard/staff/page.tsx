@@ -103,7 +103,20 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                     <td className="tabular-nums">{fmt(s.hourly_rate_cents)}</td>
                     <td className="tabular-nums">{fmt(s.daily_rate_cents)}</td>
                     <td className="space-x-1">{s.is_manager && <Pill tone="cocoa">Manager</Pill>}{s.can_take_cash && <Pill tone="amber">Takes cash</Pill>}{s.can_use_pos && (s.has_pin ? <Pill tone="green">POS PIN set</Pill> : <Pill tone="amber">No PIN</Pill>)}{!s.active && <Pill>Inactive</Pill>}</td>
-                    <td>{manage && <Link href={`/dashboard/staff?week=${monday}&edit=${s.id}#profile`} className="text-sm font-semibold text-cocoa-600 underline">Edit</Link>}</td>
+                    <td>
+                      {manage && <Link href={`/dashboard/staff?week=${monday}&edit=${s.id}#profile`} className="text-sm font-semibold text-cocoa-600 underline">Edit</Link>}
+                      {s.phone && (
+                        <a
+                          href={`https://wa.me/${s.phone.replace(/[^\d]/g, '').startsWith('0') ? '2' + s.phone.replace(/[^\d]/g, '') : s.phone.replace(/[^\d]/g, '')}?text=${encodeURIComponent(`مرحباً ${s.full_name}، رابط نظام الـ POS في فندق فيلا ليلى: https://villalaylahostel.com/pos`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-3 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline"
+                          title="Send via WhatsApp"
+                        >
+                          <Icon name="message-circle" size={13} /> WhatsApp
+                        </a>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {staff.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-slate-500">No staff yet.</td></tr>}
@@ -124,7 +137,9 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                 <div><Lbl htmlFor="s-p">Phone</Lbl><input id="s-p" name="phone" dir="ltr" defaultValue={edit?.phone ?? ''} className={Input} /></div>
               </div>
               <div><Lbl htmlFor="s-pin">{edit?.has_pin ? 'New POS PIN (leave empty to keep)' : 'POS PIN (4–6 digits)'}</Lbl>
-                <input id="s-pin" name="pin" inputMode="numeric" pattern="\d{4,6}" maxLength={6} autoComplete="new-password" className={Input + ' tracking-[.4em]'} /></div>
+                <input id="s-pin" name="pin" inputMode="numeric" pattern="\d{4,6}" maxLength={6} autoComplete="new-password" className={Input + ' tracking-[.4em]'} />
+                <p className="mt-1 text-xs text-slate-500">عند إدخال رمز PIN ورقم هاتف، سيتم إرساله تلقائياً عبر واتساب للموظف.</p>
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 <div><Lbl htmlFor="s-t">Monthly hours</Lbl><input id="s-t" name="target" type="number" min={0} defaultValue={edit?.monthly_target_hours ?? 208} className={Input} /></div>
                 <div><Lbl htmlFor="s-h">Hourly pay (EGP)</Lbl><input id="s-h" name="hourly" type="number" min={0} step="0.01" defaultValue={edit ? edit.hourly_rate_cents / 100 : ''} className={Input} /></div>

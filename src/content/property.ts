@@ -15,10 +15,10 @@ export type Photo = { src: string | null; alt: Record<string, string>; slot: str
 export const PHOTOS: Photo[] = [
   { slot: 'hero', src: '/photos/gallery_and_hostel/jtfzrhhp3g0fj6vdnxjq.jpeg', alt: { en: 'Villa Layla courtyard', es: 'Patio de Villa Layla', fr: 'Cour de Villa Layla', ar: 'فناء فيلا ليلى' } },
   { slot: 'garden', src: '/photos/gallery_and_hostel/kiovp5fgbbt2luk4wopj.jpg', alt: { en: 'Garden', es: 'Jardín', fr: 'Jardin', ar: 'الحديقة' } },
-  { slot: 'pool', src: '/photos/rooms/dorm_Spacious_8-Bed_Female_Dormitory/01_Spacious_8-Bed_Female_Dormitory.jpg', alt: { en: 'Pool', es: 'Piscina', fr: 'Piscine', ar: 'المسبح' } },
+  { slot: 'pool', src: '/photos/gallery_and_hostel/f2.jpg', alt: { en: 'Pool', es: 'Piscina', fr: 'Piscine', ar: 'المسبح' } },
   { slot: 'common', src: '/photos/gallery_and_hostel/qsvj2eqgcmaurlydc1v4.jpg', alt: { en: 'Common area', es: 'Zona común', fr: 'Espace commun', ar: 'المساحة المشتركة' } },
-  { slot: 'dorm', src: '/photos/rooms/dorm_10_Bed_Mixed_Dormitory/01_10_Bed_Mixed_Dormitory.jpg', alt: { en: 'Shared dorm', es: 'Dormitorio compartido', fr: 'Dortoir partagé', ar: 'عنبر مشترك' } },
-  { slot: 'private', src: '/photos/rooms/private_Sheherazade/01_Sheherazade.jpg', alt: { en: 'Private room', es: 'Habitación privada', fr: 'Chambre privée', ar: 'غرفة خاصة' } },
+  { slot: 'dorm', src: 'https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126446/2126446/2ab3201c-0e40-4d1a-944f-328648dc6bda', alt: { en: 'Shared dorm', es: 'Dormitorio compartido', fr: 'Dortoir partagé', ar: 'عنبر مشترك' } },
+  { slot: 'private', src: 'https://tbb-prod-emea.imgix.net/attachments/room_type_photos/images/2126388/2126388/033788c5-e7f0-4daa-a8ee-f8e512c018a7', alt: { en: 'Private room', es: 'Habitación privada', fr: 'Chambre privée', ar: 'غرفة خاصة' } },
 ];
 export const photo = (slot: string) => PHOTOS.find((p) => p.slot === slot);
 

@@ -1,4 +1,5 @@
 'use server';
+import { sendWhatsApp } from '@/services/whatsapp';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
@@ -125,15 +126,23 @@ export async function folioRateOverride(fd: FormData) {
 
 export async function staffSave(fd: FormData) {
   const u = await requireUser('staff.manage'); const back = '/dashboard/staff';
+  const pin = str(fd.get('pin')) || null;
+  const phone = str(fd.get('phone')) || null;
+  const fullName = str(fd.get('fullName'));
   try {
     await saveStaff({
-      id: str(fd.get('id')) || undefined, fullName: str(fd.get('fullName')), role: str(fd.get('role')), phone: str(fd.get('phone')) || null,
-      pin: str(fd.get('pin')) || null, isManager: fd.get('isManager') === 'on', canUsePos: fd.get('canUsePos') === 'on',
+      id: str(fd.get('id')) || undefined, fullName, role: str(fd.get('role')), phone,
+      pin, isManager: fd.get('isManager') === 'on', canUsePos: fd.get('canUsePos') === 'on',
       monthlyTargetHours: Number(str(fd.get('target'))) || 208, hourlyRateCents: cents(fd.get('hourly')) ?? 0, dailyRateCents: cents(fd.get('daily')) ?? 0,
       active: fd.get('active') === 'on', userId: str(fd.get('userId')) || null, canTakeCash: fd.get('canTakeCash') === 'on',
     }, u.email);
+    if (pin && phone) {
+      const msgText = `مرحباً ${fullName}، تم تعيين رمز الدخول (PIN) الخاص بك لنظام الـ POS في فندق فيلا ليلى: ${pin}\nرابط الـ POS: https://villalaylahostel.com/pos`;
+      await sendWhatsApp(phone, msgText).catch(() => {});
+    }
   } catch (e) { go(back, 'err', msg(e)); }
-  revalidatePath(back); go(back, 'ok', 'Staff saved');
+  revalidatePath(back);
+  go(back, 'ok', pin ? `Staff saved. PIN: ${pin}` : 'Staff saved');
 }
 
 export async function rosterSet(fd: FormData) {
