@@ -5,7 +5,6 @@ import { photo } from '@/content/property';
 import { todayLocal, addDays } from '@/lib/dates';
 import { hostelInfo } from '@/services/settings';
 import { sized } from '@/content/rooms-catalog';
-import { SiteChatWidget } from '@/components/site-chat';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs, ClaudeBottomBar } from '@/components/claude-shell';
 
 const SHORT: Record<Lang, string> = { en: 'EN', es: 'ES', fr: 'FR', ar: 'ع' };
@@ -46,7 +45,6 @@ export async function SiteShell({ lang, children }: { lang: Lang; children: Reac
       <ClaudeFooter lang={lang} />
       <ClaudeFabs lang={lang} />
       <ClaudeBottomBar lang={lang} />
-      <SiteChatWidget lang={lang} />
     </div>
   );
 }
