@@ -11,10 +11,12 @@ import { priceLabel, whenLabel } from '@/services/event-view';
 import { scheduleLabel, timeLabel, dateLabel } from '@/lib/event-dates';
 import { EventBooker } from './event-booker';
 import { weeklyMenu } from '@/services/weekly-menu';
+import { EventAbout } from './event-about';
 
 export const dynamic = 'force-dynamic';
 
 const MAP_URL = 'https://maps.app.goo.gl/H7YGjCVT7nshDExj9';
+
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string; slug: string }> }): Promise<Metadata> {
   const { lang, slug } = await params;
@@ -88,20 +90,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
               </dd></div>
             </dl>
 
-            <h2>{isAr ? 'عن الفعالية' : 'About'}</h2>
-            <p className="evd-desc">{tr(ev.description, lang)}</p>
-
-            {ev.includes.length > 0 && (
-              <>
-                <h2>{isAr ? 'يشمل' : 'Included'}</h2>
-                <ul className="amen">
-                  {ev.includes.map((x, i) => (
-                    <li key={i}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden><path d="m5 12 5 5 9-10" /></svg>{tr(x, lang)}</li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {tr(ev.note, lang) && <p className="evd-note">{tr(ev.note, lang)}</p>}
+            <EventAbout isAr={isAr} text={tr(ev.description, lang) ?? ''} includes={ev.includes.map((x) => tr(x, lang)).filter(Boolean) as string[]} note={tr(ev.note, lang) ?? ''} />
 
             {videos.length > 0 && (
               <>
