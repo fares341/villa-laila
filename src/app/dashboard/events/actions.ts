@@ -189,7 +189,8 @@ export async function moveEventAction(f: FormData) {
   const u = await requireUser('events.manage');
   const dir = String(f.get('dir'));
   if (!['up', 'down', 'top', 'bottom'].includes(dir)) return;
-  await moveEvent(String(f.get('id')), dir as 'up', u.email);
+  const peers = String(f.get('peers') ?? '').split(',').filter((x) => /^[0-9a-f-]{36}$/i.test(x));
+  await moveEvent(String(f.get('id')), dir as 'up', u.email, peers);
   revalidatePath(P); revalidatePath('/[lang]', 'layout');
   redirect(`${P}?tab=events#order`);
 }

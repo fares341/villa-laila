@@ -343,3 +343,21 @@ a.pos-check { text-decoration: none; }
 .pos-shiftinfo-team .pos-badge { margin-inline-start: auto; }
 button.pos-chip { cursor: pointer; border: 0; font: inherit; }
 .pos-chip.bad { background: #fde8e6; color: #b42318; }
+
+/* Extend stay: steps, guest picker */
+.pos-steps { display: flex; gap: 6px; list-style: none; margin: 0 0 14px; padding: 0; counter-reset: none; }
+.pos-steps li { flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: var(--ivory); font-size: 13px; font-weight: 600; color: var(--ink2); }
+.pos-steps li span { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 1.5px solid var(--line); font-size: 12px; }
+.pos-steps li.on { background: var(--cocoa); color: #fff; }
+.pos-steps li.on span { background: #fff; color: var(--cocoa); border-color: #fff; }
+.pos-steps li.done { color: var(--green); }
+.pos-steps li.done span { background: var(--green-bg); border-color: var(--green); }
+.pos-guest-search.inline { margin-bottom: 8px; }
+.pos-pick-list { list-style: none; margin: 0; padding: 0; max-height: 46vh; overflow: auto; display: grid; gap: 6px; }
+.pos-pick-list button { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); background: #fff; border-radius: 12px; text-align: left; min-height: 56px; }
+.pos-pick-list button:hover { border-color: var(--cocoa); background: var(--ivory); }
+.pos-pick-list b { color: var(--cocoa); margin-right: 6px; }
+.pos-pick-list small { display: block; color: var(--ink2); font-size: 12.5px; margin-top: 2px; }
+.pos-pick-go { display: inline-flex; align-items: center; gap: 2px; font-weight: 700; font-size: 13px; color: var(--cocoa); white-space: nowrap; }
+.pos-ext-who { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--ivory); margin-bottom: 10px; font-size: 14px; }
+.pos-ext-who b { color: var(--cocoa); margin-right: 6px; }

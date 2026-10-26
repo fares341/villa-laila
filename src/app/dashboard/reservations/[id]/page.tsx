@@ -94,6 +94,7 @@ export default async function StayPage({ params, searchParams }: { params: Promi
             <input type="date" name="newCheckOut" required min={addDays(res.check_out, 1)} aria-label="Extend until" className={Input + ' w-40'} />
             <button className={BtnGhost + ' whitespace-nowrap'}>Extend until</button></form>
           <span className="ms-auto text-xs text-slate-500">{freeAfter > 0 ? `Same bed free for ${freeAfter >= 30 ? '30+' : freeAfter} more night${freeAfter === 1 ? '' : 's'}. Extra nights go on the bill; take the money on the POS.` : 'The same bed is taken from check-out: move the guest to a free bed first (Dates & beds).'}</span>
+          <a href={`/pos?guest=${id}`} className={BtnGhost + ' whitespace-nowrap'}><Icon name="banknote" size={16} /> Take payment on POS</a>
         </section>
       )}
 

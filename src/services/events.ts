@@ -301,14 +301,21 @@ export async function setEventDeposit(eventId: string, depositCents: number | nu
   await audit(actor, 'event.deposit', 'event', eventId, { depositCents });
 }
 
-/** Moves an event in the website grid order (up, down or to the top). Renumbers all events 10, 20, 30… */
-export async function moveEvent(id: string, dir: 'up' | 'down' | 'top' | 'bottom', actor: string) {
-  const rows = await q<{ id: string }>(`SELECT id FROM events ORDER BY active DESC, sort_order, slug`);
-  const i = rows.findIndex((r) => r.id === id);
+/**
+ * Moves an event in the website grid order (up, down, or to the top) among `peers` — the events shown on the
+ * website, in their current order. Those come first, the rest keep their order after them; renumbered 10, 20, 30…
+ */
+export async function moveEvent(id: string, dir: 'up' | 'down' | 'top' | 'bottom', actor: string, peers: string[] = []) {
+  const all = (await q<{ id: string }>(`SELECT id FROM events ORDER BY active DESC, sort_order, slug`)).map((r) => r.id);
+  const group = peers.filter((p) => all.includes(p));
+  const list = group.includes(id) ? group : all;
+  const i = list.indexOf(id);
   if (i < 0) return;
-  const [item] = rows.splice(i, 1);
-  const to = dir === 'top' ? 0 : dir === 'bottom' ? rows.length : Math.max(0, Math.min(rows.length, i + (dir === 'up' ? -1 : 1)));
-  rows.splice(to, 0, item);
-  await q(`UPDATE events e SET sort_order = v.n, updated_at = now() FROM (SELECT unnest($1::uuid[]) id, generate_series(10, $2::int * 10, 10) n) v WHERE e.id = v.id AND e.sort_order <> v.n`, [rows.map((r) => r.id), rows.length]);
+  const next = [...list];
+  next.splice(i, 1);
+  const to = dir === 'top' ? 0 : dir === 'bottom' ? next.length : Math.max(0, Math.min(next.length, i + (dir === 'up' ? -1 : 1)));
+  next.splice(to, 0, id);
+  const order = list === all ? next : [...next, ...all.filter((x) => !next.includes(x))];
+  await q(`UPDATE events e SET sort_order = v.n, updated_at = now() FROM (SELECT unnest($1::uuid[]) id, generate_series(10, $2::int * 10, 10) n) v WHERE e.id = v.id AND e.sort_order <> v.n`, [order, order.length]);
   await audit(actor, 'event.move', 'event', id, { dir, position: to + 1 });
 }

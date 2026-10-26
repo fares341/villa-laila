@@ -65,7 +65,6 @@ export function BookingDetails(p: {
                 <option value="" disabled>{L('Choose your country', 'اختر دولتك')}</option>
                 {p.countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
-              {p.mixedDorm && <small className="bk-hint">{L('Mixed dorms are open to non-Arab nationalities only. Egyptian and Arab guests can book a private room or a women-only / men-only dorm.', 'الغرف المشتركة المختلطة متاحة للجنسيات غير العربية فقط. المصريين والعرب يقدروا يحجزوا غرفة خاصة أو غرفة مشتركة للبنات أو للشباب.')}</small>}
             </div>
           )}
           {p.needGov && nat === 'EG' && (

@@ -651,6 +651,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
             <Icon name="clipboard-list" /> Tasks{st.tasks ? (st.tasks.distributed ? ` ${st.tasks.mine - st.tasks.open}/${st.tasks.mine}` : '') : ''}
             {st.tasks?.open ? <span className="pos-dot">{st.tasks.open}</span> : null}
           </button>
+          <button className="pos-btn ghost" onClick={() => setModal('extend')} title="Choose a guest, add nights, then take the payment"><Icon name="calendar-days" /> Extend stay</button>
           <button className="pos-icon-btn" onClick={() => refresh()} aria-label="Refresh"><Icon name="refresh" size={20} /></button>
           <button className="pos-icon-btn" onClick={() => setModal('menu')} aria-label="More"><Icon name="menu" size={20} /></button>
           {st.changeOwed?.length > 0 && <button className="pos-btn ghost" onClick={() => setModal('change')} title="Guests who will come back for their change"><Icon name="clock" /> Change owed <span className="pos-count">{st.changeOwed.length}</span></button>}
@@ -829,7 +830,8 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
       )}
       {catalog && <TourCatalog t={catalog} onClose={() => setCatalog(null)} notify={notify} />}
       {modal === 'myshift' && <Modal title="My shift" onClose={() => setModal(null)}><ShiftPanel sc={st.schedule} /></Modal>}
-      {modal === 'extend' && guest && <ExtendModal guest={guest} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
+      {modal === 'extend' && <ExtendModal guest={guest} guests={guests} onClose={() => setModal(null)}
+        onDone={async (m, id, payNow) => { notify(m); setGuestId(id); await refresh(); setModal(payNow ? 'payment' : null); }} />}
       {modal === 'event' && <EventPayModal guest={guest} initialEvent={evSell} onClose={() => { setModal(null); setEvSell(null); }} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'exchange' && <ExchangeModal rates={st.rates} guest={guest} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'change' && <ChangeOwedModal onClose={() => setModal(null)} notify={notify} onChanged={refresh} />}
@@ -1255,38 +1257,80 @@ function TaskCard({ t, d, onSave, onWash, onTaxi }: { t: TaskRow; d: any; onSave
   );
 }
 
-/** Extend the selected guest's stay by some nights (same bed); the new balance can be paid straight away. */
-function ExtendModal({ guest, onClose, onDone }: { guest: Guest; onClose: () => void; onDone: (m: string) => void }) {
+/**
+ * Extend a stay in three steps: choose the guest (or use the one already selected), choose the extra nights
+ * (same bed, priced per date and added to the bill), then take the payment now or leave it on the bill.
+ */
+function ExtendModal({ guest, guests, onClose, onDone }: { guest: Guest | null; guests: Guest[]; onClose: () => void; onDone: (m: string, guestId: string, payNow: boolean) => void }) {
+  const [g, setG] = useState<Guest | null>(guest && ['confirmed', 'checked_in'].includes(guest.status) ? guest : null);
+  const [qy, setQy] = useState('');
   const [n, setN] = useState(1);
   const [info, setInfo] = useState<{ freeNights: number; checkOut: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { posExtendInfo(guest.id).then((r) => (r.ok ? setInfo(r.data) : setErr(r.error))); }, [guest.id]);
+  const [done, setDone] = useState<null | { src?: string; msg: string; out: string; nights: number; extra: number; balance: number }>(null);
+  useEffect(() => { setInfo(null); setErr(null); setN(1); if (g) posExtendInfo(g.id).then((r) => (r.ok ? setInfo(r.data) : setErr(r.error))); }, [g]);
+  const staying = guests.filter((x) => ['confirmed', 'checked_in'].includes(x.status))
+    .filter((x) => !qy.trim() || `${x.full_name} ${x.rooms ?? ''} ${x.reference}`.toLowerCase().includes(qy.trim().toLowerCase()))
+    .sort((a, b) => Number(b.inHouse) - Number(a.inHouse) || a.check_out.localeCompare(b.check_out));
   const max = info?.freeNights ?? 0;
   const newOut = info ? new Date(Date.parse(info.checkOut + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10) : '';
+  const step = done ? 3 : g ? 2 : 1;
   return (
-    <Modal title={`Extend stay · ${guest.full_name}`} onClose={onClose}>
-      {!info ? <p className="pos-fine">{err ?? 'Checking the bed…'}</p> : max === 0 ? (
-        <p className="pos-msg bad">The same bed is taken from {info.checkOut}. Move the guest to a free bed on the dashboard first, then extend.</p>
-      ) : (
+    <Modal title={g ? `Extend stay · ${g.full_name}` : 'Extend stay'} onClose={onClose}>
+      <ol className="pos-steps" aria-label="Steps">
+        {['Choose guest', 'Extra nights', 'Payment'].map((t, i) => <li key={t} className={step === i + 1 ? 'on' : step > i + 1 ? 'done' : ''}><span>{i + 1}</span>{t}</li>)}
+      </ol>
+      {step === 1 && (
         <>
-          <p className="pos-fine">Check-out now {info.checkOut}. Same bed free for {max >= 30 ? '30+' : max} more night{max === 1 ? '' : 's'}.</p>
-          <div className="pos-field"><label>Extra nights</label>
-            <div className="pos-qty big"><button onClick={() => setN((x) => Math.max(1, x - 1))} aria-label="Less"><Icon name="minus" /></button><span className="num">{n}</span><button onClick={() => setN((x) => Math.min(max, x + 1))} aria-label="More"><Icon name="plus" /></button></div></div>
-          <p className="pos-total"><span>New check-out</span><b className="num">{newOut}</b></p>
-          <p className="pos-fine">The nights are priced per date and added to the bill. Then use Pay part of the bill or Pay whole bill.</p>
+          <div className="pos-guest-search inline"><Icon name="search" size={18} /><input autoFocus placeholder="Room, guest name or booking ref" value={qy} onChange={(e) => setQy(e.target.value)} /></div>
+          <ul className="pos-pick-list">
+            {staying.map((x) => (
+              <li key={x.id}><button onClick={() => setG(x)}>
+                <span><b>{x.rooms ?? '—'}</b> {x.full_name}<small>{x.inHouse ? `check-out ${x.check_out}` : `arrives ${x.check_in}`} · {x.reference}</small></span>
+                <span className="pos-pick-go">Choose <Icon name="chevron-right" size={16} /></span>
+              </button></li>
+            ))}
+            {!staying.length && <li className="pos-empty">No staying guest matches.</li>}
+          </ul>
         </>
       )}
-      {err && info && <p className="pos-msg bad">{err}</p>}
-      <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
-        <button className="pos-btn primary" disabled={busy || !info || max === 0} onClick={async () => {
-          setBusy(true); setErr(null);
-          const r = await posExtend(guest.id, n);
-          setBusy(false);
-          if (!r.ok) { setErr(r.error); return; }
-          onDone(`Extended to ${r.data.newCheckOut} (+${r.data.nights} night${r.data.nights === 1 ? '' : 's'}, ${egp(r.data.extraCents)}) · to pay ${egp(Math.max(0, r.data.balance))}`);
-        }}><Icon name="check" /> Extend</button>
-      </div>
+      {step === 2 && g && (
+        <>
+          <div className="pos-ext-who"><span><b>{g.rooms ?? '—'}</b> {g.full_name} · {g.reference}</span>{!guest || guest.id !== g.id ? <button className="pos-link" onClick={() => setG(null)}>Change guest</button> : null}</div>
+          {!info ? <p className="pos-fine">{err ?? 'Checking the bed…'}</p> : max === 0 ? (
+            <p className="pos-msg bad">The same bed is taken from {info.checkOut}. Move the guest to a free bed on the dashboard first (booking → Dates & beds), then extend.</p>
+          ) : (
+            <>
+              <p className="pos-fine">Check-out now {info.checkOut}. Same bed free for {max >= 30 ? '30+' : max} more night{max === 1 ? '' : 's'}.</p>
+              <div className="pos-field"><label>Extra nights</label>
+                <div className="pos-qty big"><button onClick={() => setN((x) => Math.max(1, x - 1))} aria-label="Less"><Icon name="minus" /></button><span className="num">{n}</span><button onClick={() => setN((x) => Math.min(max, x + 1))} aria-label="More"><Icon name="plus" /></button></div></div>
+              <p className="pos-total"><span>New check-out</span><b className="num">{newOut}</b></p>
+              <p className="pos-fine">Priced at today’s Hostelworld price for these nights (our own rates if Hostelworld can’t be read), added to the bill. You take the payment in the next step.</p>
+            </>
+          )}
+          {err && info && <p className="pos-msg bad">{err}</p>}
+          <div className="pos-row end"><button className="pos-btn ghost" onClick={onClose}>Cancel</button>
+            <button className="pos-btn primary" disabled={busy || !info || max === 0} onClick={async () => {
+              setBusy(true); setErr(null);
+              const r = await posExtend(g.id, n);
+              setBusy(false);
+              if (!r.ok) { setErr(r.error); return; }
+              setDone({ src: r.data.priceSource, msg: `Extended ${g.full_name} to ${r.data.newCheckOut} (+${r.data.nights} night${r.data.nights === 1 ? '' : 's'}, ${egp(r.data.extraCents)})`, out: r.data.newCheckOut, nights: r.data.nights, extra: r.data.extraCents, balance: r.data.balance });
+            }}><Icon name="check" /> Extend</button>
+          </div>
+        </>
+      )}
+      {step === 3 && g && done && (
+        <>
+          <p className="pos-msg ok">Stay extended to {done.out} · +{done.nights} night{done.nights === 1 ? '' : 's'} · {egp(done.extra)} added to the bill{done.src ? ` (${done.src})` : ''}.</p>
+          <p className="pos-total"><span>Still to pay on the bill</span><b className="num">{egp(Math.max(0, done.balance))}</b></p>
+          <div className="pos-row end">
+            <button className="pos-btn ghost" onClick={() => onDone(done.msg + ' · left on the bill', g.id, false)}>Later (keep on the bill)</button>
+            {done.balance > 0 && <button className="pos-btn primary" onClick={() => onDone(done.msg, g.id, true)}><Icon name="banknote" /> Take payment now</button>}
+          </div>
+        </>
+      )}
     </Modal>
   );
 }

@@ -7,6 +7,8 @@ import { getSetting } from './settings';
 import { audit } from './audit';
 import { sweepExpired } from './reservations';
 import { cancelFollowups } from './followups';
+import { hostelworldStayPrice } from './hostelworld-sync';
+import { channelEnabled } from './pms/channel';
 
 export type ExtensionRequest = { id: string; status: string; extra_nights: number; extra_cents: number; conflict_detail: string | null; new_check_out: string; old_check_out: string };
 
@@ -29,6 +31,9 @@ async function checkExtendable(c: Q, reservationId: string, from: string, to: st
 export async function requestExtension(reservationId: string, newCheckOut: string, requestedBy: string): Promise<ExtensionRequest> {
   if (!isIsoDate(newCheckOut)) throw new BookingError('INVALID_DATES');
   const maxNights = await getSetting<number>('max_nights');
+  // The extra nights cost what Hostelworld charges for them right now (read before the transaction: it is a web call).
+  const pre = (await q<any>(`SELECT r.check_out::text check_out, r.currency, t.code FROM reservations r JOIN room_types t ON t.id=r.room_type_id WHERE r.id=$1`, [reservationId]))[0];
+  const hw = pre && newCheckOut > pre.check_out ? await hostelworldStayPrice(pre.code, pre.check_out, newCheckOut, pre.currency || 'EGP') : null;
   return tx(async (c) => {
     const cq = c as unknown as Q;
     await sweepExpired(cq);
@@ -43,14 +48,16 @@ export async function requestExtension(reservationId: string, newCheckOut: strin
     const unitCount = (await c.query('SELECT count(*)::int n FROM reservation_units WHERE reservation_id=$1 AND active', [reservationId])).rows[0].n;
     const extraNights = nightsBetween(r.check_out, newCheckOut);
     let extra = 0, noRate = false;
-    try { extra = (await quote(cq, r.room_type_id, r.check_out, newCheckOut, unitCount)).totalCents; } catch (e) { if (e instanceof BookingError && e.code === 'NO_RATE') noRate = true; else throw e; }
+    const hwLines = hw && hw.lines.length === extraNights && hw.lines[0].date === String(r.check_out).slice(0, 10) ? hw.lines : null;
+    if (hwLines) extra = hw!.perUnitCents * unitCount;
+    else try { extra = (await quote(cq, r.room_type_id, r.check_out, newCheckOut, unitCount)).totalCents; } catch (e) { if (e instanceof BookingError && e.code === 'NO_RATE') noRate = true; else throw e; }
     const conflict = await checkExtendable(cq, reservationId, r.check_out, newCheckOut);
     const status = conflict || noRate ? 'conflict' : 'pending';
     const detail = conflict ?? (noRate ? 'No configured rate for some of the extra nights — price needs staff input' : null);
 
     const ext = (await c.query(
-      `INSERT INTO extension_requests(reservation_id,old_check_out,new_check_out,extra_nights,extra_cents,status,conflict_detail,requested_by)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [reservationId, r.check_out, newCheckOut, extraNights, extra, status, detail, requestedBy])).rows[0];
+      `INSERT INTO extension_requests(reservation_id,old_check_out,new_check_out,extra_nights,extra_cents,status,conflict_detail,requested_by,price_lines,price_source)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`, [reservationId, r.check_out, newCheckOut, extraNights, extra, status, detail, requestedBy, hwLines ? JSON.stringify(hwLines) : null, hwLines ? 'hostelworld' : 'rates'])).rows[0];
     await c.query(
       `INSERT INTO tasks(title,detail,kind,reservation_id,extension_id,dedupe_key) VALUES($1,$2,'extension',$3,$4,$5)`,
       [`Extension request ${r.reference} → ${newCheckOut}`, detail ?? `+${extraNights} night(s), ${extra / 100} ${r.currency}. Needs approval.`, reservationId, ext.id, 'ext:' + ext.id]);
@@ -88,10 +95,16 @@ export async function decideExtension(extensionId: string, decision: 'approve' |
       // Only the bed(s) the guest is in on the last night are extended. After a room move the earlier
       // segment ends at the move date and must stay as it is.
       const unitCount = (await c.query('SELECT count(*)::int n FROM reservation_units WHERE reservation_id=$1 AND active AND upper(during)=$2::date', [r.id, ext.old_check_out])).rows[0].n;
-      const qt = await quote(cq, r.room_type_id, ext.old_check_out, ext.new_check_out, unitCount); // throws NO_RATE rather than guessing
+      // Hostelworld's price saved with the request when there is one; otherwise the hostel's own rates (throws NO_RATE rather than guessing).
+      const saved: any[] | null = Array.isArray(ext.price_lines) && ext.price_lines.length === ext.extra_nights ? ext.price_lines : null;
+      const qt = saved
+        ? { lines: saved, totalCents: saved.reduce((t, l) => t + Number(l.unitPriceCents), 0) * unitCount }
+        : await quote(cq, r.room_type_id, ext.old_check_out, ext.new_check_out, unitCount);
       await c.query(`UPDATE reservation_units SET during = daterange(lower(during), $2::date, '[)') WHERE reservation_id=$1 AND active AND upper(during)=$3::date`, [r.id, ext.new_check_out, ext.old_check_out]);
       const lines = [...(r.price_breakdown ?? []), ...qt.lines];
       await c.query('UPDATE reservations SET check_out=$2, total_cents=total_cents+$3, price_breakdown=$4, updated_at=now() WHERE id=$1', [r.id, ext.new_check_out, qt.totalCents, JSON.stringify(lines)]);
+      // Without the channel-manager connection the extra nights go on the dashboard alert, to be closed in Little Hotelier.
+      if (!channelEnabled()) await c.query(`UPDATE reservations SET cm_ext_from=LEAST(COALESCE(cm_ext_from, $2::date), $2::date), cm_ext_to=$3::date WHERE id=$1`, [r.id, ext.old_check_out, ext.new_check_out]);
       await c.query(`UPDATE extension_requests SET status='applied', extra_cents=$2, decided_by=$3, decided_at=now() WHERE id=$1`, [extensionId, qt.totalCents, staffUserId]);
       await c.query(`UPDATE tasks SET status='done', completed_at=now() WHERE extension_id=$1`, [extensionId]);
       await c.query('INSERT INTO reservation_events(reservation_id,actor,action,detail) VALUES($1,$2,$3,$4)', [r.id, actor, 'extension_applied', JSON.stringify({ newCheckOut: ext.new_check_out, extraCents: qt.totalCents })]);

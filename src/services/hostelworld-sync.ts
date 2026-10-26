@@ -240,3 +240,46 @@ export async function syncHostelworldData(options?: {
     return getDefaultRates(dateStart);
   }
 }
+
+/**
+ * The price Hostelworld shows right now for this room type for exactly these nights (per bed for a dorm, per room
+ * for a private room), split per night. Used to price a stay extension like the guest would pay on Hostelworld.
+ * Returns null when Hostelworld can't be read or doesn't sell that room for those nights (the caller then uses
+ * the hostel's own rates).
+ */
+export async function hostelworldStayPrice(roomCode: string, from: string, to: string, currency = 'EGP'): Promise<{ lines: { date: string; unitPriceCents: number; rate: string }[]; perUnitCents: number } | null> {
+  const info = ROOM_TO_HW_MAP[roomCode];
+  const nights = Math.round((Date.parse(to + 'T12:00:00Z') - Date.parse(from + 'T12:00:00Z')) / 864e5);
+  if (!info || nights < 1 || nights > 30) return null;
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 8000);
+    const res = await fetch(`https://api.m.hostelworld.com/2.2/properties/${HOSTELWORLD_PROPERTY_ID}/availability/?date-start=${from}&num-nights=${nights}&currency=${currency}`, {
+      signal: ctl.signal, cache: 'no-store',
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', Accept: 'application/json' },
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    return parseHostelworldStayPrice(await res.json(), info.hwId, from, nights, currency);
+  } catch { return null; }
+}
+
+/** Reads one room's price out of a Hostelworld availability answer (exported for tests). */
+export function parseHostelworldStayPrice(data: any, hwId: number, from: string, nights: number, currency: string) {
+  const all = [...((data?.rooms?.dorms ?? []) as any[]), ...((data?.rooms?.privates ?? []) as any[])];
+  const room = all.find((r) => Number(r.id) === hwId);
+  if (!room) return null;
+  const pick = (arr: any) => (Array.isArray(arr) ? (arr.find((x: any) => x?.price?.currency === currency) ?? arr[0])?.price?.value : arr?.value);
+  const total = Number(pick(room.totalPrice));
+  const avg = Number(pick(room.averagePricePerNight) ?? room.lowestPricePerNight?.value);
+  const totalCents = Number.isFinite(total) && total > 0 ? Math.round(total * 100) : Number.isFinite(avg) && avg > 0 ? Math.round(avg * 100) * nights : 0;
+  if (!totalCents) return null;
+  // Same price every night, the last night takes the rounding so the sum is exactly Hostelworld's total.
+  const each = Math.floor(totalCents / nights);
+  const lines = Array.from({ length: nights }, (_, i) => ({
+    date: new Date(Date.parse(from + 'T12:00:00Z') + i * 864e5).toISOString().slice(0, 10),
+    unitPriceCents: i === nights - 1 ? totalCents - each * (nights - 1) : each,
+    rate: 'Hostelworld price',
+  }));
+  return { lines, perUnitCents: totalCents };
+}

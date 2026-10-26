@@ -26,7 +26,7 @@ export async function extendStay(reservationId: string, input: { nights?: number
   if (d.status === 'conflict') throw new BookingError('CONFLICT', d.detail ?? 'Cannot extend');
   await afterStayChange(reservationId, before, userId, 'extension.apply');
   const f = await getFolio(reservationId);
-  return { reference: r.reference, newCheckOut: to, nights: e.extra_nights, extraCents: e.extra_cents, balance: f.balance };
+  return { reference: r.reference, newCheckOut: to, nights: e.extra_nights, extraCents: d.extra_cents ?? e.extra_cents, balance: f.balance, priceSource: (e as any).price_source === 'hostelworld' ? 'Hostelworld price' : 'our rates' };
 }
 
 /** How many nights after check-out the same bed(s) stay free (0–30), to tell staff how far a stay can be extended. */

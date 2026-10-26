@@ -23,7 +23,7 @@ export default async function Reservations({ searchParams }: { searchParams: Pro
         {can(u.role, 'reservation.export') && <a className={BtnGhost} href={`/dashboard/reservations/export?${qs}`}>Download CSV</a>}
         <Link className={Btn} href="/dashboard/ota?ch=website#add">+ New booking</Link>
       </PageHeader>
-      {can(u.role, 'extension.decide') && <SubTabs current="/dashboard/reservations" tabs={[{ href: '/dashboard/reservations', label: 'All reservations', icon: 'bed' }, { href: '/dashboard/extensions', label: 'Stay extensions', icon: 'arrow-left-right', count: ext }]} />}
+      {can(u.role, 'extension.decide') && <SubTabs current="/dashboard/reservations" tabs={[{ href: '/dashboard/reservations', label: 'All reservations', icon: 'bed' }, { href: '/dashboard/extensions', label: 'Extend a stay', icon: 'arrow-left-right', count: ext }]} />}
       <Flash sp={sp} />
       <form className="mb-5 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4" method="get">
         <div className="sm:col-span-2"><Lbl htmlFor="q">Search (reference, name, email, phone)</Lbl><input id="q" name="q" defaultValue={sp.q} className={Input} /></div>

@@ -148,8 +148,21 @@ export async function createExtensionAction(f: FormData) {
     const { extendStay } = await import('@/services/pms/extend');
     const nights = parseInt(S(f, 'nights'), 10);
     const r = await extendStay(id, nights > 0 ? { nights } : { newCheckOut: S(f, 'newCheckOut') }, u.email, u.id);
-    return `Stay extended to ${r.newCheckOut} (+${r.nights} night${r.nights === 1 ? '' : 's'}, EGP ${(r.extraCents / 100).toLocaleString('en-US')} added to the bill).${r.balance > 0 ? ` Still to pay: EGP ${(r.balance / 100).toLocaleString('en-US')} on the POS.` : ''}`;
+    return `Stay extended to ${r.newCheckOut} (+${r.nights} night${r.nights === 1 ? '' : 's'}, EGP ${(r.extraCents / 100).toLocaleString('en-US')} added to the bill, ${r.priceSource}).${r.balance > 0 ? ` Still to pay: EGP ${(r.balance / 100).toLocaleString('en-US')} on the POS.` : ''}`;
   });
+}
+/** Extend from the Stay extensions page, then send staff to the POS to take the payment. */
+export async function quickExtendAction(f: FormData) {
+  const u = await requireUser('reservation.edit'); const id = S(f, 'id');
+  let msg = ''; let pay = false;
+  try {
+    const { extendStay } = await import('@/services/pms/extend');
+    const r = await extendStay(id, { nights: parseInt(S(f, 'nights'), 10) || 1 }, u.email, u.id);
+    pay = r.balance > 0;
+    msg = `${r.reference} extended to ${r.newCheckOut} (+${r.nights} night${r.nights === 1 ? '' : 's'}, EGP ${(r.extraCents / 100).toLocaleString('en-US')} added, ${r.priceSource}).${pay ? ` Still to pay: EGP ${(r.balance / 100).toLocaleString('en-US')}.` : ''}`;
+  } catch (e) { if (isRedirect(e)) throw e; redirect(`/dashboard/extensions?err=${enc(friendly(e))}`); }
+  revalidatePath('/dashboard/extensions');
+  redirect(`/dashboard/extensions?ok=${enc(msg)}${pay ? `&pay=${id}` : ''}`);
 }
 export async function decideExtensionAction(f: FormData) {
   const u = await requireUser('extension.decide'); const dec = S(f, 'decision') === 'approve' ? 'approve' : 'reject';
