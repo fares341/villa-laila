@@ -14,6 +14,7 @@ import { BookingError } from '@/services/errors';
 import { activeRules, requiredFacts, evaluate, normalizeGovernorate } from '@/services/policy';
 import { getSetting, localized } from '@/services/settings';
 import { reschedule, cancelFollowups } from '@/services/followups';
+import { ALL_COUNTRIES } from '@/content/countries';
 import { payState } from '@/services/payments';
 import { tg } from './telegram';
 import { extract, answerFromFacts, transcribeVoice, summarize, geminiEnabled, type Extracted } from './ai';
@@ -40,9 +41,31 @@ export function parseDateText(raw: string, today: string): string | null {
   return null;
 }
 
+let NAMES: Map<string, string> | null = null;
+const ARAB_DEMONYMS: Record<string, string> = {
+  saudi: 'SA', 'سعودي': 'SA', 'سعودية': 'SA', jordanian: 'JO', 'أردني': 'JO', 'اردني': 'JO', lebanese: 'LB', 'لبناني': 'LB', syrian: 'SY', 'سوري': 'SY',
+  iraqi: 'IQ', 'عراقي': 'IQ', palestinian: 'PS', 'فلسطيني': 'PS', moroccan: 'MA', 'مغربي': 'MA', algerian: 'DZ', 'جزائري': 'DZ', tunisian: 'TN', 'تونسي': 'TN',
+  libyan: 'LY', 'ليبي': 'LY', sudanese: 'SD', 'سوداني': 'SD', emirati: 'AE', 'إماراتي': 'AE', 'اماراتي': 'AE', kuwaiti: 'KW', 'كويتي': 'KW', qatari: 'QA', 'قطري': 'QA',
+  bahraini: 'BH', 'بحريني': 'BH', omani: 'OM', 'عماني': 'OM', yemeni: 'YE', 'يمني': 'YE', mauritanian: 'MR', 'موريتاني': 'MR', somali: 'SO', 'صومالي': 'SO',
+};
+function countryByName(x: string): string | undefined {
+  if (ARAB_DEMONYMS[x]) return ARAB_DEMONYMS[x];
+  if (!NAMES) {
+    NAMES = new Map();
+    for (const lang of ['en', 'ar', 'fr', 'es']) {
+      try { const dn = new Intl.DisplayNames([lang], { type: 'region' }); for (const c of ALL_COUNTRIES) { const n = dn.of(c); if (n) NAMES.set(n.toLowerCase(), c); } } catch { /* no Intl data */ }
+    }
+  }
+  return NAMES.get(x);
+}
+
 export function normalizeNationality(s: string): string {
   const x = s.trim().toLowerCase();
   if (/^(eg|egy|egypt|egyptian|egipto|egipcio|egipcia|égypte|egypte|égyptien|egyptien|égyptienne|مصر|مصري|مصرية|مصريه)$/.test(x)) return 'EG';
+  // A country name (any of en/ar/fr/es) or an ISO code becomes the code, so the policy rules can match it.
+  if (/^[a-z]{2}$/.test(x) && ALL_COUNTRIES.includes(x.toUpperCase())) return x.toUpperCase();
+  const code = countryByName(x);
+  if (code) return code;
   return s.trim().toUpperCase().slice(0, 40);
 }
 

@@ -3,6 +3,7 @@
 import React, { useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { submitBooking } from './actions';
+import { EG_GOVERNORATES } from '@/content/countries';
 
 type Method = 'paymob' | 'instapay' | 'hostel';
 
@@ -14,12 +15,15 @@ function Submit({ label, busy }: { label: string; busy: string }) {
 export function BookingDetails(p: {
   lang: string; checkIn: string; checkOut: string; guests: number; roomTypeId: string; roomCode: string; total: string;
   needNationality: boolean; needGov: boolean; methods: Method[];
+  /** Countries the guest may pick (Arab countries are left out for a mixed dorm). */
+  countries: { code: string; name: string }[]; mixedDorm: boolean;
   labels: { fullName: string; email: string; phone: string; nationality: string; idGovernorate: string; notes: string };
 }) {
   const ar = p.lang === 'ar';
   const L = (en: string, a: string) => (ar ? a : en);
   const [stage, setStage] = useState<'details' | 'payment'>('details');
   const [method, setMethod] = useState<Method>(p.methods[0]);
+  const [nat, setNat] = useState('');
   const detailsRef = useRef<HTMLFieldSetElement>(null);
 
   const go = (s: 'details' | 'payment') => {
@@ -28,7 +32,7 @@ export function BookingDetails(p: {
     document.getElementById('details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const next = () => {
-    const inputs = Array.from(detailsRef.current?.querySelectorAll('input, textarea') ?? []) as (HTMLInputElement | HTMLTextAreaElement)[];
+    const inputs = Array.from(detailsRef.current?.querySelectorAll('input, textarea, select') ?? []) as (HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement)[];
     for (const el of inputs) if (!el.checkValidity()) { el.reportValidity(); return; }
     go('payment');
   };
@@ -55,8 +59,23 @@ export function BookingDetails(p: {
           <div className="evb-field"><label htmlFor="fn">{p.labels.fullName}</label><input id="fn" name="fullName" required minLength={2} maxLength={80} autoComplete="name" /></div>
           <div className="evb-field"><label htmlFor="em">{p.labels.email}</label><input id="em" name="email" type="email" required autoComplete="email" dir="ltr" /></div>
           <div className="evb-field"><label htmlFor="ph">{p.labels.phone}</label><input id="ph" name="phone" type="tel" autoComplete="tel" dir="ltr" /></div>
-          {p.needNationality && <div className="evb-field"><label htmlFor="na">{p.labels.nationality}</label><input id="na" name="nationality" required /></div>}
-          {p.needGov && <div className="evb-field"><label htmlFor="gv">{p.labels.idGovernorate}</label><input id="gv" name="idGovernorate" /></div>}
+          {p.needNationality && (
+            <div className="evb-field"><label htmlFor="na">{p.labels.nationality}</label>
+              <select id="na" name="nationality" required value={nat} onChange={(e) => setNat(e.target.value)}>
+                <option value="" disabled>{L('Choose your country', 'اختر دولتك')}</option>
+                {p.countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+              </select>
+              {p.mixedDorm && <small className="bk-hint">{L('Mixed dorms are open to non-Arab nationalities only. Egyptian and Arab guests can book a private room or a women-only / men-only dorm.', 'الغرف المشتركة المختلطة متاحة للجنسيات غير العربية فقط. المصريين والعرب يقدروا يحجزوا غرفة خاصة أو غرفة مشتركة للبنات أو للشباب.')}</small>}
+            </div>
+          )}
+          {p.needGov && nat === 'EG' && (
+            <div className="evb-field"><label htmlFor="gv">{p.labels.idGovernorate}</label>
+              <select id="gv" name="idGovernorate" required defaultValue="">
+                <option value="" disabled>{L('Choose the governorate', 'اختر المحافظة')}</option>
+                {EG_GOVERNORATES.map((g) => <option key={g.value} value={g.value}>{ar ? g.ar : g.en}</option>)}
+              </select>
+            </div>
+          )}
           <div className="evb-field wide"><label htmlFor="no">{p.labels.notes}</label><textarea id="no" name="notes" rows={3} maxLength={500} /></div>
         </div>
         <div className="bk-nav">

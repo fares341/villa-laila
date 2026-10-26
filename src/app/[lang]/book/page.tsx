@@ -10,6 +10,7 @@ import { paymobEnabled } from '@/services/paymob';
 import { getWallets, walletOn } from '@/services/wallets';
 import { BookingSteps } from '@/components/booking-steps';
 import { BookingDetails } from './booking-details';
+import { countryOptions } from '@/content/countries';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Book' };
@@ -140,6 +141,8 @@ export default async function Book({ params, searchParams }: { params: Promise<{
                 needNationality={reqFacts.includes('nationality')}
                 needGov={reqFacts.includes('nationality') && reqFacts.includes('id_governorate')}
                 methods={methods}
+                mixedDorm={selected.kind === 'dorm' && selected.gender === 'mixed'}
+                countries={countryOptions(lang, { excludeArab: selected.kind === 'dorm' && selected.gender === 'mixed' })}
                 labels={{
                   fullName: d.book.form.fullName, email: d.book.form.email, phone: d.book.form.phone,
                   nationality: d.book.form.nationality, idGovernorate: d.book.form.idGovernorate, notes: d.book.form.notes,
