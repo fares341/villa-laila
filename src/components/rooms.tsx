@@ -3,20 +3,22 @@ import { dict, fill } from '@/i18n/site';
 import type { Lang } from '@/i18n/bot';
 import type { PublicRoom } from '@/services/public-rooms';
 import { Img, Plaque, money, nm, otherName } from './site';
+import { showPrice, type DisplayCurrency, type Fx } from '@/lib/display-currency';
+type View = { cur: DisplayCurrency; fx: Fx };
 
-export function PriceLine({ r, lang, cur }: { r: PublicRoom; lang: Lang; cur: string }) {
+export function PriceLine({ r, lang, cur, view }: { r: PublicRoom; lang: Lang; cur: string; view?: View }) {
   const v = dict(lang).v2;
   if (r.priceCents == null) return <span className="text-sm text-lapis-600">{v.onRequest}</span>;
   return (
     <span className="text-sm text-lapis-600">
-      <span className="whitespace-nowrap">{fill(v.from, { p: '' })}<b className="text-lg font-semibold text-lapis-800">{money(r.priceCents, cur, lang)}</b></span> <span className="whitespace-nowrap">{r.kind === 'dorm' ? v.perBed : v.perRoom}</span>
+      <span className="whitespace-nowrap">{fill(v.from, { p: '' })}<b className="text-lg font-semibold text-lapis-800">{view ? showPrice(r.priceCents, cur, view, lang) : money(r.priceCents, cur, lang)}</b></span> <span className="whitespace-nowrap">{r.kind === 'dorm' ? v.perBed : v.perRoom}</span>
       {r.demoPrice && <span className="mt-0.5 block text-[11px] font-medium text-amber-800">{v.sample}</span>}
     </span>
   );
 }
 
 /** A private room as a doorway: arched photo, enamel name plaque, the facts that decide a booking. */
-export function RoomCard({ r, lang, cur }: { r: PublicRoom; lang: Lang; cur: string }) {
+export function RoomCard({ r, lang, cur, view }: { r: PublicRoom; lang: Lang; cur: string; view?: View }) {
   const v = dict(lang).v2;
   return (
     <Link href={`/${lang}/rooms/${r.code}`} className="group block focus-visible:outline-offset-4">
@@ -25,14 +27,14 @@ export function RoomCard({ r, lang, cur }: { r: PublicRoom; lang: Lang; cur: str
       </div>
       <div className="-mt-6 flex justify-center px-2"><Plaque size="sm" primary={nm(r.name, lang)} secondary={otherName(r.name, lang)} className="text-[1.05rem]" /></div>
       <p className="mt-3 text-center text-sm text-lapis-600">{nm(r.details.bed, lang)}{r.details.sleeps ? `${lang === 'ar' ? '، ' : ', '}${fill(v.sleeps, { n: r.details.sleeps }).toLowerCase()}` : ''}</p>
-      <p className="mt-1 text-center"><PriceLine r={r} lang={lang} cur={cur} /></p>
+      <p className="mt-1 text-center"><PriceLine r={r} lang={lang} cur={cur} view={view} /></p>
     </Link>
   );
 }
 
 const WHO_STYLE: Record<string, string> = { female: 'bg-bloom-50 text-bloom-700', male: 'bg-lapis-50 text-lapis-600', mixed: 'bg-pool-50 text-pool-800' };
 
-export function DormList({ rooms, lang, cur }: { rooms: PublicRoom[]; lang: Lang; cur: string }) {
+export function DormList({ rooms, lang, cur, view }: { rooms: PublicRoom[]; lang: Lang; cur: string; view?: View }) {
   const v = dict(lang).v2;
   return (
     <ul className="divide-y divide-lapis-100 border-y border-lapis-100">
@@ -47,9 +49,9 @@ export function DormList({ rooms, lang, cur }: { rooms: PublicRoom[]; lang: Lang
                 {r.details.beds ? <span>{fill(v.bedsN, { n: r.details.beds })}</span> : null}
                 <span className="hidden sm:inline">{nm(r.details.bed, lang)}</span>
               </span>
-              <span className="mt-1 block sm:hidden"><PriceLine r={r} lang={lang} cur={cur} /></span>
+              <span className="mt-1 block sm:hidden"><PriceLine r={r} lang={lang} cur={cur} view={view} /></span>
             </span>
-            <span className="hidden text-end sm:block"><PriceLine r={r} lang={lang} cur={cur} /></span>
+            <span className="hidden text-end sm:block"><PriceLine r={r} lang={lang} cur={cur} view={view} /></span>
           </Link>
         </li>
       ))}

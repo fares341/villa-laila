@@ -1,5 +1,6 @@
 'use client';
 
+import { convertCents, formatPrice, FX_FALLBACK, type DisplayCurrency, type Fx } from '@/lib/display-currency';
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -19,7 +20,8 @@ export type LiveRoomStatusMap = Record<
 
 export type ClaudeHomeProps = {
   lang: string;
-  currency?: string;
+  /** Visitor's currency and rates: room prices come from Hostelworld in USD and are shown converted. */
+  view?: { cur: DisplayCurrency; fx: Fx };
   initialRates?: LiveRoomStatusMap;
   events?: EventCard[];
   /** From the dashboard (Website): day trips, guest films and room photos by room code. */
@@ -89,9 +91,12 @@ const icons = {
 
 const isVideo = (u: string | undefined) => !!u && /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(u);
 
-export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events = [], tours: siteTours = null, films = null, roomPhotos = {}, slides = null }: ClaudeHomeProps) {
+export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours: siteTours = null, films = null, roomPhotos = {}, slides = null }: ClaudeHomeProps) {
   const router = useRouter();
   const isAr = lang === 'ar';
+  const pv = view ?? { cur: 'USD' as DisplayCurrency, fx: FX_FALLBACK };
+  /** A room price (whole units in `from`, USD unless Hostelworld said otherwise) in the visitor's currency. */
+  const roomPrice = (amount: number, from = 'USD') => formatPrice(convertCents(amount * 100, from, pv.cur, pv.fx), pv.cur, lang);
 
   // Live rates & availability state synced with Hostelworld
   const [liveRates, setLiveRates] = useState<LiveRoomStatusMap>(initialRates || {});
@@ -142,7 +147,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
       try {
         const queryDate = arrive || new Date(Date.now() + 86400000).toISOString().slice(0, 10);
         const res = await fetch(
-          `/api/sync/hostelworld?dateStart=${encodeURIComponent(queryDate)}&nights=1&currency=${encodeURIComponent(currency)}`
+          `/api/sync/hostelworld?dateStart=${encodeURIComponent(queryDate)}&nights=1&currency=USD`
         );
         if (!res.ok) return;
         const data = await res.json();
@@ -161,7 +166,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
         clearTimeout(timer);
       };
     }
-  }, [arrive, currency]);
+  }, [arrive]);
 
   // Hero Slider data (3 real videos from Villa Layla) — the dashboard (Website → Home slider) replaces them.
   const BASE_SLIDES = [
@@ -1041,6 +1046,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
               const dorm = !!r.perBed;
               const live = liveRates[r.slug];
               const effectivePrice = live?.price && live.price > 0 ? live.price : r.price;
+              const priceFrom = live?.price && live.price > 0 ? live.currency || 'USD' : 'USD';
               const isAvailable = live ? live.available : true;
               const bedsLeft = live?.bedsAvailable;
 
@@ -1076,7 +1082,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
                       {icons.heart}
                     </button>
 
-                    <div className="strip" onClick={() => { setModalRoom({ ...r, effectivePrice, isAvailable, bedsLeft }); setModalPhotoIdx(0); }}>
+                    <div className="strip" onClick={() => { setModalRoom({ ...r, effectivePrice, priceFrom, isAvailable, bedsLeft }); setModalPhotoIdx(0); }}>
                       {r.photos.map((p, k) => (
                         isVideo(p)
                           ? <video key={k} src={p} muted loop playsInline autoPlay={k === 0} preload="metadata" aria-label={`${r.name} video`} />
@@ -1110,7 +1116,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
                       <div className="price">
                         <small>{isAr ? 'ابتداءً من' : 'From'}</small>
                         <b className="num">
-                          ${effectivePrice}
+                          {roomPrice(effectivePrice, priceFrom)}
                           <span> / {dorm ? (isAr ? 'للسرير' : 'bed') : (isAr ? 'لليلة' : 'night')}</span>
                         </b>
                       </div>
@@ -1119,7 +1125,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
                         <button
                           className="btn btn-line"
                           onClick={() => {
-                            setModalRoom({ ...r, effectivePrice, isAvailable, bedsLeft });
+                            setModalRoom({ ...r, effectivePrice, priceFrom, isAvailable, bedsLeft });
                             setModalPhotoIdx(0);
                           }}
                         >
@@ -1194,7 +1200,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
                   <div className="price">
                     <small>{isAr ? 'ابتداءً من' : 'From'}</small>
                     <b className="num">
-                      ${modalRoom.effectivePrice ?? modalRoom.price}
+                      {roomPrice(modalRoom.effectivePrice ?? modalRoom.price, modalRoom.priceFrom ?? 'USD')}
                       <span> / {modalRoom.perBed ? (isAr ? 'للسرير' : 'bed') : (isAr ? 'لليلة' : 'night')}</span>
                     </b>
                   </div>

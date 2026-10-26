@@ -1,4 +1,6 @@
 import { notFound } from 'next/navigation';
+import { visitorPriceView } from '@/services/visitor-currency';
+import { showPrice } from '@/lib/display-currency';
 import { isSiteLang } from '@/i18n/site';
 import { ClaudeHeader, ClaudeFooter } from '@/components/claude-shell';
 import { getTicket, ticketValid, tr } from '@/services/events';
@@ -34,6 +36,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
   const url = `${base}/${lang}/tickets/${b.ticket_code}`;
   const qr = qrSvg(url, { dark: '#2F2925', light: '#FFFFFF', title: b.ticket_code });
   const total = priceLabel(b.total_cents, b.currency, lang);
+  const view = await visitorPriceView();
   // What is asked online now (a deposit for deposit events), and what is left for the villa.
   const onlineDue = Number(b.deposit_cents ?? b.total_cents) - Number(b.paid_cents ?? 0);
   const dueNow = priceLabel(Math.max(0, onlineDue), b.currency, lang);
@@ -86,7 +89,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
                   <div><dt>{L('Guests', 'الأشخاص')}</dt><dd className="num">{b.quantity}{option ? ` · ${ar ? option.ar : option.en}` : ''}</dd></div>
                   {b.dinner && <div><dt>{L('Dinner', 'العشاء')}</dt><dd>{L('Home-cooked dinner by the pool', 'عشاء بيتي بجانب المسبح')} · <span className="num" dir="ltr">{b.quantity} × {priceLabel(Number(b.dinner_cents), b.currency, lang)}</span></dd></div>}
                   <div><dt>{L('Name', 'الاسم')}</dt><dd>{firstName}</dd></div>
-                  <div><dt>{L('Total', 'الإجمالي')}</dt><dd dir="ltr">{total}</dd></div>
+                  <div><dt>{L('Total', 'الإجمالي')}</dt><dd dir="ltr">{total}{view.cur !== String(b.currency).toUpperCase() && <small className="bk-egp">≈ {showPrice(Number(b.total_cents), b.currency, view, lang)}</small>}</dd></div>
                   {Number(b.paid_cents ?? 0) > 0 && restAtVilla > 0 && <div><dt>{L('Paid', 'المدفوع')}</dt><dd dir="ltr">{priceLabel(Number(b.paid_cents), b.currency, lang)} · {L('rest at the villa', 'الباقي في الفيلا')} {priceLabel(restAtVilla, b.currency, lang)}</dd></div>}
                   <div><dt>{L('Place', 'المكان')}</dt><dd>{L('Villa Layla, 20 Safiya Zaghloul St', 'فيلا ليلى، ٢٠ ش صفية زغلول')}</dd></div>
                 </dl>

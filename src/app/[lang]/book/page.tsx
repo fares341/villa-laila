@@ -1,4 +1,6 @@
 import { notFound } from 'next/navigation';
+import { visitorPriceView } from '@/services/visitor-currency';
+import { showPrice } from '@/lib/display-currency';
 import { dict, isSiteLang, fill } from '@/i18n/site';
 import { Img, money, nm } from '@/components/site';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs } from '@/components/claude-shell';
@@ -32,6 +34,9 @@ export default async function Book({ params, searchParams }: { params: Promise<{
   const check = checkIn && checkOut ? validateStay(checkIn, checkOut, today, maxNights) : null;
   const err = sp.error ? ((d.book.errors as any)[sp.error] ?? d.book.errors.generic) : null;
   const cur = await getSetting<string>('currency');
+  const view = await visitorPriceView();
+  const show = (c: number) => showPrice(c, cur || 'EGP', view, lang);
+  const foreign = view.cur !== (cur || 'EGP').toUpperCase();
   const avail = check?.ok ? await availabilityFor(checkIn!, checkOut!, guests) : [];
   const reqFacts = requiredFacts(await activeRules());
   const nights = check?.ok ? avail[0]?.nights ?? 0 : 0;
@@ -101,7 +106,7 @@ export default async function Book({ params, searchParams }: { params: Promise<{
                           {ok && a.totalCents != null && (
                             <>
                               <small>{fill(L('{n} night(s) total', 'إجمالي {n} ليلة'), { n: nights })}</small>
-                              <b className="num" dir="ltr">{money(a.totalCents, cur, lang)}</b>
+                              <b className="num" dir="ltr">{show(a.totalCents)}</b>
                               {a.demoPrice && <small className="bk-demo">{d.v2.sample}</small>}
                               <a className="btn btn-primary btn-sm" href={`/${lang}/book?${qs({ room: a.code })}#details`}>{L('Select', 'اختر')}</a>
                             </>
@@ -129,7 +134,8 @@ export default async function Book({ params, searchParams }: { params: Promise<{
                   <p dir="ltr" className="num">{checkIn} → {checkOut} · {nights} {L('night(s)', 'ليلة')} · {guests} {L('guest(s)', 'ضيف')}</p>
                 </div>
                 <div className="bk-chosen-p">
-                  <b className="num" dir="ltr">{money(selected.totalCents!, cur, lang)}</b>
+                  <b className="num" dir="ltr">{show(selected.totalCents!)}</b>
+                  {foreign && <small className="bk-egp" dir="ltr">{money(selected.totalCents!, cur, lang)}</small>}
                   <a href={`/${lang}/book?${qs({})}`}>{L('Change room', 'غيّر الغرفة')}</a>
                 </div>
               </div>
@@ -137,7 +143,8 @@ export default async function Book({ params, searchParams }: { params: Promise<{
                 lang={lang}
                 checkIn={checkIn!} checkOut={checkOut!} guests={guests}
                 roomTypeId={selected.roomTypeId} roomCode={selected.code}
-                total={money(selected.totalCents!, cur, lang)}
+                total={show(selected.totalCents!)}
+                totalEgp={foreign ? money(selected.totalCents!, cur, lang) : null}
                 needNationality={reqFacts.includes('nationality')}
                 needGov={reqFacts.includes('nationality') && reqFacts.includes('id_governorate')}
                 methods={methods}

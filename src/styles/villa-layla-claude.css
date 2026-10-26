@@ -1436,6 +1436,8 @@
 .evb-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--color-border); }
 .evb-total > span { font-weight: 800; color: var(--color-primary-dark); }
 .evb-total b { font-size: 24px; font-weight: 800; color: var(--color-primary-dark); white-space: nowrap; }
+.evb-egp { display: block; margin-top: 4px; font-size: 12.5px; color: var(--color-text-muted, #76695D); text-align: end; }
+.bk-egp { display: block; font-size: 12px; font-weight: 500; color: var(--color-text-muted, #76695D); }
 .evb-pwyw { display: block; font-size: 22px; font-weight: 800; color: var(--color-primary-dark); }
 .evb-pwyw-dinner { font-weight: 700; color: var(--color-primary) !important; }
 .evb-meal-link:hover { background: var(--color-gold-light); border-style: solid; }

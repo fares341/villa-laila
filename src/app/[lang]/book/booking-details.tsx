@@ -14,6 +14,8 @@ function Submit({ label, busy }: { label: string; busy: string }) {
 
 export function BookingDetails(p: {
   lang: string; checkIn: string; checkOut: string; guests: number; roomTypeId: string; roomCode: string; total: string;
+  /** The amount actually charged, in EGP, when the visitor sees another currency (Paymob charges EGP). */
+  totalEgp?: string | null;
   needNationality: boolean; needGov: boolean; methods: Method[];
   /** Countries the guest may pick (Arab countries are left out for a mixed dorm). */
   countries: { code: string; name: string }[]; mixedDorm: boolean;
@@ -93,7 +95,7 @@ export function BookingDetails(p: {
           ))}
         </div>
         <div className="evb-sum">
-          <div><small>{L('Total for your stay', 'إجمالي الإقامة')}</small><b className="num" dir="ltr">{p.total}</b></div>
+          <div><small>{L('Total for your stay', 'إجمالي الإقامة')}</small><b className="num" dir="ltr">{p.total}</b>{p.totalEgp && <small className="bk-egp">{L(`Charged in Egyptian pounds: ${p.totalEgp}`, `بيتدفع بالجنيه المصري: ${p.totalEgp}`)}</small>}</div>
           <Submit
             label={method === 'paymob' ? L('Pay now', 'ادفع الآن') : method === 'instapay' ? L('Book & pay with InstaPay', 'احجز وادفع بـ InstaPay') : L('Send booking request', 'أرسل طلب الحجز')}
             busy={L('Booking…', 'جارٍ الحجز…')}

@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { visitorPriceView } from '@/services/visitor-currency';
+import { showPrice } from '@/lib/display-currency';
 import { notFound } from 'next/navigation';
 import { dict, isSiteLang, fill } from '@/i18n/site';
 import { q } from '@/lib/db';
@@ -29,6 +31,7 @@ export default async function Booked({ params, searchParams }: { params: Promise
   const open = ['pending', 'confirmed', 'hold'].includes(r.status);
   const pay = await reservationPaymentInfo(r.id, Number(r.total_cents)).catch(() => ({ due: Number(r.total_cents), paid: false, pendingInstapay: false }));
   const due = money(pay.due, r.currency, lang);
+  const view = await visitorPriceView();
   const canPaymob = open && pay.due > 0 && paymobEnabled(r.currency);
   const wallets = await getWallets();
   const canInstapay = open && pay.due > 0 && !pay.pendingInstapay && walletOn(wallets, 'instapay', r.currency);
@@ -64,7 +67,7 @@ export default async function Booked({ params, searchParams }: { params: Promise
               <CopyButton text={r.reference} label={L('Copy reference', 'انسخ الرقم')} done={L('Copied', 'تم النسخ')} className="btn btn-line btn-sm" />
             </div>
             <dl className="bkd-pay">
-              <div><dt>{L('Total', 'الإجمالي')}</dt><dd dir="ltr">{money(Number(r.total_cents), r.currency, lang)}</dd></div>
+              <div><dt>{L('Total', 'الإجمالي')}</dt><dd dir="ltr">{money(Number(r.total_cents), r.currency, lang)}{view.cur !== String(r.currency).toUpperCase() && <small className="bk-egp">≈ {showPrice(Number(r.total_cents), r.currency, view, lang)}</small>}</dd></div>
               <div><dt>{L('Payment', 'الدفع')}</dt><dd>
                 {pay.paid ? <span className="tk-status ok">{L('Paid', 'مدفوع')}</span>
                   : pay.pendingInstapay ? <span className="tk-status wait">{L('InstaPay being checked', 'جارٍ مراجعة InstaPay')}</span>

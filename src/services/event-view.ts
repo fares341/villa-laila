@@ -1,3 +1,5 @@
+import { showPrice } from '@/lib/display-currency';
+import type { PriceView } from './visitor-currency';
 import { addDays, todayLocal } from '@/lib/dates';
 import { scheduleLabel, timeLabel, dateLabel } from '@/lib/event-dates';
 import type { EventCard } from '@/components/events-section';
@@ -16,14 +18,14 @@ export function whenLabel(date: string, lang: string) {
   return dateLabel(date, lang);
 }
 
-export function toEventCard(e: PublicEvent, lang: string): EventCard {
+export function toEventCard(e: PublicEvent, lang: string, view?: PriceView): EventCard {
   const today = todayLocal();
   return {
     slug: e.slug,
     title: tr(e.title, lang),
     summary: tr(e.summary, lang),
     image: e.image,
-    price: priceLabel(e.price_cents, e.currency, lang),
+    price: view ? showPrice(e.price_cents, e.currency, view, lang) : priceLabel(e.price_cents, e.currency, lang),
     schedule: scheduleLabel(e, lang, (d) => dateLabel(d, lang)),
     time: `${timeLabel(e.start_time, lang)} – ${timeLabel(e.end_time, lang)}`,
     next: e.nextDate ? whenLabel(e.nextDate, lang) : '',

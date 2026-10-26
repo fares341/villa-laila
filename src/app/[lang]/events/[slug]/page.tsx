@@ -8,7 +8,9 @@ import { toEmbed } from '@/content/videos';
 import { MealGallery } from './meal-gallery';
 import { DayMealCard } from './meal-modal';
 import { HeroMedia } from './hero-media';
-import { priceLabel, whenLabel } from '@/services/event-view';
+import { whenLabel } from '@/services/event-view';
+import { showPrice } from '@/lib/display-currency';
+import { visitorPriceView } from '@/services/visitor-currency';
 import { scheduleLabel, timeLabel, dateLabel } from '@/lib/event-dates';
 import { EventBooker } from './event-booker';
 import { weeklyMenu } from '@/services/weekly-menu';
@@ -46,6 +48,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const ev = await getPublicEvent(slug);
   if (!ev) notFound();
   const isAr = lang === 'ar';
+  const view = await visitorPriceView();
   const L = (o: { en: string; ar: string }) => (isAr ? o.ar : o.en);
   const [left, media, wallets] = await Promise.all([seatsLeft(ev), eventMedia(ev.id), getWallets()]);
   const meals = media.filter((m) => m.kind === 'meal');
@@ -85,7 +88,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <dl className="evd-facts">
               <div><dt>{isAr ? 'المواعيد' : 'When'}</dt><dd>{schedule}</dd></div>
               <div><dt>{isAr ? 'الوقت' : 'Time'}</dt><dd dir="ltr">{time}</dd></div>
-              <div><dt>{isAr ? 'السعر' : 'Price'}</dt><dd dir="ltr">{priceLabel(ev.price_cents, ev.currency, lang)} <small>{isAr ? '/ للشخص' : '/ person'}</small></dd></div>
+              <div><dt>{isAr ? 'السعر' : 'Price'}</dt><dd dir="ltr">{showPrice(ev.price_cents, ev.currency, view, lang)} <small>{isAr ? '/ للشخص' : '/ person'}</small></dd></div>
               <div><dt>{isAr ? 'المكان' : 'Where'}</dt><dd className="evd-where">
                 <span>{isAr ? 'فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب' : 'Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab'}</span>
                 <a className="evd-map" href={MAP_URL} target="_blank" rel="noopener noreferrer" aria-label={isAr ? 'افتح المكان على خرائط جوجل' : 'Open in Google Maps'} title={isAr ? 'افتح على خرائط جوجل' : 'Open in Google Maps'}>
@@ -116,7 +119,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
 
           <div className="evd-side">
           {ev.dinner_cents
-            ? <DayMealCard ar={isAr} menu={menu} dates={dates} initialDate={initialDate} priceLabel={priceLabel(ev.dinner_cents, ev.currency, lang)} />
+            ? <DayMealCard ar={isAr} menu={menu} dates={dates} initialDate={initialDate} priceLabel={showPrice(ev.dinner_cents, ev.currency, view, lang)} />
             : <MealGallery lang={lang} photos={meals.map((m) => ({ id: m.id, src: m.src, caption: m.caption }))} />}
           <aside className="evd-book" id="book" aria-labelledby="bookH">
             <h2 id="bookH">{isAr ? 'احجز تذكرتك' : 'Book your ticket'}</h2>
@@ -150,6 +153,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 dinnerCents={ev.dinner_cents ?? null}
                 menu={menu}
                 currency={ev.currency}
+                view={view}
                 methods={ev.methods}
                 wallets={{
                   instapay: { address: wallets.instapay.address, phone: wallets.instapay.phone, name: wallets.instapay.name, link: wallets.instapay.link },

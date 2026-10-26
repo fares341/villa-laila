@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { visitorPriceView } from '@/services/visitor-currency';
 import { notFound } from 'next/navigation';
 import { dict, isSiteLang, fill } from '@/i18n/site';
 import { Img, Plaque, SearchBar, nm, otherName } from '@/components/site';
@@ -16,6 +17,7 @@ export default async function RoomDetail({ params }: { params: Promise<{ lang: s
   if (!r) notFound();
   const d = dict(lang); const v = d.v2;
   const cur = await getSetting<string>('currency');
+  const view = await visitorPriceView();
   const [first, ...rest] = r.photos;
   const facts = ([
     [v.bedType, nm(r.details.bed, lang)],
@@ -43,7 +45,7 @@ export default async function RoomDetail({ params }: { params: Promise<{ lang: s
           </>)}
         </div>
         <aside className="self-start rounded-2xl bg-white p-4 sm:p-6 lg:sticky lg:top-24 max-w-full w-full">
-          <PriceLine r={r} lang={lang} cur={cur} />
+          <PriceLine r={r} lang={lang} cur={cur} view={view} />
           <h2 className="mt-4 text-lg sm:text-xl text-lapis-800">{v.checkDates}</h2>
           <div className="mt-3 w-full"><SearchBar lang={lang} compact stacked room={r.code} defaults={{ guests: r.kind === 'dorm' ? 1 : Math.min(2, r.details.sleeps ?? 2) }} /></div>
         </aside>

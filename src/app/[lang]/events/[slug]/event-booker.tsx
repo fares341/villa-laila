@@ -1,4 +1,6 @@
 'use client';
+import { showPrice, type DisplayCurrency, type Fx } from '@/lib/display-currency';
+type PriceView = { cur: DisplayCurrency; fx: Fx };
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
@@ -39,8 +41,12 @@ function Submit({ label, busy, loading }: { label: string; busy: string; loading
 export function EventBooker(props: {
   lang: string; slug: string; dates: DateChip[]; initialDate: string;
   options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; depositCents?: number | null; dinnerCents?: number | null; menu?: Record<number, DayMeal | null>; currency: string; methods: Method[]; wallets?: WalletInfo;
+  /** The visitor's currency (Egypt EGP, Europe EUR, else USD) and today's rates: prices are shown in it, paid in EGP. */
+  view?: PriceView;
 }) {
-  const { lang, slug, dates, options, priceCents, depositCents = null, dinnerCents = null, menu = {}, currency, methods } = props;
+  const { lang, slug, dates, options, priceCents, depositCents = null, dinnerCents = null, menu = {}, currency, methods, view } = props;
+  const show = (c: number) => (view ? showPrice(c, currency, view, lang) : fmt(c, currency, lang === 'ar'));
+  const foreign = !!view && view.cur !== currency.toUpperCase();
   const ar = lang === 'ar';
   const [date, setDate] = useState(props.initialDate);
   const [showAll, setShowAll] = useState(() => dates.findIndex((d) => d.date === props.initialDate) >= 6);
@@ -280,10 +286,10 @@ export function EventBooker(props: {
             <span className="evb-addon-t">
               <b>{(dayMeal && (ar ? dayMeal.title.ar || dayMeal.title.en : dayMeal.title.en || dayMeal.title.ar)) || (ar ? 'أضف العشاء' : 'Add dinner')}</b>
             </span>
-            <span className="evb-addon-p num" dir="ltr">+{fmt(dinnerCents, currency, ar)}</span>
+            <span className="evb-addon-p num" dir="ltr">+{show(dinnerCents)}</span>
           </label>
         )}
-        {mealOpen && <MealModal ar={ar} meal={dayMeal} day={dayName} priceLabel={dinnerCents ? fmt(dinnerCents, currency, ar) : null} onClose={closeMeal} />}
+        {mealOpen && <MealModal ar={ar} meal={dayMeal} day={dayName} priceLabel={dinnerCents ? show(dinnerCents) : null} onClose={closeMeal} />}
       </fieldset>
 
       <fieldset className="evb-step">
@@ -296,7 +302,7 @@ export function EventBooker(props: {
       <fieldset className="evb-step">
         <legend><span className="evb-n">4</span>{ar ? 'الدفع' : 'Payment'}</legend>
         {depositCents != null && depositCents > 0 && (shownMethods.includes('instapay') || shownMethods.includes('vodafone_cash')) && (
-          <p className="evb-fine">{ar ? `مع InstaPay تدفع عربون ${fmt(depositCents, currency, ar)} للتذكرة الآن، والباقي في الفيلا يوم الإيفنت.` : `With InstaPay you send a deposit of ${fmt(depositCents, currency, ar)} per ticket now, and pay the rest at the villa on the day.`}</p>
+          <p className="evb-fine">{ar ? `مع InstaPay تدفع عربون ${show(depositCents)} للتذكرة الآن، والباقي في الفيلا يوم الإيفنت.` : `With InstaPay you send a deposit of ${show(depositCents)} per ticket now, and pay the rest at the villa on the day.`}</p>
         )}
         {shownMethods.length === 0 && <p className="evb-fine">{ar ? 'الدفع أونلاين مش متاح دلوقتي. لو نازل في الفيلا علّم «أنا نازل في فيلا ليلى»، أو كلمنا على واتساب.' : 'Online payment isn’t available right now. If you are staying at the villa, tick “I’m staying at Villa Layla”, or message us on WhatsApp.'}</p>}
         <div className="evb-pay" role="radiogroup">
@@ -310,7 +316,7 @@ export function EventBooker(props: {
         </div>
         {(method === 'instapay' || method === 'vodafone_cash') && (
           <div className="evb-wallet">
-            {deposit != null && deposit < total && <p className="evb-fine"><b>{ar ? 'عربون فقط' : 'Deposit only'}</b>: {fmt(deposit, currency, ar)} · {ar ? 'الباقي' : 'the rest'} {fmt(total - deposit, currency, ar)} {ar ? 'تدفعه في الفيلا' : 'is paid at the villa'}.</p>}
+            {deposit != null && deposit < total && <p className="evb-fine"><b>{ar ? 'عربون فقط' : 'Deposit only'}</b>: {show(deposit)} · {ar ? 'الباقي' : 'the rest'} {show(total - deposit)} {ar ? 'تدفعه في الفيلا' : 'is paid at the villa'}.</p>}
             <p className="evb-fine">{ar ? `مفيش تحويل دلوقتي: بعد تأكيد الحجز هتتحول لواتساب الفيلا، والاستقبال هيرد عليك برقم ${method === 'instapay' ? 'InstaPay' : 'فودافون كاش'} والمبلغ.` : `Nothing to transfer now: after you confirm, you go to the villa’s WhatsApp and reception replies with the ${method === 'instapay' ? 'InstaPay' : 'Vodafone Cash'} details and the amount.`}</p>
           </div>
         )}
@@ -322,23 +328,24 @@ export function EventBooker(props: {
           {chosen && <small>{chosen.label} · {n} {ar ? (n === 1 ? 'فرد' : 'أفراد') : n === 1 ? 'person' : 'people'}</small>}
           <ul className="evb-lines">
             <li>
-              <span>{ar ? 'التذاكر' : 'Tickets'}{!hotelGuest && <small> {ar ? `(${n} ${n === 1 ? 'فرد' : 'أفراد'})` : `${n} × ${fmt(unit, currency, ar)}`}</small>}</span>
-              <b className={hotelGuest && pwyw == null ? '' : 'num'} dir={(hotelGuest && pwyw == null) || ar ? undefined : 'ltr'}>{hotelGuest ? (pwyw != null ? fmt(pwyw, currency, ar) : (ar ? 'ادفع اللي تحبه' : 'Pay what you want')) : fmt(unit * n, currency, ar)}</b>
+              <span>{ar ? 'التذاكر' : 'Tickets'}{!hotelGuest && <small> {ar ? `(${n} ${n === 1 ? 'فرد' : 'أفراد'})` : `${n} × ${show(unit)}`}</small>}</span>
+              <b className={hotelGuest && pwyw == null ? '' : 'num'} dir={(hotelGuest && pwyw == null) || ar ? undefined : 'ltr'}>{hotelGuest ? (pwyw != null ? show(pwyw) : (ar ? 'ادفع اللي تحبه' : 'Pay what you want')) : show(unit * n)}</b>
             </li>
             {dinnerEach > 0 && (
               <li>
-                <span>{ar ? 'العشاء' : 'Dinner'}<small> {ar ? `(${n} ${n === 1 ? 'فرد' : 'أفراد'})` : `${n} × ${fmt(dinnerEach, currency, ar)}`}</small></span>
-                <b className="num" dir={ar ? undefined : 'ltr'}>{fmt(dinnerEach * n, currency, ar)}</b>
+                <span>{ar ? 'العشاء' : 'Dinner'}<small> {ar ? `(${n} ${n === 1 ? 'فرد' : 'أفراد'})` : `${n} × ${show(dinnerEach)}`}</small></span>
+                <b className="num" dir={ar ? undefined : 'ltr'}>{show(dinnerEach * n)}</b>
               </li>
             )}
           </ul>
           <div className="evb-total">
             <span>{ar ? 'الإجمالي' : 'Total'}</span>
             {hotelGuest && pwyw == null
-              ? <b>{dinnerEach > 0 ? <><span className="num" dir={ar ? undefined : 'ltr'}>{fmt(total, currency, ar)}</span> {ar ? '+ اللي تحبه' : '+ what you want'}</> : (ar ? 'ادفع اللي تحبه' : 'Pay what you want')}</b>
-              : <b className="num" dir={ar ? undefined : 'ltr'}>{fmt(grand, currency, ar)}</b>}
+              ? <b>{dinnerEach > 0 ? <><span className="num" dir={ar ? undefined : 'ltr'}>{show(total)}</span> {ar ? '+ اللي تحبه' : '+ what you want'}</> : (ar ? 'ادفع اللي تحبه' : 'Pay what you want')}</b>
+              : <b className="num" dir={ar ? undefined : 'ltr'}>{show(grand)}</b>}
           </div>
-          {deposit != null && deposit < total && <small>{ar ? `الآن ${fmt(deposit, currency, ar)} · في الفيلا ${fmt(total - deposit, currency, ar)}` : `Now ${fmt(deposit, currency, ar)} · at the villa ${fmt(total - deposit, currency, ar)}`}</small>}
+          {foreign && !(hotelGuest && pwyw == null) && <small className="evb-egp">{ar ? `بيتدفع بالجنيه المصري: ${fmt(grand, currency, ar)}` : `Charged in Egyptian pounds: ${fmt(grand, currency, ar)}`}</small>}
+          {deposit != null && deposit < total && <small>{ar ? `الآن ${show(deposit)} · في الفيلا ${show(total - deposit)}` : `Now ${show(deposit)} · at the villa ${show(total - deposit)}`}</small>}
         </div>
         {formErr && <p role="alert" className="form-msg evb-err">{formErr}</p>}
         <Submit

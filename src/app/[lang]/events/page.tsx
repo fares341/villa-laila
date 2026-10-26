@@ -5,6 +5,7 @@ import { ClaudeHeader, ClaudeFooter, ClaudeFabs, ClaudeBottomBar } from '@/compo
 import { EventsSection } from '@/components/events-section';
 import { listPublicEvents } from '@/services/events';
 import { toEventCard } from '@/services/event-view';
+import { visitorPriceView } from '@/services/visitor-currency';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,8 @@ export default async function EventsPage({ params }: { params: Promise<{ lang: s
   const { lang } = await params;
   if (!isSiteLang(lang)) notFound();
   const ar = lang === 'ar';
-  const events = (await listPublicEvents()).map((e) => toEventCard(e, lang));
+  const view = await visitorPriceView();
+  const events = (await listPublicEvents()).map((e) => toEventCard(e, lang, view));
   const wa = `https://wa.me/201040551515?text=${encodeURIComponent(ar ? 'عايز أعرف الفعاليات الجاية في فيلا ليلى' : 'What events are coming up at Villa Layla?')}`;
   return (
     <div className="vl-page min-h-screen flex flex-col bg-[#FBF7F1] text-[#2F2925]">
