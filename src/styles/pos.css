@@ -327,3 +327,5 @@ a.pos-check { text-decoration: none; }
 .pos-change-list .who small { color: var(--ink2); font-size: 12.5px; }
 .pos-change-list .acts { display: flex; gap: 6px; flex-shrink: 0; }
 .pos-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #c2410c; color: #fff; font-size: 12px; font-weight: 800; margin-left: 4px; }
+.pos-method.three { grid-template-columns: repeat(3, 1fr); }
+.pos-drawer-roles { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: var(--sand); }

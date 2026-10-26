@@ -296,7 +296,7 @@ export function EventBooker(props: {
       <fieldset className="evb-step">
         <legend><span className="evb-n">4</span>{ar ? 'الدفع' : 'Payment'}</legend>
         {depositCents != null && depositCents > 0 && (shownMethods.includes('instapay') || shownMethods.includes('vodafone_cash')) && (
-          <p className="evb-fine">{ar ? `مع InstaPay أو فودافون كاش تدفع عربون ${fmt(depositCents, currency, ar)} للتذكرة الآن، والباقي في الفيلا يوم الإيفنت.` : `With InstaPay or Vodafone Cash you send a deposit of ${fmt(depositCents, currency, ar)} per ticket now, and pay the rest at the villa on the day.`}</p>
+          <p className="evb-fine">{ar ? `مع InstaPay تدفع عربون ${fmt(depositCents, currency, ar)} للتذكرة الآن، والباقي في الفيلا يوم الإيفنت.` : `With InstaPay you send a deposit of ${fmt(depositCents, currency, ar)} per ticket now, and pay the rest at the villa on the day.`}</p>
         )}
         {shownMethods.length === 0 && <p className="evb-fine">{ar ? 'الدفع أونلاين مش متاح دلوقتي. لو نازل في الفيلا علّم «أنا نازل في فيلا ليلى»، أو كلمنا على واتساب.' : 'Online payment isn’t available right now. If you are staying at the villa, tick “I’m staying at Villa Layla”, or message us on WhatsApp.'}</p>}
         <div className="evb-pay" role="radiogroup">

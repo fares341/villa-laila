@@ -399,7 +399,7 @@ async function payMenu(chat: string, id: string, mid?: number) {
   const e = await eventRow(id);
   const on = (m: string) => (e.pay_methods ?? []).includes(m as any);
   const kb: Kb = [
-    [{ text: `${on('instapay') ? '[x]' : '[ ]'} إنستا باي`, data: `e:pt:instapay:${id}` }, { text: `${on('vodafone_cash') ? '[x]' : '[ ]'} فودافون كاش`, data: `e:pt:vodafone_cash:${id}` }],
+    [{ text: `${on('instapay') ? '[x]' : '[ ]'} إنستا باي`, data: `e:pt:instapay:${id}` }],
     [{ text: `${on('cash') ? '[x]' : '[ ]'} كاش في المكان`, data: `e:pt:cash:${id}` }, { text: `${on('paymob') ? '[x]' : '[ ]'} بطاقة`, data: `e:pt:paymob:${id}` }],
     [{ text: '🔙 رجوع للفعالية', data: `e:v:${id}` }],
   ];

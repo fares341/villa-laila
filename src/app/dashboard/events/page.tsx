@@ -66,7 +66,7 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
       {tab === 'settings' && canEdit && <Settings {...{ wallets, bot, isOwner }} />}
       {tab === 'bookings' && canEdit && (!anyWallet || !bot.token) && (
         <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          {!anyWallet && <>No InstaPay or Vodafone Cash account is set, so guests cannot pay by transfer. </>}
+          {!anyWallet && <>No InstaPay account is set, so guests cannot pay by transfer. </>}
           {!bot.token && <>The Telegram admin bot is not connected yet, so new bookings are not sent to you. </>}
           <Link className="font-semibold underline" href="/dashboard/events?tab=settings">Open settings</Link>
         </p>
@@ -226,14 +226,8 @@ async function Settings({ wallets, bot, isOwner }: { wallets: Awaited<ReturnType
               <div><Lbl htmlFor="ip-l">Payment link (optional)</Lbl><input id="ip-l" name="ipLink" dir="ltr" placeholder="https://ipn.eg/S/…" defaultValue={wallets.instapay.link} className={Input} /></div>
             </div>
           </fieldset>
-          <fieldset className="space-y-3 border-t border-cocoa-100 pt-4">
-            <legend className="mb-1 flex w-full items-center justify-between font-semibold text-cocoa-800">Vodafone Cash
-              <label className="flex items-center gap-2 text-sm font-normal"><input type="checkbox" name="vfOn" defaultChecked={wallets.vodafone_cash.enabled} /> Offer on the website</label></legend>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div><Lbl htmlFor="vf-n">Vodafone Cash number</Lbl><input id="vf-n" name="vfNumber" dir="ltr" placeholder="010xxxxxxxx" defaultValue={wallets.vodafone_cash.number} className={Input} /></div>
-              <div><Lbl htmlFor="vf-a">Name on the wallet</Lbl><input id="vf-a" name="vfName" defaultValue={wallets.vodafone_cash.name} className={Input} /></div>
-            </div>
-          </fieldset>
+          {/* Vodafone Cash is no longer offered (owner, Oct 2026). Its saved settings are kept as they are. */}
+          <input type="hidden" name="vfOn" value="" />
           <p className="text-xs text-slate-500">Guests who pick one of these see the account, send the money and upload the receipt with the booking. You approve it here or on Telegram; then the booking is confirmed.</p>
           <button className={Btn}><Icon name="check" size={16} /> Save accounts</button>
         </form>

@@ -32,7 +32,8 @@ export const makeTicketCode = () => 'EV-' + Array.from({ length: 6 }, () => ALPH
  */
 export function liveMethods(ev: Pick<EventRow, 'pay_methods' | 'currency'>, w: Wallets): PayMethod[] {
   const egp = (ev.currency || 'EGP').toUpperCase() === 'EGP';
-  return ev.pay_methods.filter((m) => (m === 'paymob' ? paymobEnabled(ev.currency) : m === 'instapay' ? egp && w.instapay.enabled : m === 'vodafone_cash' ? egp && w.vodafone_cash.enabled : m === 'cash'));
+  // Vodafone Cash is no longer offered (owner, Oct 2026); old bookings paid that way still show as such.
+  return ev.pay_methods.filter((m) => (m === 'paymob' ? paymobEnabled(ev.currency) : m === 'instapay' ? egp && w.instapay.enabled : m === 'cash'));
 }
 
 function toPublic(e: EventRow, w: Wallets, now = new Date()): PublicEvent {

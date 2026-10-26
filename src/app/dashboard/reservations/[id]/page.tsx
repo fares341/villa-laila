@@ -163,10 +163,10 @@ export default async function StayPage({ params, searchParams }: { params: Promi
             <p className="mt-3 rounded-lg bg-cocoa-50 px-3 py-2 text-sm text-cocoa-800">Cash or card? <a href={pos} target="_blank" rel="noopener" className="font-semibold underline">Take it on the POS</a>, so it is counted in the drawer.</p>
             {can(u.role, 'payment.record') && live && (
               <details className="mt-3">
-                <summary className="cursor-pointer text-sm font-semibold text-cocoa-800">Guest paid by InstaPay / Vodafone Cash? Add the receipt</summary>
+                <summary className="cursor-pointer text-sm font-semibold text-cocoa-800">Guest paid by InstaPay? Add the receipt</summary>
                 <form action={recordPaymentAction} className="mt-3 grid gap-3 sm:grid-cols-[8rem_10rem_1fr_auto]"><input type="hidden" name="id" value={id} />
                   <div><Lbl htmlFor="pa">Amount ({cur})</Lbl><input id="pa" name="amount" required inputMode="decimal" className={Input} /></div>
-                  <div><Lbl htmlFor="pm">Wallet</Lbl><select id="pm" name="method" className={Input}><option value="instapay">InstaPay</option><option value="vodafone_cash">Vodafone Cash</option></select></div>
+                  <div><Lbl htmlFor="pm">Wallet</Lbl><select id="pm" name="method" className={Input}><option value="instapay">InstaPay</option></select></div>
                   <div><Lbl htmlFor="pr">Transaction number on the receipt *</Lbl><input id="pr" name="reference" required minLength={4} className={Input} /></div>
                   <div className="flex items-end"><button className={Btn}>Add receipt</button></div>
                 </form>

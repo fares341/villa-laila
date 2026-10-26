@@ -270,8 +270,9 @@ export async function closePosShiftBlind(shiftId: string, counted: Partial<Count
   const off = Object.keys(currencies).filter((k) => currencies[k].variance !== 0);
   for (const k of off) {
     const v = currencies[k].variance;
-    // A shortage is the responsibility of the person handing over: they pay it now or it is deducted from salary.
-    if (v < 0) await q(`INSERT INTO cash_shortages(shift_id,staff_id,currency,amount_minor) VALUES($1,$2,$3,$4)`, [shiftId, t.shift.staff_id, k, -v]);
+    // A shortage is the responsibility of the person handing over (the closer the manager chose, else who opened it):
+    // they pay it now or it is deducted from salary.
+    if (v < 0) await q(`INSERT INTO cash_shortages(shift_id,staff_id,currency,amount_minor) VALUES($1,$2,$3,$4)`, [shiftId, t.shift.closer_staff_id ?? t.shift.staff_id, k, -v]);
   }
   if (off.length) {
     const txt = off.map((k) => `${k} ${currencies[k].variance > 0 ? 'over' : 'short'} ${Math.abs(currencies[k].variance) / 100}`).join(', ');

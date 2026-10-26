@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/icons';
 import {
-  posState, posStaffList, posUnlock, posLock, posClock, posOpenShift, posSale, posGuestFolio, posTakePayment, posExpense, posCloseShift, posManagers,
+  posState, posStaffList, posUnlock, posLock, posClock, posOpenShift, posSetDrawerRoles, posSale, posGuestFolio, posTakePayment, posExpense, posCloseShift, posManagers,
   posTasks, posTaskSave, posTaskReassign, posTasksShare, posWashReady, posRunNotes, posHandover, posTaken, posExchange, posEventTickets, posPayEvent, posEventList, posSellEvent, posCheckInEvent, posExtend, posExtendInfo, posTaxiConfirmed, posChangeList, posChangeSettle,
 } from './actions';
 
@@ -390,22 +390,7 @@ export function PosApp({ hotel, branch, device, initialGuest = null }: { hotel: 
   );
   const tasksModal = showTasks ? <TasksModal onClose={() => { setShowTasks(false); refresh(); }} notify={(text, kind = 'ok') => setToast({ text, kind })} /> : null;
 
-  if (!st.shift) return <div className="pos-root"><OpenShift me={st.me} tasksBtn={tasksBtn} extra={st.handoverExtra ?? []} onOpened={(m) => { setToast({ text: m, kind: 'ok' }); refresh(); }} onLock={lock} />{tasksModal}{toast && <Toast t={toast} />}</div>;
-
-  if (st.shift.staffId !== st.me.id && !st.me.is_manager) {
-    return (
-      <div className="pos-root pos-center">
-        <div className="pos-card-msg">
-          <Icon name="alert-triangle" size={28} />
-          <h2>Shift #{st.shift.no} is open by {st.shift.staffName}</h2>
-          <p>Only one cash drawer can be open. Ask {st.shift.staffName} to close their shift, then open yours. You can still see and tick your shift tasks.</p>
-          <div className="pos-row center">{tasksBtn}<button className="pos-btn" onClick={lock}><Icon name="lock" /> Back to lock screen</button></div>
-        </div>
-        {tasksModal}
-        {toast && <Toast t={toast} />}
-      </div>
-    );
-  }
+  if (!st.shift) return <div className="pos-root"><OpenShift me={st.me} roles={st.roles} posStaff={st.posStaff ?? []} onRoles={refresh} tasksBtn={tasksBtn} extra={st.handoverExtra ?? []} onOpened={(m) => { setToast({ text: m, kind: 'ok' }); refresh(); }} onLock={lock} />{tasksModal}{toast && <Toast t={toast} />}</div>;
 
   return (
     <div className="pos-root">
@@ -416,14 +401,66 @@ export function PosApp({ hotel, branch, device, initialGuest = null }: { hotel: 
   );
 }
 
+/** Manager: who closes this drawer, and who opens the next one. */
+function DrawerRoles({ st, notify, onDone }: { st: any; notify: (t: string, k?: 'ok' | 'bad') => void; onDone: () => void }) {
+  const set = async (v: { closer?: string | null; nextOpener?: string | null }, msg: string) => {
+    const r = await posSetDrawerRoles(v);
+    if (!r.ok) notify(r.error, 'bad'); else { notify(msg); onDone(); }
+  };
+  const staff: { id: string; full_name: string }[] = st.posStaff ?? [];
+  return (
+    <div className="pos-drawer-roles">
+      <div className="pos-field">
+        <label htmlFor="pos-closer">Who closes this drawer</label>
+        <select id="pos-closer" value={st.roles?.closer?.id ?? ''} onChange={(e) => set({ closer: e.target.value || null }, 'Saved · only they (or a manager) can close the shift')}>
+          {staff.map((s) => <option key={s.id} value={s.id}>{s.full_name}{s.id === st.shift.staffId ? ' (opened it)' : ''}</option>)}
+        </select>
+      </div>
+      <div className="pos-field">
+        <label htmlFor="pos-next">Who opens the next drawer</label>
+        <select id="pos-next" value={st.roles?.nextOpener?.id ?? ''} onChange={(e) => set({ nextOpener: e.target.value || null }, 'Saved · they open the drawer after this shift is closed')}>
+          <option value="">— choose later —</option>
+          {staff.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 function Toast({ t }: { t: { text: string; kind: 'ok' | 'bad' } }) {
   return <div className={`pos-toast ${t.kind}`} role="status"><Icon name={t.kind === 'ok' ? 'check-circle' : 'alert-triangle'} size={20} />{t.text}</div>;
 }
 
-function OpenShift({ me, onOpened, onLock, tasksBtn, extra = [] }: { me: Staff; onOpened: (msg: string) => void; onLock: () => void; tasksBtn?: React.ReactNode; extra?: string[] }) {
+function OpenShift({ me, roles, posStaff = [], onRoles, onOpened, onLock, tasksBtn, extra = [] }: { me: Staff; roles?: { nextOpener: { id: string; name: string } | null } | null; posStaff?: { id: string; full_name: string }[]; onRoles: () => void; onOpened: (msg: string) => void; onLock: () => void; tasksBtn?: React.ReactNode; extra?: string[] }) {
   const [counts, setCounts] = useState<Record<Cur, string>>({ EGP: '', USD: '', EUR: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const opener = roles?.nextOpener ?? null;
+  const mayOpen = me.is_manager || opener?.id === me.id;
+  const choose = async (id: string) => { setErr(null); const r = await posSetDrawerRoles({ nextOpener: id || null }); if (!r.ok) setErr(r.error); onRoles(); };
+  const pickOpener = me.is_manager ? (
+    <div className="pos-field" style={{ marginBottom: 14 }}>
+      <label htmlFor="pos-opener">Who opens the drawer this shift? (manager)</label>
+      <select id="pos-opener" className="pos-input" value={opener?.id ?? ''} onChange={(e) => choose(e.target.value)}>
+        <option value="">— choose —</option>
+        {posStaff.map((s) => <option key={s.id} value={s.id}>{s.full_name}{s.id === me.id ? ' (me)' : ''}</option>)}
+      </select>
+    </div>
+  ) : null;
+  if (!mayOpen) {
+    return (
+      <div className="pos-center">
+        <div className="pos-card-msg">
+          <span className="pos-chip"><Icon name="user" size={14} /> {me.full_name}</span>
+          <Icon name="lock" size={28} />
+          <h2>The drawer isn’t open yet</h2>
+          <p>{opener ? <>The manager chose <b>{opener.name}</b> to open the drawer. Once it’s open, everyone on the shift uses the POS.</> : <>The manager chooses who opens the drawer. Ask the manager to choose on the POS.</>}</p>
+          {err && <p className="pos-msg bad">{err}</p>}
+          <div className="pos-row center">{tasksBtn}<button className="pos-btn" onClick={onLock}><Icon name="lock" /> Back to lock screen</button></div>
+        </div>
+      </div>
+    );
+  }
   const go = async () => {
     setBusy(true); setErr(null);
     const r = await posOpenShift(countsOf(counts));
@@ -439,6 +476,7 @@ function OpenShift({ me, onOpened, onLock, tasksBtn, extra = [] }: { me: Staff; 
       <div className="pos-card-msg wide">
         <span className="pos-chip"><Icon name="user" size={14} /> {me.full_name}</span>
         <h2>Receive the drawer</h2>
+        {pickOpener}
         <p>Count the cash you receive, each currency on its own, and check the card slips. Any difference is the previous shift’s responsibility.</p>
         <CountGrid value={counts} onChange={setCounts} extra={extra} />
         {err && <p className="pos-msg bad">{err}</p>}
@@ -563,6 +601,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
         <div className="pos-top-meta">
           <span className="pos-chip"><Icon name="user" size={14} /> {st.me.full_name}</span>
           <span className="pos-chip"><Icon name="receipt" size={14} /> Shift #{st.shift.no} · since {time(st.shift.openedAt)}</span>
+          <span className="pos-chip" title="Chosen by the manager"><Icon name="key" size={14} /> Drawer: {st.shift.staffName}{st.roles?.closer ? ` · closes: ${st.roles.closer.name}` : ''}</span>
           <span className={`pos-chip ${synced ? 'ok' : 'bad'}`}><Icon name={synced ? 'wifi' : 'wifi-off'} size={14} /> {synced ? `Connected · Synced ${time(lastSync!)}` : 'Offline — retrying'}</span>
         </div>
         <div className="pos-top-figs">
@@ -578,7 +617,9 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
           <button className="pos-icon-btn" onClick={() => setModal('menu')} aria-label="More"><Icon name="menu" size={20} /></button>
           {st.changeOwed?.length > 0 && <button className="pos-btn ghost" onClick={() => setModal('change')} title="Guests who will come back for their change"><Icon name="clock" /> Change owed <span className="pos-count">{st.changeOwed.length}</span></button>}
           <button className="pos-btn ghost" onClick={lock}><Icon name="lock" /> Lock Screen</button>
-          <button className="pos-btn danger" onClick={() => setModal('close')}><Icon name="log-out" /> Close Shift</button>
+          {(st.me.is_manager || st.roles?.closer?.id === st.me.id)
+            ? <button className="pos-btn danger" onClick={() => setModal('close')}><Icon name="log-out" /> Close Shift</button>
+            : <span className="pos-chip" title="Only the person the manager chose closes the drawer"><Icon name="lock" size={14} /> {st.roles?.closer?.name ?? 'Manager'} closes the drawer</span>}
         </div>
       </header>
 
@@ -742,6 +783,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
             <button className="pos-btn" onClick={() => setModal('expense')}><Icon name="receipt" /> Paid from drawer (expense)</button>
             <button className="pos-btn" onClick={() => setModal('exchange')}><Icon name="arrow-left-right" /> Money exchange (foreign cash → EGP)</button>
             {st.takers?.length > 0 && <button className="pos-btn" onClick={() => setModal('taken')}><Icon name="wallet" /> Taken by owner</button>}
+            {st.me.is_manager && <DrawerRoles st={st} notify={notify} onDone={refresh} />}
             <a className="pos-btn" href="/dashboard" target="_blank" rel="noopener"><Icon name="layout-dashboard" /> Dashboard (Today)</a>
             <p className="pos-fine">Device signed in as {device}.</p>
           </div>
@@ -963,7 +1005,7 @@ function CloseShift({ shiftNo, onClose, onFinished, extra = [], owed = [] }: { o
             <tr className="strong"><td colSpan={2}>Not in the drawer</td></tr>
             <tr><td>Card machine: sales &amp; tickets / room bills{Number(z.card_tips) > 0 ? ' / tips' : ''}</td><td className="r num">{egp(z.card_sales)} / {egp(z.room_card_payments)}{Number(z.card_tips) > 0 ? ` / ${egp(z.card_tips)}` : ''}</td></tr>
             <tr><td>InstaPay (check in the app)</td><td className="r num">{egp(z.instapay ?? 0)}</td></tr>
-            <tr><td>Vodafone Cash (check in the app)</td><td className="r num">{egp(z.vodafone ?? 0)}</td></tr>
+            {Number(z.vodafone ?? 0) > 0 && <tr><td>Vodafone Cash (check in the app)</td><td className="r num">{egp(z.vodafone ?? 0)}</td></tr>}
             <tr><td>Put on room bills (to pay later)</td><td className="r num">{egp(z.room_charges)}</td></tr>
             <tr><td>Free (owner approved)</td><td className="r num">{egp(z.owner_comps)}</td></tr>
             <tr><td>Tour net profit</td><td className="r num">{egp(z.tour_profit)}</td></tr>
@@ -1034,7 +1076,10 @@ function TasksModal({ onClose, notify }: { onClose: () => void; notify: (t: stri
         {d.me.is_manager && <button className="pos-btn small" onClick={share}><Icon name="refresh" size={16} /> {d.run.distributed ? 'Share again' : 'Share now'}</button>}
       </div>
 
-      {!d.run.distributed && (
+      {!d.auto && (
+        <p className="pos-note"><Icon name="user" size={16} /> {d.me.is_manager ? 'You give out the tasks: choose a person next to each task (or press Share now to split them at random).' : 'The manager gives out the tasks. Yours show here once assigned.'} The drawer check goes to whoever receives the drawer.</p>
+      )}
+      {d.auto && !d.run.distributed && (
         <p className="pos-note"><Icon name="clock" size={16} /> Last-hour tasks are shared at random at <b>{time(shareAt.toISOString())}</b> between the people on this shift. The drawer check goes to whoever receives the drawer.</p>
       )}
       {!d.onDuty && <p className="pos-note"><Icon name="alert-triangle" size={16} /> You are not clocked in, so you have no tasks this shift.</p>}
@@ -1050,9 +1095,9 @@ function TasksModal({ onClose, notify }: { onClose: () => void; notify: (t: stri
         </>
       )}
 
-      {others.some((t) => t.assigned_to) && (
+      {(d.me.is_manager ? others.length > 0 : others.some((t) => t.assigned_to)) && (
         <>
-          <h3 className="pos-tasks-h">Team</h3>
+          <h3 className="pos-tasks-h">{d.me.is_manager ? 'Give out the tasks' : 'Team'}</h3>
           <div className="pos-team">
             {others.map((t) => (
               <div key={t.id} className={`pos-team-row ${t.status}`}>
@@ -1214,8 +1259,8 @@ const isWal = (m: PM) => m === 'instapay' || m === 'vodafone_cash';
 function MethodPicker({ value, onChange }: { value: PM; onChange: (m: PM) => void }) {
   const icon: Record<PM, string> = { cash: 'banknote', card: 'credit-card', instapay: 'wallet', vodafone_cash: 'wallet' };
   return (
-    <div className="pos-method four" role="radiogroup" aria-label="Payment method">
-      {(['cash', 'card', 'instapay', 'vodafone_cash'] as PM[]).map((m) => (
+    <div className="pos-method three" role="radiogroup" aria-label="Payment method">
+      {(['cash', 'card', 'instapay'] as PM[]).map((m) => (
         <button key={m} type="button" role="radio" aria-checked={value === m} className={value === m ? 'on' : ''} onClick={() => onChange(m)}><Icon name={icon[m]} /> {PM_LABEL[m]}</button>
       ))}
     </div>

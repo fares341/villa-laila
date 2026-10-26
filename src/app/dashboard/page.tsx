@@ -25,7 +25,7 @@ export default async function Today({ searchParams }: { searchParams: Promise<Re
   const todos = [
     { n: c.pending, one: 'booking request to confirm or refuse', many: 'booking requests to confirm or refuse', href: '/dashboard/reservations?status=pending', icon: 'bed' },
     { n: c.inbox, one: 'guest waiting in the inbox', many: 'guests waiting in the inbox', href: '/dashboard/inbox', icon: 'message-square' },
-    { n: c.payments, one: 'InstaPay / Vodafone Cash receipt to check', many: 'InstaPay / Vodafone Cash receipts to check', href: '/dashboard/payments', icon: 'wallet' },
+    { n: c.payments, one: 'InstaPay receipt to check', many: 'InstaPay receipts to check', href: '/dashboard/payments', icon: 'wallet' },
     { n: c.extensions, one: 'stay extension to decide', many: 'stay extensions to decide', href: '/dashboard/extensions', icon: 'arrow-left-right' },
     { n: c.taxis, one: 'taxi guest not told yet', many: 'taxi guests not told yet', href: '/dashboard/taxi', icon: 'map' },
     { n: c.dirty, one: 'room to clean', many: 'rooms to clean', href: '/dashboard/housekeeping?show=dirty', icon: 'brush' },

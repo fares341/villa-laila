@@ -153,7 +153,7 @@ export async function createEventQuick(v: { title: string; date: string; start: 
   if ((await q('SELECT 1 FROM events WHERE slug=$1', [slug])).length) slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
   const loc = (x: string) => JSON.stringify({ en: x, ar: x });
   const id = (await q<any>(`INSERT INTO events(slug,kind,title,summary,description,includes,price_cents,cost_per_attendee_cents,capacity,recurrence,weekdays,once_date,start_time,end_time,pay_methods,active,sort_order)
-    VALUES($1,'event',$2,$3,$4,'[]',$5,0,$6,'once','{}',$7,$8,$9,'{paymob,instapay,vodafone_cash,cash}',true,(SELECT COALESCE(max(sort_order),0)+10 FROM events)) RETURNING id`,
+    VALUES($1,'event',$2,$3,$4,'[]',$5,0,$6,'once','{}',$7,$8,$9,'{paymob,instapay,cash}',true,(SELECT COALESCE(max(sort_order),0)+10 FROM events)) RETURNING id`,
     [slug, loc(v.title), loc(v.description.split(/[.\n]/)[0].slice(0, 140)), loc(v.description), v.priceCents, v.capacity, v.date, v.start, v.end]))[0].id;
   await audit(actor, 'event.create', 'event', id, { title: v.title, via: 'telegram' });
   return id;

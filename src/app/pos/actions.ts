@@ -11,11 +11,13 @@ import {
   type PosItemInput, type SettleMode, type PayMethod,
 } from '@/services/pms/pos';
 import { getFolio } from '@/services/pms/folio';
+import { getSetting, setSetting } from '@/services/settings';
+import { audit } from '@/services/audit';
 import { channelEnabled } from '@/services/pms/channel';
 import { getRates, refreshRates, OTHER_CURRENCIES, type Currency } from '@/services/pms/fx';
 import { taxiMessage, waLink, setTaxiConfirmed } from '@/services/pms/taxi';
 import { recordTaken, recordExchange, unpaidEventTickets, payEventTicket, posEvents, sellEventTicket, checkInEventTicket, openChange, settleChange, type ChangeInput } from '@/services/pms/pos';
-import { runForStaff, runView, taxiLine, saveTask, finishWithNote, reassignTask, redistribute, setWashReady, setRunNotes, handoverText } from '@/services/pms/tasks';
+import { runForStaff, tasksAutoShare, runView, taxiLine, saveTask, finishWithNote, reassignTask, redistribute, setWashReady, setRunNotes, handoverText } from '@/services/pms/tasks';
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -27,7 +29,8 @@ const fail = (e: unknown): ActionResult<never> => {
 
 async function device() {
   const u = await currentUser().catch(() => null);
-  return u ?? { id: 'pos-terminal', email: 'pos@villalayla.com', name: 'POS Terminal', role: 'admin' as const };
+  // A POS tablet without a dashboard login: no user id (stored as empty), so nothing fails on a uuid column.
+  return u ?? { id: null as unknown as string, email: 'pos@villalayla.com', name: 'POS Terminal', role: 'admin' as const };
 }
 
 async function cashier() {
@@ -68,6 +71,8 @@ export async function posState(): Promise<ActionResult<any>> {
         handoverExtra: !shift ? await q<any>(`SELECT z_report->'currencies' c FROM cash_shifts WHERE status='closed' AND z_report IS NOT NULL ORDER BY closed_at DESC LIMIT 1`)
           .then((r) => Object.entries((r[0]?.c ?? {}) as Record<string, any>).filter(([k, v]) => !['EGP', 'USD', 'EUR'].includes(k) && Number(v?.counted) > 0).map(([k]) => k)).catch(() => []) : [],
         otherCurrencies: OTHER_CURRENCIES,
+        roles: me ? await drawerRoles(shift) : null,
+        posStaff: me?.is_manager ? await q<any>(`SELECT id, full_name FROM staff WHERE active AND can_use_pos AND pin_hash IS NOT NULL ORDER BY full_name`) : [],
         changeOwed: me ? await openChange().catch(() => []) : [],
         currencies: totals ? Object.fromEntries(Object.entries(totals.currencies).map(([k, v]: any) => [k, me?.is_manager ? v.expected : null])) : null,
       },
@@ -117,20 +122,61 @@ export async function posClock(staffId: string, pin: string, direction: 'in' | '
 }
 
 /** Receiving the drawer: the incoming person counts each currency. */
+/** Who opens / closes the drawer: chosen by a manager (settings drawer_next_opener; cash_shifts.closer_staff_id). */
+async function drawerRoles(shift: any | null) {
+  const next = (await getSetting<any>('drawer_next_opener').catch(() => null))?.staffId ?? null;
+  const ids = [next, shift?.closer_staff_id ?? null].filter(Boolean);
+  const names = ids.length ? Object.fromEntries((await q<any>(`SELECT id, full_name FROM staff WHERE id = ANY($1::uuid[])`, [ids])).map((r) => [r.id, r.full_name])) : {};
+  const closerId = shift ? (shift.closer_staff_id ?? shift.staff_id) : null;
+  return {
+    nextOpener: next ? { id: next, name: names[next] ?? '—' } : null,
+    closer: shift ? { id: closerId, name: shift.closer_staff_id ? names[shift.closer_staff_id] ?? '—' : shift.staff_name } : null,
+  };
+}
+
 export async function posOpenShift(counts: number | Record<string, number>): Promise<ActionResult<any>> {
   try {
     const u = await device();
     const me = await cashier();
+    // The manager decides who receives the drawer; a manager can always open it.
+    const next = (await getSetting<any>('drawer_next_opener').catch(() => null))?.staffId ?? null;
+    if (!me.is_manager && next !== me.id) {
+      const who = next ? (await q<any>(`SELECT full_name FROM staff WHERE id=$1`, [next]))[0]?.full_name : null;
+      throw new BookingError('FORBIDDEN', who ? `The manager chose ${who} to open the drawer.` : 'The manager chooses who opens the drawer. Ask the manager.');
+    }
     const r = await openPosShift(me.id, counts, u.id);
+    await setSetting('drawer_next_opener', { staffId: null });
     return { ok: true, data: { no: r.shift.shift_no, late: r.attendance.delay_minutes, tier: r.attendance.tier, mismatch: r.mismatch } };
   } catch (e) { return fail(e); }
 }
 
-async function myShift(me: { id: string; is_manager: boolean }) {
+/** The open drawer. Everyone on the shift sells and takes payments on it; each sale keeps who made it. */
+async function myShift(_me: { id: string; is_manager: boolean }) {
   const s = await openShiftRow();
-  if (!s) throw new BookingError('BAD_STATE', 'Open a shift first.');
-  if (s.staff_id !== me.id && !me.is_manager) throw new BookingError('FORBIDDEN', `Shift #${s.shift_no} belongs to ${s.staff_name}. Ask them to close it first.`);
+  if (!s) throw new BookingError('BAD_STATE', 'The drawer isn’t open yet. The person the manager chose opens it first.');
   return s;
+}
+
+/** Manager: who opens the next drawer, and who closes the open one. */
+export async function posSetDrawerRoles(input: { nextOpener?: string | null; closer?: string | null }): Promise<ActionResult<null>> {
+  try {
+    await device();
+    const me = await cashier();
+    if (!me.is_manager) throw new BookingError('FORBIDDEN', 'Only a manager chooses who opens and closes the drawer');
+    const ok = async (id: string | null | undefined) => !id || !!(await q(`SELECT 1 FROM staff WHERE id=$1 AND active AND can_use_pos`, [id])).length;
+    if (input.nextOpener !== undefined) {
+      if (!(await ok(input.nextOpener))) throw new BookingError('INVALID_INPUT', 'Choose someone who uses the POS');
+      await setSetting('drawer_next_opener', { staffId: input.nextOpener || null });
+    }
+    if (input.closer !== undefined) {
+      if (!(await ok(input.closer))) throw new BookingError('INVALID_INPUT', 'Choose someone who uses the POS');
+      const sh = await openShiftRow();
+      if (!sh) throw new BookingError('BAD_STATE', 'No drawer is open');
+      await q(`UPDATE cash_shifts SET closer_staff_id=$2 WHERE id=$1`, [sh.id, input.closer || null]);
+    }
+    await audit('pos:' + me.full_name, 'pos.drawer_roles', 'cash_shift', null, input);
+    return { ok: true, data: null };
+  } catch (e) { return fail(e); }
 }
 
 export async function posSale(input: { reservationId?: string | null; items: PosItemInput[]; mode: SettleMode; method?: PayMethod; compNote?: string; approverId?: string; approverPin?: string; compBalance?: boolean; cashCurrency?: string; cardPayer?: CardPayer | null; tipMinor?: number; walletRef?: string | null; change?: ChangeInput | null }): Promise<ActionResult<any>> {
@@ -177,6 +223,11 @@ export async function posCloseShift(counted: number | Record<string, number>, no
     await device();
     const me = await cashier();
     const s = await myShift(me);
+    const closer = s.closer_staff_id ?? s.staff_id;
+    if (closer !== me.id && !me.is_manager) {
+      const who = (await q<any>(`SELECT full_name FROM staff WHERE id=$1`, [closer]))[0]?.full_name ?? 'the person the manager chose';
+      throw new BookingError('FORBIDDEN', `${who} closes the drawer this shift (chosen by the manager).`);
+    }
     const z = await closePosShiftBlind(s.id, counted, me.id, note?.trim() ? `Close note: ${note.trim()}` : null);
     await clearPosStaff();
     return { ok: true, data: z };
@@ -207,6 +258,7 @@ export async function posTasks(): Promise<ActionResult<any>> {
         tasks: v.tasks, unpaid: v.unpaid, washes: v.washes, tours: v.tours, taxis,
         staff: s.staff.map((x: any) => ({ id: x.id, name: x.full_name })),
         onDuty: s.staff.some((x: any) => x.id === me.id),
+        auto: await tasksAutoShare(),
       },
     };
   } catch (e) { return fail(e); }

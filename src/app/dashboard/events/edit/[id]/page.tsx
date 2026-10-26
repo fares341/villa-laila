@@ -17,7 +17,7 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
   const sp = await searchParams;
   const isNew = id === 'new';
   if (!isNew && !/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const e: any = isNew ? { kind: sp.kind === 'day_use' ? 'day_use' : 'event', recurrence: 'once', weekdays: [], pay_methods: ['paymob', 'instapay', 'vodafone_cash', 'cash'], active: true, start_time: '19:00', end_time: '22:00', includes: [] }
+  const e: any = isNew ? { kind: sp.kind === 'day_use' ? 'day_use' : 'event', recurrence: 'once', weekdays: [], pay_methods: ['paymob', 'instapay', 'cash'], active: true, start_time: '19:00', end_time: '22:00', includes: [] }
     : (await q<any>(`SELECT ${EVENT_COLS} FROM events WHERE id=$1`, [id]))[0];
   if (!e) notFound();
   const v = (n: number | null | undefined) => (n == null ? '' : Number(n) / 100);
@@ -91,9 +91,8 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
             <div className="space-y-2 text-sm">
               <label className="flex items-center gap-2"><input type="checkbox" name="payMethods" value="paymob" defaultChecked={(e.pay_methods ?? []).includes('paymob')} /> Paymob (card / wallet, ticket issued instantly)</label>
               <label className="flex items-center gap-2"><input type="checkbox" name="payMethods" value="instapay" defaultChecked={(e.pay_methods ?? []).includes('instapay')} /> InstaPay (receipt uploaded, you approve)</label>
-              <label className="flex items-center gap-2"><input type="checkbox" name="payMethods" value="vodafone_cash" defaultChecked={(e.pay_methods ?? []).includes('vodafone_cash')} /> Vodafone Cash (receipt uploaded, you approve)</label>
               <label className="flex items-center gap-2"><input type="checkbox" name="payMethods" value="cash" defaultChecked={(e.pay_methods ?? []).includes('cash')} /> Pay cash at the villa</label>
-              <div className="pt-2"><Lbl htmlFor="e-dep">Deposit per ticket for InstaPay / Vodafone Cash (EGP)</Lbl>
+              <div className="pt-2"><Lbl htmlFor="e-dep">Deposit per ticket for InstaPay (EGP)</Lbl>
                 <input id="e-dep" name="deposit" type="number" min={1} step="0.01" placeholder="Empty = pay the full price online" defaultValue={v(e.deposit_cents)} className={Input} />
                 <p className="mt-1 text-xs text-slate-500">The guest sends only the deposit online; the rest is taken at the villa on the POS (Events → Booked online).</p></div>
               <p className="text-xs text-slate-500">Accounts are set in <Link className="underline" href="/dashboard/events?tab=settings">Events → Payment accounts</Link>.</p>

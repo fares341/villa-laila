@@ -144,10 +144,17 @@ async function closeOut(run: any, sh: ShiftWin) {
   }
 }
 
+/** Automatic sharing of shift tasks (off: the manager gives them out). Settings key tasks_auto_share. */
+export async function tasksAutoShare(): Promise<boolean> {
+  const { getSetting } = await import('../settings');
+  return (await getSetting<boolean>('tasks_auto_share').catch(() => null)) === true;
+}
+
 /** Shares tasks at the right time and keeps runs balanced. Called by the POS, the dashboard and the worker. */
 export async function syncRuns(opts: { now?: Date; force?: boolean } = {}) {
   const now = opts.now ?? new Date();
   const grace = await graceMinutes();
+  const auto = await tasksAutoShare();
   const staff = await onDuty();
   const out: { run: any; shift: ShiftWin; shareStartAt: Date; shareLastAt: Date; staff: any[] }[] = [];
   for (const sh of await activeShifts(now)) {
@@ -156,7 +163,8 @@ export async function syncRuns(opts: { now?: Date; force?: boolean } = {}) {
     const shareStartAt = new Date(sh.start.getTime() + grace * 60000);
     const shareLastAt = new Date(sh.end.getTime() - 60 * 60000);
     const phases = [...(opts.force || now >= shareStartAt ? ['start'] : []), ...(opts.force || now >= shareLastAt ? ['last_hour'] : [])];
-    if (team.length && phases.length) {
+    // Tasks are given out by the manager (POS → Tasks). Automatic sharing only when the owner turns it on.
+    if (auto && team.length && phases.length) {
       await rebalance(run.id, team, phases);
       if (phases.includes('last_hour') && !run.distributed_at) {
         await q(`UPDATE shift_task_runs SET distributed_at=$2 WHERE id=$1`, [run.id, now]);
