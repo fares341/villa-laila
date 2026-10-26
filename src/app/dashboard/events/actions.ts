@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { openShiftRow } from '@/services/pms/pos';
-import { markEventBookingPaid, checkInTicket, updateEventSettings } from '@/services/events';
+import { markEventBookingPaid, checkInTicket, updateEventSettings, moveEvent } from '@/services/events';
 import { approveProofAdmin, rejectProofAdmin, confirmEventBookingAdmin, cancelEventBookingAdmin } from '@/services/event-admin';
 import { saveWallets, getWallets } from '@/services/wallets';
 import { saveAdminBotConfig, getAdminBotConfig, testAdminBot } from '@/services/admin-bot';
@@ -183,4 +183,13 @@ export async function menuImportAction(f: FormData) {
     msg = `Imported ${r.days} day(s)${r.imageErrors.length ? ` · photos not downloaded: ${r.imageErrors.join('; ')}` : ''}`;
   } catch (e) { fail(e instanceof SyntaxError ? new Error('That is not valid JSON') : e, MENU); }
   menuDone(msg);
+}
+
+export async function moveEventAction(f: FormData) {
+  const u = await requireUser('events.manage');
+  const dir = String(f.get('dir'));
+  if (!['up', 'down', 'top', 'bottom'].includes(dir)) return;
+  await moveEvent(String(f.get('id')), dir as 'up', u.email);
+  revalidatePath(P); revalidatePath('/[lang]', 'layout');
+  redirect(`${P}?tab=events#order`);
 }

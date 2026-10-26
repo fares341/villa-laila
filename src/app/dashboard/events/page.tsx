@@ -12,7 +12,7 @@ import { tr, eventProfit, listPublicEvents, hiddenReason, EVENT_COLS } from '@/s
 import { Icon } from '@/components/icons';
 import {
   checkInEventAction, cancelEventBookingAction, confirmEventBookingAction, findTicketAction,
-  saveWalletsAction, saveAdminBotAction, testAdminBotAction, saveWhatsAppAction,
+  saveWalletsAction, saveAdminBotAction, testAdminBotAction, saveWhatsAppAction, moveEventAction,
 } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -170,6 +170,23 @@ async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
   );
 }
 
+function OrderButtons({ id, n, first, last }: { id: string; n: number; first: boolean; last: boolean }) {
+  const B = 'inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-30';
+  const arrow = (d: string) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>;
+  const btn = (dir: string, label: string, d: string, off: boolean) => (
+    <form action={moveEventAction}><input type="hidden" name="id" value={id} /><input type="hidden" name="dir" value={dir} />
+      <button className={B} disabled={off} title={label} aria-label={label}>{arrow(d)}</button></form>
+  );
+  return (
+    <div className="flex items-center gap-1">
+      <span className="w-6 text-center text-xs font-bold tabular-nums text-slate-500">{n}</span>
+      {btn('top', 'Show first', 'M6 4h12M12 20V9M7 13l5-5 5 5', first)}
+      {btn('up', 'Move up', 'M12 19V5M6 11l6-6 6 6', first)}
+      {btn('down', 'Move down', 'M12 5v14M6 13l6 6 6-6', last)}
+    </div>
+  );
+}
+
 async function EventsList({ from, to, canEdit }: { from: string; to: string; canEdit: boolean }) {
   const [events, profit, pubEvents, mediaCounts] = await Promise.all([
     q<any>(`SELECT ${EVENT_COLS} FROM events ORDER BY active DESC, sort_order, slug`),
@@ -181,17 +198,18 @@ async function EventsList({ from, to, canEdit }: { from: string; to: string; can
   const media = new Map(mediaCounts.map((m: any) => [m.event_id, m]));
   return (
     <Card title="Events & day-use">
-      <p className="mb-3 text-sm text-slate-600">Everything published here is on the website (home page and Events page) right away. Profit = (ticket price − cost per attendee) × tickets sold, {from} to {to}.</p>
+      <p className="mb-3 text-sm text-slate-600" id="order">Everything published here is on the website (home page and Events page) right away, in the order of this list: use the arrows in the Order column to choose which event shows first. Profit = (ticket price − cost per attendee) × tickets sold, {from} to {to}.</p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="text-left text-slate-600"><tr><th className="py-2">Event</th><th>On the website</th><th>Schedule</th><th className="text-right">Price</th><th>Next date</th><th className="text-right">Sold</th><th className="text-right">Profit</th><th /></tr></thead>
+          <thead className="text-left text-slate-600"><tr>{canEdit && <th className="py-2 pr-2">Order</th>}<th className="py-2">Event</th><th>On the website</th><th>Schedule</th><th className="text-right">Price</th><th>Next date</th><th className="text-right">Sold</th><th className="text-right">Profit</th><th /></tr></thead>
           <tbody>
-            {events.map((e: any) => {
+            {events.map((e: any, idx: number) => {
               const pe = liveById.get(e.id); const pr: any = profitById.get(e.id) ?? { tickets: 0, revenue: 0 };
               const profitCents = Number(pr.revenue) - Number(e.cost_per_attendee_cents) * pr.tickets;
               const why = hiddenReason(e); const m: any = media.get(e.id) ?? { meals: 0, videos: 0 };
               return (
                 <tr key={e.id} className="border-t border-slate-100 align-top">
+                  {canEdit && <td className="py-2 pr-2"><OrderButtons id={e.id} n={idx + 1} first={idx === 0} last={idx === events.length - 1 || (e.active && !events[idx + 1]?.active)} /></td>}
                   <td className="py-2"><b>{tr(e.title, 'en')}</b><div className="text-xs text-slate-500">{e.kind === 'day_use' ? 'Day-use' : 'Event'} · {m.meals} meal photo(s) · {m.videos} video(s)</div></td>
                   <td className="text-xs">{why ? <span className="text-amber-800">Hidden: {why}</span> : <a className="font-semibold text-emerald-800 underline" href={`/en/events/${e.slug}`} target="_blank" rel="noopener">Live · open</a>}</td>
                   <td className="text-xs">{e.recurrence === 'once' ? e.once_date : e.recurrence === 'daily' ? 'Daily' : 'Weekly ' + (e.weekdays as number[]).map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}<br />{e.start_time}–{e.end_time}</td>

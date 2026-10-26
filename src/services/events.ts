@@ -55,11 +55,12 @@ export async function eventMedia(eventId: string): Promise<MediaItem[]> {
   return rows.map((r: any) => ({ id: r.id, kind: r.kind, mime: r.mime, caption: r.caption, orientation: r.orientation === 'portrait' ? 'portrait' : 'landscape', size: r.size == null ? null : Number(r.size), external: !r.up, src: r.up ? `/api/media/event-media/${r.id}?v=${r.v}` : r.url }));
 }
 
-/** Active events that still have a date coming up, soonest first. Never throws (site keeps working if the table is missing). */
+/** Active events that still have a date coming up, in the dashboard order. Never throws (site keeps working if the table is missing). */
 export async function listPublicEvents(): Promise<PublicEvent[]> {
   try {
     const [rows, w] = await Promise.all([q<EventRow>(`SELECT ${EVENT_COLS} FROM events WHERE active ORDER BY sort_order, slug`), getWallets()]);
-    const list = rows.map((r) => toPublic(r, w)).filter((e) => e.nextDate).sort((a, b) => (a.nextDate! < b.nextDate! ? -1 : a.nextDate! > b.nextDate! ? 1 : a.sort_order - b.sort_order));
+    // The order is the one set in the dashboard (Events list → Website order), not the date.
+    const list = rows.map((r) => toPublic(r, w)).filter((e) => e.nextDate);
     for (const e of list) {
       if (e.capacity == null) continue;
       const left = await seatsLeft({ ...e, dates: e.dates.slice(0, 14) });
@@ -298,4 +299,16 @@ export async function setEventDeposit(eventId: string, depositCents: number | nu
   if (depositCents != null && depositCents >= Number(ev.price_cents)) depositCents = null; // a deposit equal to the price is just the price
   await q(`UPDATE events SET deposit_cents=$2, updated_at=now() WHERE id=$1`, [eventId, depositCents]);
   await audit(actor, 'event.deposit', 'event', eventId, { depositCents });
+}
+
+/** Moves an event in the website grid order (up, down or to the top). Renumbers all events 10, 20, 30… */
+export async function moveEvent(id: string, dir: 'up' | 'down' | 'top' | 'bottom', actor: string) {
+  const rows = await q<{ id: string }>(`SELECT id FROM events ORDER BY active DESC, sort_order, slug`);
+  const i = rows.findIndex((r) => r.id === id);
+  if (i < 0) return;
+  const [item] = rows.splice(i, 1);
+  const to = dir === 'top' ? 0 : dir === 'bottom' ? rows.length : Math.max(0, Math.min(rows.length, i + (dir === 'up' ? -1 : 1)));
+  rows.splice(to, 0, item);
+  await q(`UPDATE events e SET sort_order = v.n, updated_at = now() FROM (SELECT unnest($1::uuid[]) id, generate_series(10, $2::int * 10, 10) n) v WHERE e.id = v.id AND e.sort_order <> v.n`, [rows.map((r) => r.id), rows.length]);
+  await audit(actor, 'event.move', 'event', id, { dir, position: to + 1 });
 }
