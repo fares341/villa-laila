@@ -12,6 +12,8 @@ const SHORT: Record<Lang, string> = { en: 'EN', es: 'ES', fr: 'FR', ar: 'ع' };
 /** Image with a calm fallback tile if the remote photo cannot load. */
 export function Img({ src, alt, w = 900, className = '' }: { src: string | null | undefined; alt: string; w?: number; className?: string }) {
   if (!src) return <div role="img" aria-label={alt} className={`img-fallback ${className}`} />;
+  // Room videos uploaded in the dashboard (Website → Room photos & videos) play silently in the same frame.
+  if (/\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(src)) return <video src={src} aria-label={alt} muted loop playsInline autoPlay controls preload="metadata" className={`img-fallback object-cover ${className}`} />;
   return <img src={sized(src, w)} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer" className={`img-fallback object-cover ${className}`} />;
 }
 

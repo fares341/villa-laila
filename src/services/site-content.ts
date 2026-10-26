@@ -82,10 +82,36 @@ export async function setFilmPoster(id: string, poster: string, actor: string) {
   await audit(actor, 'site.film_poster', 'site_films', id, {});
 }
 
+/* ───────── Home slider ───────── */
+
+export type SiteSlide = { id: string; sort_order: number; active: boolean; video: string; poster: string | null; label: Loc; sub: Loc; crumb: Loc };
+
+export async function listSlides(all = false): Promise<SiteSlide[]> {
+  return q<SiteSlide>(`SELECT id, sort_order, active, video, poster, label, sub, crumb FROM site_slides ${all ? '' : 'WHERE active'} ORDER BY sort_order, updated_at`).catch(() => []);
+}
+
+export async function saveSlide(id: string | null, f: Record<string, unknown>, actor: string): Promise<string> {
+  const video = f.video === undefined ? undefined : okMedia(f.video);
+  const poster = f.poster === undefined ? undefined : okMedia(f.poster);
+  const L = (a: string, e: string, max: number) => JSON.stringify({ ar: clean(f[a], max), en: clean(f[e], max) });
+  if (id) {
+    const r = await q<{ id: string }>(`UPDATE site_slides SET label=$2, sub=$3, crumb=$4, video=COALESCE($5, video), poster=COALESCE($6, poster), updated_at=now() WHERE id=$1 RETURNING id`,
+      [id, L('labelAr', 'labelEn', 60), L('subAr', 'subEn', 80), L('crumbAr', 'crumbEn', 80), video ?? null, poster ?? null]);
+    if (!r.length) throw new BookingError('NOT_FOUND', 'slide');
+  } else {
+    if (!video) throw new BookingError('INVALID_INPUT', 'Upload the video first');
+    id = (await q<{ id: string }>(`INSERT INTO site_slides(sort_order, video, poster, label, sub, crumb)
+      VALUES((SELECT COALESCE(max(sort_order), 0) + 1 FROM site_slides), $1, $2, $3, $4, $5) RETURNING id`,
+      [video, poster ?? null, L('labelAr', 'labelEn', 60), L('subAr', 'subEn', 80), L('crumbAr', 'crumbEn', 80)]))[0].id;
+  }
+  await audit(actor, 'site.slide_save', 'site_slides', id, {});
+  return id!;
+}
+
 /* ───────── Shared: show/hide, order, delete ───────── */
 
-type Table = 'site_tours' | 'site_films';
-const TABLES: Record<string, Table> = { tour: 'site_tours', film: 'site_films' };
+type Table = 'site_tours' | 'site_films' | 'site_slides';
+const TABLES: Record<string, Table> = { tour: 'site_tours', film: 'site_films', slide: 'site_slides' };
 export const tableOf = (what: string): Table => {
   const t = TABLES[what];
   if (!t) throw new BookingError('INVALID_INPUT', 'what');

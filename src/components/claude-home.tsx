@@ -26,6 +26,7 @@ export type ClaudeHomeProps = {
   tours?: { name: Loc; duration: Loc; tag: Loc; included: { ar?: string[]; en?: string[] }; excluded: Loc; image: string | null }[] | null;
   films?: GuestFilmsData | null;
   roomPhotos?: Record<string, string[]>;
+  slides?: { video: string; poster: string | null; label: Loc; sub: Loc; crumb: Loc }[] | null;
 };
 type Loc = { ar?: string; en?: string };
 
@@ -86,7 +87,9 @@ const icons = {
   ),
 };
 
-export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events = [], tours: siteTours = null, films = null, roomPhotos = {} }: ClaudeHomeProps) {
+const isVideo = (u: string | undefined) => !!u && /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(u);
+
+export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events = [], tours: siteTours = null, films = null, roomPhotos = {}, slides = null }: ClaudeHomeProps) {
   const router = useRouter();
   const isAr = lang === 'ar';
 
@@ -160,8 +163,8 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
     }
   }, [arrive, currency]);
 
-  // Hero Slider data (3 real videos from Villa Layla)
-  const SLIDES = [
+  // Hero Slider data (3 real videos from Villa Layla) — the dashboard (Website → Home slider) replaces them.
+  const BASE_SLIDES = [
     {
       video: '/videos/hero-01.mp4',
       poster: '/photos/gallery_and_hostel/jtfzrhhp3g0fj6vdnxjq.jpeg',
@@ -184,6 +187,10 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
       crumb: isAr ? 'شهرزاد · جناح كينج ملكي' : 'Sheherazade · King room',
     },
   ];
+  const SL = (x: Loc | undefined) => (isAr ? x?.ar || x?.en : x?.en || x?.ar) || '';
+  const SLIDES = slides && slides.length
+    ? slides.map((x) => ({ video: x.video, poster: x.poster ?? '', label: SL(x.label), sub: SL(x.sub), crumb: SL(x.crumb) }))
+    : BASE_SLIDES;
 
   // Auto slide effect
   useEffect(() => {
@@ -1071,7 +1078,9 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
 
                     <div className="strip" onClick={() => { setModalRoom({ ...r, effectivePrice, isAvailable, bedsLeft }); setModalPhotoIdx(0); }}>
                       {r.photos.map((p, k) => (
-                        <img key={k} src={p} alt={`${r.name} photo ${k + 1}`} loading="lazy" />
+                        isVideo(p)
+                          ? <video key={k} src={p} muted loop playsInline autoPlay={k === 0} preload="metadata" aria-label={`${r.name} video`} />
+                          : <img key={k} src={p} alt={`${r.name} photo ${k + 1}`} loading="lazy" />
                       ))}
                     </div>
 
@@ -1141,7 +1150,9 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
 
             <div className="dlg-grid">
               <div className="dlg-m">
-                <img className="dlg-main" src={modalRoom.photos[modalPhotoIdx]} alt={modalRoom.name} />
+                {isVideo(modalRoom.photos[modalPhotoIdx])
+                  ? <video key={modalRoom.photos[modalPhotoIdx]} className="dlg-main" src={modalRoom.photos[modalPhotoIdx]} controls autoPlay muted playsInline />
+                  : <img className="dlg-main" src={modalRoom.photos[modalPhotoIdx]} alt={modalRoom.name} />}
                 <div className="dlg-th">
                   {modalRoom.photos.map((p: string, idx: number) => (
                     <button
@@ -1149,7 +1160,7 @@ export function ClaudeHome({ lang = 'en', currency = 'USD', initialRates, events
                       aria-current={idx === modalPhotoIdx}
                       onClick={() => setModalPhotoIdx(idx)}
                     >
-                      <img src={p} alt="" />
+                      {isVideo(p) ? <video src={`${p}#t=0.5`} muted playsInline preload="metadata" aria-hidden /> : <img src={p} alt="" />}
                     </button>
                   ))}
                 </div>

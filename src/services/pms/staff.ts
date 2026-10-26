@@ -216,3 +216,43 @@ export async function monthlyTimesheet(month: string) {
 export async function onShiftNow() {
   return q<any>(`SELECT a.*, s.full_name, s.role FROM staff_attendance a JOIN staff s ON s.id=a.staff_id WHERE a.clock_out_at IS NULL ORDER BY a.clock_in_at`);
 }
+
+/* ───────── POS: my shift today and who works with me ───────── */
+
+const cairoAt = (date: string, hhmm: string) => zonedToUtc(date, hhmm);
+const addDay = (d: string, n: number) => new Date(Date.parse(d + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+
+export type ShiftSlot = { staffId: string; name: string; label: string; start: string; end: string; startAt: string; endAt: string; clockIn: string | null; clockOut: string | null };
+
+/**
+ * The rostered shift of a staff member around now (yesterday's night shift included), their clock-in, and the
+ * other people rostered in an overlapping window — with when they start and whether they are in yet.
+ */
+export async function myShiftInfo(staffId: string, now = new Date()) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' }).format(now);
+  const rows = await q<any>(`
+    SELECT r.staff_id, s.full_name name, r.work_date::text d, r.shift_code, COALESCE(r.start_time, st.start_time) st, COALESCE(r.end_time, st.end_time) et, st.label,
+      (SELECT a.clock_in_at FROM staff_attendance a WHERE a.staff_id=r.staff_id AND a.work_date=r.work_date ORDER BY a.clock_in_at DESC LIMIT 1) clock_in,
+      (SELECT a.clock_out_at FROM staff_attendance a WHERE a.staff_id=r.staff_id AND a.work_date=r.work_date ORDER BY a.clock_in_at DESC LIMIT 1) clock_out
+    FROM staff_roster r JOIN staff s ON s.id=r.staff_id AND s.active LEFT JOIN shift_types st ON st.code=r.shift_code
+    WHERE r.work_date BETWEEN $1::date - 1 AND $1::date + 1 AND COALESCE(st.is_off, false) = false AND COALESCE(r.start_time, st.start_time) IS NOT NULL`, [today]).catch(() => []);
+  const slots: ShiftSlot[] = rows.map((r) => {
+    const startAt = cairoAt(r.d, r.st);
+    let endAt = cairoAt(r.d, r.et);
+    if (endAt <= startAt) endAt = cairoAt(addDay(r.d, 1), r.et); // ends after midnight
+    return { staffId: r.staff_id, name: r.name, label: r.label ?? r.shift_code, start: r.st, end: r.et, startAt: startAt.toISOString(), endAt: endAt.toISOString(), clockIn: r.clock_in ? new Date(r.clock_in).toISOString() : null, clockOut: r.clock_out ? new Date(r.clock_out).toISOString() : null };
+  });
+  // My slot: the one I'm clocked in on, else the one running now, else my next one today.
+  const mine = slots.filter((s) => s.staffId === staffId);
+  const t = now.getTime();
+  const me = mine.find((s) => s.clockIn && !s.clockOut) ?? mine.find((s) => Date.parse(s.startAt) - 2 * 3600e3 <= t && t <= Date.parse(s.endAt) + 4 * 3600e3) ?? mine.filter((s) => Date.parse(s.startAt) > t).sort((a, b) => a.startAt.localeCompare(b.startAt))[0] ?? null;
+  const from = me ? Date.parse(me.startAt) : t, to = me ? Date.parse(me.endAt) : t + 8 * 3600e3;
+  const team = slots.filter((s) => s.staffId !== staffId && Date.parse(s.startAt) < to && Date.parse(s.endAt) > from).sort((a, b) => a.startAt.localeCompare(b.startAt));
+  let late = 0, overtime = 0;
+  if (me?.clockIn) {
+    late = Math.max(0, Math.round((Date.parse(me.clockIn) - Date.parse(me.startAt)) / 60000));
+    const outAt = me.clockOut ? Date.parse(me.clockOut) : t;
+    overtime = Math.max(0, Math.round((outAt - Date.parse(me.endAt)) / 60000));
+  }
+  return { me, team, late, overtime, now: now.toISOString() };
+}

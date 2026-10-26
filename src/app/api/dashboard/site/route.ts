@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { currentUser } from '@/lib/auth';
 import { can } from '@/lib/permissions';
 import { BookingError } from '@/services/errors';
-import { saveTour, setTourImage, addFilm, setFilmPoster, setActive, move, remove, editRoomPhotos } from '@/services/site-content';
+import { saveTour, setTourImage, saveSlide, addFilm, setFilmPoster, setActive, move, remove, editRoomPhotos } from '@/services/site-content';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +20,7 @@ export async function POST(req: Request) {
     switch (b.op) {
       case 'tour.save': out = await saveTour(id, b.fields ?? {}, u.email); break;
       case 'tour.image': if (!id) throw new BookingError('INVALID_INPUT', 'id'); await setTourImage(id, b.url, u.email); break;
+      case 'slide.save': out = await saveSlide(id, b.fields ?? {}, u.email); break;
       case 'film.add': out = await addFilm(b.kind === 'main' ? 'main' : 'reel', b.video, b.poster ?? null, u.email); break;
       case 'film.poster': if (!id) throw new BookingError('INVALID_INPUT', 'id'); await setFilmPoster(id, b.url, u.email); break;
       case 'show': case 'hide': if (!id) throw new BookingError('INVALID_INPUT', 'id'); await setActive(b.what, id, b.op === 'show', u.email); break;

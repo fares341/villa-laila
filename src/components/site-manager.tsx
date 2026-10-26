@@ -15,6 +15,7 @@ const LBL = 'mb-1 block text-xs font-semibold text-cocoa-700';
 const mb = (n: number) => `${Math.max(0.1, n / 1024 / 1024).toFixed(1)} MB`;
 
 type Loc = { ar?: string; en?: string };
+const isVideo = (u: string) => /\.(mp4|mov|webm|m4v)(\?|$)/i.test(u);
 
 /** Send one file in 8 MB pieces (resumes after a dropped connection); returns its address on the website. */
 async function upload(file: File, want: 'photo' | 'video', onProgress: (sent: number) => void): Promise<string> {
@@ -100,20 +101,26 @@ export function RoomPhotosManager({ rooms: initial }: { rooms: Room[] }) {
   }
   return (
     <div className="space-y-5">
-      <p className="text-sm text-slate-600">These are the photos on the website: the home page room cards and each room’s own page. The <b>first photo is the cover</b>. Upload as many as you like (JPG, PNG, WebP), put them in order with the arrows, or remove them.</p>
+      <p className="text-sm text-slate-600">These are the photos and videos on the website: the home page room cards and each room’s own page. The <b>first one is the cover</b> (best a photo). Upload as many as you like (photos JPG/PNG/WebP, videos MP4/MOV), put them in order with the arrows, or remove them.</p>
       <Notice msg={msg} />
       {rooms.map((room) => (
         <section key={room.id} className="rounded-2xl border border-cocoa-100 bg-white p-4 shadow-sm">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-base font-bold text-cocoa-900">{room.name.en || room.code} <span className="font-normal text-slate-500">· {room.name.ar}</span>{!room.active && <span className="ms-2 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">not on sale</span>}</h3>
-            <UploadButton want="photo" multiple label="Add photos" className={BTN} onDone={(urls) => edit(room, { add: urls }, `${urls.length} photo${urls.length > 1 ? 's' : ''} added`)} />
+            <span className="flex flex-wrap gap-2">
+              <UploadButton want="photo" multiple label="Add photos" className={BTN} onDone={(urls) => edit(room, { add: urls }, `${urls.length} photo${urls.length > 1 ? 's' : ''} added`)} />
+              <UploadButton want="video" multiple label="Add videos" onDone={(urls) => edit(room, { add: urls }, `${urls.length} video${urls.length > 1 ? 's' : ''} added`)} />
+            </span>
           </div>
           {room.photos.length === 0 ? <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">No photos yet — the website shows a plain placeholder.</p> : (
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {room.photos.map((p, i) => (
                 <li key={p} className={`relative overflow-hidden rounded-xl border ${i === 0 ? 'border-amber-400 ring-2 ring-amber-300' : 'border-cocoa-100'}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.includes('imgix.net') ? `${p}?w=400&auto=format&fit=crop` : p} alt="" loading="lazy" className="aspect-[4/3] w-full bg-cocoa-50 object-cover" />
+                  {isVideo(p)
+                    ? <video src={p} muted playsInline preload="metadata" controls className="aspect-[4/3] w-full bg-black object-cover" />
+                    // eslint-disable-next-line @next/next/no-img-element
+                    : <img src={p.includes('imgix.net') ? `${p}?w=400&auto=format&fit=crop` : p} alt="" loading="lazy" className="aspect-[4/3] w-full bg-cocoa-50 object-cover" />}
+                  {isVideo(p) && <span className="absolute right-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-bold text-white">Video</span>}
                   {i === 0 && <span className="absolute left-1.5 top-1.5 rounded-md bg-amber-400 px-1.5 py-0.5 text-[11px] font-bold text-amber-950">Cover</span>}
                   <div className="absolute inset-x-1.5 bottom-1.5 flex items-center justify-between gap-1">
                     <span className="flex gap-1">
@@ -276,6 +283,91 @@ export function FilmsManager({ films }: { films: Film[] }) {
           <UploadButton want="video" multiple label="Add reels" className={BTN} onDone={addFilm('reel')} />
         </div>
         {reels.length ? <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{reels.map((f, i) => <FilmCard key={f.id} f={f} first={i === 0} last={i === reels.length - 1} onOp={op} />)}</ul> : <p className="text-sm text-slate-500">No reels yet.</p>}
+      </section>
+    </div>
+  );
+}
+
+/* ───────── Home slider ───────── */
+
+type Slide = { id: string; active: boolean; video: string; poster: string | null; label: Loc; sub: Loc; crumb: Loc };
+
+function SlideForm({ slide, onSaved, onCancel }: { slide: Slide | null; onSaved: (m: string) => void; onCancel?: () => void }) {
+  const [video, setVideo] = useState<string | null>(slide?.video ?? null);
+  const [poster, setPoster] = useState<string | null>(slide?.poster ?? null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); setBusy(true); setErr(null);
+    const fields = { ...Object.fromEntries(new FormData(e.currentTarget).entries()), video: video ?? undefined, poster: poster ?? undefined };
+    const r = await act({ op: 'slide.save', id: slide?.id, fields });
+    setBusy(false);
+    if (!r.ok) { setErr(r.error!); return; }
+    onSaved(slide ? 'Slide saved · live on the home page' : 'Slide added · live on the home page');
+  }
+  const two = (label: string, a: string, en: string, va = '', ve = '') => (
+    <div className="grid gap-2 sm:grid-cols-2">
+      <div><label className={LBL}>{label} (Arabic)</label><input name={a} dir="rtl" defaultValue={va} className={INPUT} /></div>
+      <div><label className={LBL}>{label} (English)</label><input name={en} defaultValue={ve} className={INPUT} /></div>
+    </div>
+  );
+  return (
+    <form onSubmit={submit} className="grid gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="sm:w-72 sm:flex-none">
+          {video ? <video src={video} poster={poster ?? undefined} controls muted playsInline preload="metadata" className="aspect-video w-full rounded-xl bg-black object-cover" /> : <div className="grid aspect-video w-full place-items-center rounded-xl bg-cocoa-50 text-xs text-slate-500">No video yet</div>}
+          <div className="mt-2 flex flex-wrap gap-2">
+            <UploadButton want="video" label={video ? 'Change video' : 'Upload video'} onDone={(u) => setVideo(u[0])} />
+            <UploadButton want="photo" label={poster ? 'Change cover photo' : 'Cover photo'} onDone={(u) => setPoster(u[0])} />
+          </div>
+        </div>
+        <div className="grid min-w-0 flex-1 gap-2">
+          {two('Big line', 'labelAr', 'labelEn', slide?.label.ar, slide?.label.en)}
+          {two('Small line', 'subAr', 'subEn', slide?.sub.ar, slide?.sub.en)}
+          {two('Caption under the slider', 'crumbAr', 'crumbEn', slide?.crumb.ar, slide?.crumb.en)}
+        </div>
+      </div>
+      {err && <p className="text-sm font-semibold text-red-700">{err}</p>}
+      <div className="flex flex-wrap gap-2">
+        <button className={BTN} disabled={busy}><Icon name="check" size={15} /> {busy ? 'Saving…' : slide ? 'Save slide' : 'Add slide'}</button>
+        {onCancel && <button type="button" className={GHOST} onClick={onCancel}>Cancel</button>}
+      </div>
+    </form>
+  );
+}
+
+export function SlidesManager({ slides }: { slides: Slide[] }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
+  const reload = (t: string) => { window.location.replace(`${location.pathname}?tab=slider&ok=${encodeURIComponent(t)}`); };
+  async function op(body: Record<string, unknown>, done: string) {
+    const r = await act({ what: 'slide', ...body });
+    if (!r.ok) setMsg({ ok: false, t: r.error! }); else reload(done);
+  }
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-600">The videos at the top of the home page, in this order (each plays about 7 seconds, then the next). Short, light videos (10–20 s, landscape) load fastest on phones. Give each one a cover photo: it shows while the video loads.</p>
+      <Notice msg={msg} />
+      {slides.map((sl, i) => (
+        <section key={sl.id} className={`rounded-2xl border bg-white p-4 shadow-sm ${sl.active ? 'border-cocoa-100' : 'border-dashed border-slate-300 opacity-80'}`}>
+          <div className="flex flex-wrap items-center gap-3">
+            <video src={sl.video} poster={sl.poster ?? undefined} muted playsInline preload="metadata" className="h-16 w-28 rounded-lg bg-black object-cover" />
+            <div className="min-w-0 flex-1"><b className="block truncate text-cocoa-900">{sl.label.en || sl.label.ar || 'Slide'}</b><span className="block truncate text-sm text-slate-500" dir="rtl">{sl.label.ar}</span></div>
+            {!sl.active && <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Hidden</span>}
+            <div className="flex flex-wrap gap-1.5">
+              <button type="button" className={GHOST} disabled={i === 0} onClick={() => op({ op: 'up', id: sl.id }, 'Order saved')} title="Move up">↑</button>
+              <button type="button" className={GHOST} disabled={i === slides.length - 1} onClick={() => op({ op: 'down', id: sl.id }, 'Order saved')} title="Move down">↓</button>
+              <button type="button" className={GHOST} onClick={() => op({ op: sl.active ? 'hide' : 'show', id: sl.id }, sl.active ? 'Slide hidden' : 'Slide shown')}>{sl.active ? 'Hide' : 'Show'}</button>
+              <button type="button" className={GHOST} onClick={() => setOpen(open === sl.id ? null : sl.id)}>{open === sl.id ? 'Close' : 'Edit'}</button>
+              <button type="button" className={`${GHOST} text-red-700`} onClick={() => { if (confirm('Delete this slide?')) void op({ op: 'delete', id: sl.id }, 'Slide deleted'); }}><Icon name="trash" size={14} /></button>
+            </div>
+          </div>
+          {open === sl.id && <div className="mt-4 border-t border-cocoa-100 pt-4"><SlideForm slide={sl} onSaved={reload} onCancel={() => setOpen(null)} /></div>}
+        </section>
+      ))}
+      <section className="rounded-2xl border border-dashed border-cocoa-300 bg-cocoa-50/50 p-4">
+        {open === 'new' ? <><h3 className="mb-3 font-bold text-cocoa-900">New slide</h3><SlideForm slide={null} onSaved={reload} onCancel={() => setOpen(null)} /></>
+          : <button type="button" className={BTN} onClick={() => setOpen('new')}><Icon name="plus" size={15} /> Add a slide</button>}
       </section>
     </div>
   );

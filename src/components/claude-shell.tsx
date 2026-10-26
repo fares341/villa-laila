@@ -452,20 +452,7 @@ export function ClaudeFooter({ lang }: { lang: string }) {
               <Link href={`/${lang}/faq`}>{isAr ? 'الأسئلة الشائعة' : 'FAQ'}</Link>
             </nav>
             <div className="foot-b-group">
-              <div className="foot-langs" aria-label="Language">
-                <Link href="/en" aria-current={lang === 'en' ? 'page' : undefined}>
-                  EN
-                </Link>
-                <Link href="/ar" aria-current={lang === 'ar' ? 'page' : undefined}>
-                  ع
-                </Link>
-                <Link href="/fr" aria-current={lang === 'fr' ? 'page' : undefined}>
-                  FR
-                </Link>
-                <Link href="/es" aria-current={lang === 'es' ? 'page' : undefined}>
-                  ES
-                </Link>
-              </div>
+              {/* No language buttons here: the site opens in the visitor's browser language (the header menu still lets them change it). */}
               <div className="foot-soc">
                 <a
                   href="https://instagram.com/villalaylacairo"

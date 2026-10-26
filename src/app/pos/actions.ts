@@ -5,7 +5,7 @@ import { q } from '@/lib/db';
 import { setPosStaff, clearPosStaff, posStaffId } from '@/lib/pos-session';
 import { rateLimit } from '@/lib/ratelimit';
 import { BookingError } from '@/services/errors';
-import { verifyPin, clockIn, clockOut } from '@/services/pms/staff';
+import { verifyPin, clockIn, clockOut, myShiftInfo } from '@/services/pms/staff';
 import {
   openShiftRow, openPosShift, shiftTotals, todaysRevenue, closePosShiftBlind, recordExpense, posCatalog, inHouseGuests, processSale, takeFolioPayment, recentSales,
   type PosItemInput, type SettleMode, type PayMethod,
@@ -72,6 +72,7 @@ export async function posState(): Promise<ActionResult<any>> {
           .then((r) => Object.entries((r[0]?.c ?? {}) as Record<string, any>).filter(([k, v]) => !['EGP', 'USD', 'EUR'].includes(k) && Number(v?.counted) > 0).map(([k]) => k)).catch(() => []) : [],
         otherCurrencies: OTHER_CURRENCIES,
         roles: me ? await drawerRoles(shift) : null,
+        schedule: me ? await myShiftInfo(me.id).catch(() => null) : null,
         posStaff: me?.is_manager ? await q<any>(`SELECT id, full_name FROM staff WHERE active AND can_use_pos AND pin_hash IS NOT NULL ORDER BY full_name`) : [],
         changeOwed: me ? await openChange().catch(() => []) : [],
         currencies: totals ? Object.fromEntries(Object.entries(totals.currencies).map(([k, v]: any) => [k, me?.is_manager ? v.expected : null])) : null,

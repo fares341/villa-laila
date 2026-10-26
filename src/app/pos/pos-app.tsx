@@ -390,13 +390,47 @@ export function PosApp({ hotel, branch, device, initialGuest = null }: { hotel: 
   );
   const tasksModal = showTasks ? <TasksModal onClose={() => { setShowTasks(false); refresh(); }} notify={(text, kind = 'ok') => setToast({ text, kind })} /> : null;
 
-  if (!st.shift) return <div className="pos-root"><OpenShift me={st.me} roles={st.roles} posStaff={st.posStaff ?? []} onRoles={refresh} tasksBtn={tasksBtn} extra={st.handoverExtra ?? []} onOpened={(m) => { setToast({ text: m, kind: 'ok' }); refresh(); }} onLock={lock} />{tasksModal}{toast && <Toast t={toast} />}</div>;
+  if (!st.shift) return <div className="pos-root"><OpenShift me={st.me} schedule={st.schedule} roles={st.roles} posStaff={st.posStaff ?? []} onRoles={refresh} tasksBtn={tasksBtn} extra={st.handoverExtra ?? []} onOpened={(m) => { setToast({ text: m, kind: 'ok' }); refresh(); }} onLock={lock} />{tasksModal}{toast && <Toast t={toast} />}</div>;
 
   return (
     <div className="pos-root">
       <Register initialGuest={initialGuest} st={st} hotel={hotel} branch={branch} device={device} online={online} lastSync={lastSync} refresh={refresh} lock={lock}
         notify={(text, kind = 'ok') => setToast({ text, kind })} onClosed={(msg) => { setLockNotice(msg); refresh(); }} />
       {toast && <Toast t={toast} />}
+    </div>
+  );
+}
+
+const hm = (iso: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
+const mins = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60 ? `${m % 60} min` : ''}`.trim() : `${m} min`);
+
+/** My rostered shift today (times, late / overtime) and who works with me and when they come. */
+function ShiftPanel({ sc }: { sc: any }) {
+  if (!sc) return null;
+  const me = sc.me;
+  const now = Date.parse(sc.now);
+  return (
+    <div className="pos-shiftinfo">
+      {me ? (
+        <div className="pos-shiftinfo-me">
+          <b>My shift: {me.label} · {me.start}–{me.end}</b>
+          <span>
+            {me.clockIn ? <>Clocked in {hm(me.clockIn)}{sc.late > 0 ? <em className="bad"> · {mins(sc.late)} late</em> : <em className="ok"> · on time</em>}</> : Date.parse(me.startAt) > now ? `Starts at ${me.start}` : <em className="bad">Not clocked in</em>}
+            {sc.overtime > 0 && <em className="ok"> · overtime {mins(sc.overtime)}</em>}
+            {me.clockIn && !me.clockOut && Date.parse(me.endAt) > now && <> · ends in {mins(Math.round((Date.parse(me.endAt) - now) / 60000))}</>}
+          </span>
+        </div>
+      ) : <div className="pos-shiftinfo-me"><b>No shift on the roster for you today</b><span>Ask the manager to put you on the roster.</span></div>}
+      {sc.team?.length > 0 && (
+        <ul className="pos-shiftinfo-team">
+          {sc.team.map((t: any) => (
+            <li key={t.staffId + t.startAt}>
+              <b>{t.name}</b> <span>{t.label} · {t.start}–{t.end}</span>
+              <span className={`pos-badge ${t.clockIn && !t.clockOut ? 'green' : 'gray'}`}>{t.clockIn && !t.clockOut ? `in since ${hm(t.clockIn)}` : t.clockOut ? `left ${hm(t.clockOut)}` : Date.parse(t.startAt) > now ? `comes ${t.start}` : 'not in yet'}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -431,7 +465,7 @@ function Toast({ t }: { t: { text: string; kind: 'ok' | 'bad' } }) {
   return <div className={`pos-toast ${t.kind}`} role="status"><Icon name={t.kind === 'ok' ? 'check-circle' : 'alert-triangle'} size={20} />{t.text}</div>;
 }
 
-function OpenShift({ me, roles, posStaff = [], onRoles, onOpened, onLock, tasksBtn, extra = [] }: { me: Staff; roles?: { nextOpener: { id: string; name: string } | null } | null; posStaff?: { id: string; full_name: string }[]; onRoles: () => void; onOpened: (msg: string) => void; onLock: () => void; tasksBtn?: React.ReactNode; extra?: string[] }) {
+function OpenShift({ me, schedule, roles, posStaff = [], onRoles, onOpened, onLock, tasksBtn, extra = [] }: { me: Staff; schedule?: any; roles?: { nextOpener: { id: string; name: string } | null } | null; posStaff?: { id: string; full_name: string }[]; onRoles: () => void; onOpened: (msg: string) => void; onLock: () => void; tasksBtn?: React.ReactNode; extra?: string[] }) {
   const [counts, setCounts] = useState<Record<Cur, string>>({ EGP: '', USD: '', EUR: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -454,6 +488,7 @@ function OpenShift({ me, roles, posStaff = [], onRoles, onOpened, onLock, tasksB
           <span className="pos-chip"><Icon name="user" size={14} /> {me.full_name}</span>
           <Icon name="lock" size={28} />
           <h2>The drawer isn’t open yet</h2>
+          <ShiftPanel sc={schedule} />
           <p>{opener ? <>The manager chose <b>{opener.name}</b> to open the drawer. Once it’s open, everyone on the shift uses the POS.</> : <>The manager chooses who opens the drawer. Ask the manager to choose on the POS.</>}</p>
           {err && <p className="pos-msg bad">{err}</p>}
           <div className="pos-row center">{tasksBtn}<button className="pos-btn" onClick={onLock}><Icon name="lock" /> Back to lock screen</button></div>
@@ -476,6 +511,7 @@ function OpenShift({ me, roles, posStaff = [], onRoles, onOpened, onLock, tasksB
       <div className="pos-card-msg wide">
         <span className="pos-chip"><Icon name="user" size={14} /> {me.full_name}</span>
         <h2>Receive the drawer</h2>
+        <ShiftPanel sc={schedule} />
         {pickOpener}
         <p>Count the cash you receive, each currency on its own, and check the card slips. Any difference is the previous shift’s responsibility.</p>
         <CountGrid value={counts} onChange={setCounts} extra={extra} />
@@ -508,7 +544,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
   const [cashCur, setCashCur] = useState<Cur>('EGP');
   const [catalog, setCatalog] = useState<Tour | null>(null);
   const curNow: Cur = method === 'cash' ? cashCur : 'EGP';
-  const [modal, setModal] = useState<null | 'custom' | 'comp' | 'pay' | 'close' | 'folio' | 'payment' | 'expense' | 'menu' | 'tasks' | 'taken' | 'exchange' | 'event' | 'extend' | 'change'>(null);
+  const [modal, setModal] = useState<null | 'custom' | 'comp' | 'pay' | 'close' | 'folio' | 'payment' | 'expense' | 'menu' | 'tasks' | 'taken' | 'exchange' | 'event' | 'extend' | 'change' | 'myshift'>(null);
   const [busy, setBusy] = useState(false);
   const [payMode, setPayMode] = useState<'pay_now' | 'settle_all' | 'walk_in'>('pay_now');
   const guest = guests.find((g) => g.id === guestId) ?? null;
@@ -601,6 +637,8 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
         <div className="pos-top-meta">
           <span className="pos-chip"><Icon name="user" size={14} /> {st.me.full_name}</span>
           <span className="pos-chip"><Icon name="receipt" size={14} /> Shift #{st.shift.no} · since {time(st.shift.openedAt)}</span>
+          {st.schedule?.me && <button className={`pos-chip ${st.schedule.late > 0 ? 'bad' : ''}`} onClick={() => setModal('myshift')} title="My shift and who works with me"><Icon name="clock" size={14} /> My shift {st.schedule.me.start}–{st.schedule.me.end}{st.schedule.overtime > 0 ? ` · +${st.schedule.overtime} min` : ''}</button>}
+          {!st.schedule?.me && <button className="pos-chip" onClick={() => setModal('myshift')}><Icon name="users" size={14} /> Shift team</button>}
           <span className="pos-chip" title="Chosen by the manager"><Icon name="key" size={14} /> Drawer: {st.shift.staffName}{st.roles?.closer ? ` · closes: ${st.roles.closer.name}` : ''}</span>
           <span className={`pos-chip ${synced ? 'ok' : 'bad'}`}><Icon name={synced ? 'wifi' : 'wifi-off'} size={14} /> {synced ? `Connected · Synced ${time(lastSync!)}` : 'Offline — retrying'}</span>
         </div>
@@ -790,6 +828,7 @@ function Register({ initialGuest, st, hotel, branch, device, online, lastSync, r
         </Modal>
       )}
       {catalog && <TourCatalog t={catalog} onClose={() => setCatalog(null)} notify={notify} />}
+      {modal === 'myshift' && <Modal title="My shift" onClose={() => setModal(null)}><ShiftPanel sc={st.schedule} /></Modal>}
       {modal === 'extend' && guest && <ExtendModal guest={guest} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'event' && <EventPayModal guest={guest} initialEvent={evSell} onClose={() => { setModal(null); setEvSell(null); }} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
       {modal === 'exchange' && <ExchangeModal rates={st.rates} guest={guest} onClose={() => setModal(null)} onDone={async (m) => { notify(m); setModal(null); await refresh(); }} />}
