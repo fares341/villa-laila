@@ -6,6 +6,7 @@ import { openBrowser, lhEnv } from '@/services/lh-reader/browser';
 import { readOnce, notifyOwner, writeMode } from '@/services/lh-reader/sync';
 import { q } from '@/lib/db';
 import { readSitePrices, getLinks } from '@/services/site-prices';
+import { readDirectBook } from '@/services/direct-book';
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), '[lh-reader]', ...a);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -14,7 +15,18 @@ async function main() {
   if (!env.databaseUrl) throw new Error('DATABASE_URL not set');
   const priceEvery = Math.max(15, Number(process.env.SITE_PRICE_EVERY_MIN || 60)) * 60_000;
   let lastPrices = 0;
+  // The hostel's booking engine (direct-book.com): room prices for the website, every DIRECT_BOOK_EVERY_MIN (default 20).
+  const directEvery = Math.max(5, Number(process.env.DIRECT_BOOK_EVERY_MIN || 20)) * 60_000;
+  const directOn = process.env.DIRECT_BOOK_OFF !== '1';
+  let lastDirect = 0;
+  const direct = async (page: any) => {
+    if (!directOn || Date.now() - lastDirect < directEvery) return;
+    lastDirect = Date.now();
+    const tab = await page.context().newPage();
+    try { await readDirectBook(tab, log); } catch (e) { log('direct-book failed:', (e as Error).message); } finally { await tab.close().catch(() => {}); }
+  };
   const prices = async (page: any) => {
+    await direct(page);
     if (Date.now() - lastPrices < priceEvery) return;
     lastPrices = Date.now();
     if (!Object.keys(await getLinks()).length) return;
@@ -23,13 +35,13 @@ async function main() {
     try { await readSitePrices(tab, log); } catch (e) { log('site prices failed:', (e as Error).message); } finally { await tab.close().catch(() => {}); }
   };
   if (!lhEnv.email || !lhEnv.password) {
-    log('LH_EMAIL / LH_PASSWORD not set: Little Hotelier reading is off; only site prices are read.');
+    log('LH_EMAIL / LH_PASSWORD not set: Little Hotelier reading is off; only prices are read (booking engine + site links).');
     for (;;) {
-      if (Object.keys(await getLinks().catch(() => ({}))).length) {
+      if (directOn || Object.keys(await getLinks().catch(() => ({}))).length) {
         const b = await openBrowser().catch((e) => { log('browser error:', e.message); return null; });
-        if (b) { lastPrices = 0; await prices(b.page); await b.ctx.close().catch(() => {}); }
+        if (b) { await prices(b.page); await b.ctx.close().catch(() => {}); }
       }
-      await sleep(priceEvery);
+      await sleep(Math.min(priceEvery, directEvery));
     }
   }
   const every = Math.max(30, Number(process.env.LH_SYNC_EVERY_SEC || 60)) * 1000;

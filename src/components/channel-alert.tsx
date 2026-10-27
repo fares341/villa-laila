@@ -25,6 +25,9 @@ export async function ChannelAlert() {
                   <b>{r.full_name}</b> · <a href={`/dashboard/reservations/${r.id}`} className="font-mono underline">{r.reference}</a>
                   {r.ext_to ? <span className="ms-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-semibold text-sky-900">Stay extended</span> : <span className="ms-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold">{SRC[r.source] ?? r.source}</span>}
                   {r.status === 'pending' && <span className="ms-1 rounded bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-800">Needs your confirmation</span>}
+                  {r.status === 'pending' && r.source === 'website' && (Number(r.paid_cents) > 0
+                    ? <span className="ms-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-800">Paid online</span>
+                    : <span className="ms-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-700">Not paid yet</span>)}
                   <span className="block text-xs text-slate-600">{r.ext_from && r.ext_to ? <b className="text-sky-900">Block the extra nights {d(r.ext_from)} → {d(r.ext_to)} · </b> : <>{d(r.check_in)} → {d(r.check_out)} · </>} {r.guests_count} guest{r.guests_count > 1 ? 's' : ''} · {r.beds || r.room_type || '—'}</span>
                 </span>
                 {r.status === 'pending' && <a href={`/dashboard/reservations/${r.id}`} className="rounded-lg border border-cocoa-200 bg-white px-3 py-1.5 text-xs font-semibold text-cocoa-800">Review & confirm</a>}

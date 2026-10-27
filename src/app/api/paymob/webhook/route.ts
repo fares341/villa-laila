@@ -16,7 +16,11 @@ export async function POST(req: Request) {
     return Response.json({ ok: false }, { status: 401 });
   }
   try {
-    await applyPaymobTxn(txnFromProcessed(obj), { source: 'webhook', obj });
+    const op = await applyPaymobTxn(txnFromProcessed(obj), { source: 'webhook', obj });
+    // A room booking just paid: tell reception it is waiting for their confirmation (once, on the first "paid").
+    if (op?.status === 'paid' && op.kind === 'room' && op.reservation_id && op.justPaid) {
+      import('@/services/admin-bot').then((m) => m.notifyRoomPaid(op.reservation_id, Number(op.amount_cents))).catch((e) => console.error('[admin bot paid]', e));
+    }
     return Response.json({ ok: true });
   } catch (e) {
     console.error('[paymob webhook]', e);

@@ -16,6 +16,9 @@ export async function GET(req: Request) {
       const t = txnFromRedirect(params);
       const op = await applyPaymobTxn(t, { source: 'redirect', params });
       if (op) {
+        if (op.status === 'paid' && op.kind === 'room' && op.reservation_id && op.justPaid) {
+          import('@/services/admin-bot').then((m) => m.notifyRoomPaid(op.reservation_id, Number(op.amount_cents))).catch((e) => console.error('[admin bot paid]', e));
+        }
         target = await landingFor(op);
         state = op.status === 'paid' ? 'paid' : t.pending ? 'pending' : 'failed';
       }

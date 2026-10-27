@@ -111,11 +111,13 @@ export async function applyPaymobTxn(t: PaymobTxn, raw: unknown): Promise<any | 
         await c.query(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,verified_at) VALUES($1,$2,'online_provider',$3,'verified',$4,now())`,
           [op.reservation_id, op.amount_cents, 'paymob:' + t.txnId, 'Paymob online payment (order ' + t.orderId + ')']);
       }
+      // Paid: the beds stay held until reception confirms the booking (no expiry any more).
+      await c.query(`UPDATE reservations SET hold_expires_at=NULL, updated_at=now() WHERE id=$1 AND status IN ('pending','hold')`, [op.reservation_id]);
       await c.query(`INSERT INTO reservation_events(reservation_id,actor,action,detail) VALUES($1,'paymob','payment.online',$2)`,
         [op.reservation_id, JSON.stringify({ amount: op.amount_cents, txn: t.txnId })]);
     }
     await audit('paymob', 'payment.paymob', op.kind === 'event' ? 'event_booking' : 'reservation', op.event_booking_id ?? op.reservation_id, { amount: op.amount_cents, txn: t.txnId }, c as unknown as Q);
-    return { ...op, status: 'paid' };
+    return { ...op, status: 'paid', justPaid: true };
   });
 }
 

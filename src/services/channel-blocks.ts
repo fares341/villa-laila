@@ -8,12 +8,13 @@ import { audit } from './audit';
  */
 export const CM_SOURCES = ['website', 'walk_in', 'staff', 'whatsapp', 'telegram'];
 
-export type CmBlock = { ext_from?: string | null; ext_to?: string | null; id: string; reference: string; status: string; source: string; check_in: string; check_out: string; guests_count: number; full_name: string; room_type: string | null; beds: string | null; created_at: string };
+export type CmBlock = { paid_cents?: number; ext_from?: string | null; ext_to?: string | null; id: string; reference: string; status: string; source: string; check_in: string; check_out: string; guests_count: number; full_name: string; room_type: string | null; beds: string | null; created_at: string };
 
 export async function channelBlocksDue(): Promise<CmBlock[]> {
   return q<CmBlock>(`
     SELECT r.id, r.reference, r.status, r.source, r.check_in::text, r.check_out::text, r.guests_count, g.full_name, t.name->>'en' room_type,
       CASE WHEN r.cm_done_at IS NOT NULL OR NOT (r.source = ANY($1)) THEN r.cm_ext_from::text END ext_from, CASE WHEN r.cm_done_at IS NOT NULL OR NOT (r.source = ANY($1)) THEN r.cm_ext_to::text END ext_to,
+      (SELECT COALESCE(sum(p.amount_cents),0)::bigint FROM payments p WHERE p.reservation_id=r.id AND p.status='verified') paid_cents,
       (SELECT string_agg(rm.name || CASE WHEN tt.kind='dorm' THEN ' · ' || u.label ELSE '' END, ', ' ORDER BY rm.name, u.label)
          FROM reservation_units ru JOIN units u ON u.id=ru.unit_id JOIN rooms rm ON rm.id=u.room_id JOIN room_types tt ON tt.id=rm.room_type_id
         WHERE ru.reservation_id=r.id AND ru.active) beds, r.created_at

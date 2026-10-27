@@ -49,22 +49,30 @@ export type TypeAvailability = {
   roomTypeId: string; code: string; kind: 'dorm' | 'private'; name: Record<string, string>; description: Record<string, string>;
   freeCount: number; canFit: boolean; nights: number; perUnitCents: number | null; totalCents: number | null; priceMissing: boolean; demoPrice: boolean;
   gender: string; photos: string[]; details: any;
+  /** From the booking engine (direct-book.com): cancellation and deposit terms, and whether it is closed there. */
+  terms?: { cancellation: string | null; deposit: string | null } | null; closedOnline?: boolean;
 };
 
 /** Read-only availability + price for every active room type. The AI/bot/website all call this — never compute availability elsewhere. */
 export async function availabilityFor(checkIn: string, checkOut: string, guests: number): Promise<TypeAvailability[]> {
   const c = pool() as unknown as Q;
   const types = await q<any>('SELECT * FROM room_types WHERE active ORDER BY sort_order, code');
+  // The booking engine decides what can be sold online: a room closed there on any of these nights is not offered.
+  const direct = await q<any>(`SELECT room_code, count(*)::int n, bool_and(available) ok, min(cancellation) cancellation, min(deposit) deposit
+      FROM direct_prices WHERE stay_date >= $1::date AND stay_date < $2::date AND checked_at > now() - interval '2 days' GROUP BY room_code`, [checkIn, checkOut]).catch(() => []);
+  const dmap = new Map(direct.map((d: any) => [d.room_code, d]));
   const out: TypeAvailability[] = [];
   for (const t of types) {
     const free = await freeUnits(c, t.id, checkIn, checkOut);
-    const picked = pickUnits(t.kind, free, guests);
+    const dd: any = dmap.get(t.code);
+    const closedOnline = !!dd && !dd.ok;
+    const picked = closedOnline ? null : pickUnits(t.kind, free, guests);
     let perUnit: number | null = null, total: number | null = null, missing = false, demo = false;
     if (picked) {
       try { const qt = await quote(c, t.id, checkIn, checkOut, picked.length); perUnit = qt.perUnitCents; total = qt.totalCents; demo = qt.demo; }
       catch (e) { if (e instanceof BookingError && e.code === 'NO_RATE') missing = true; else throw e; }
     }
-    out.push({ roomTypeId: t.id, code: t.code, kind: t.kind, name: t.name, description: t.description, freeCount: free.length, canFit: !!picked, nights: nightsBetween(checkIn, checkOut), perUnitCents: perUnit, totalCents: total, priceMissing: missing, demoPrice: demo, gender: t.gender, photos: t.photos ?? [], details: t.details ?? {} });
+    out.push({ roomTypeId: t.id, code: t.code, kind: t.kind, name: t.name, description: t.description, freeCount: free.length, canFit: !!picked, nights: nightsBetween(checkIn, checkOut), perUnitCents: perUnit, totalCents: total, priceMissing: missing, demoPrice: demo, gender: t.gender, photos: t.photos ?? [], details: t.details ?? {}, terms: dd ? { cancellation: dd.cancellation, deposit: dd.deposit } : null, closedOnline });
   }
   return out;
 }

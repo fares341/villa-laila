@@ -146,9 +146,7 @@ export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours
     const fetchLiveRates = async () => {
       try {
         const queryDate = arrive || new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-        const res = await fetch(
-          `/api/sync/hostelworld?dateStart=${encodeURIComponent(queryDate)}&nights=1&currency=USD`
-        );
+        const res = await fetch(`/api/room-prices?date=${encodeURIComponent(queryDate)}`);
         if (!res.ok) return;
         const data = await res.json();
         if (active && data.rooms) {

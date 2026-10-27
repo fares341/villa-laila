@@ -180,6 +180,14 @@ export async function notifyNewRoomBooking(reservationId: string) {
   ].join('\n'));
 }
 
+/** A website room booking was paid by Paymob: it now waits for reception to confirm it. */
+export async function notifyRoomPaid(reservationId: string, amountCents: number) {
+  const r = (await q<any>(`SELECT r.reference, r.currency FROM reservations r WHERE r.id=$1`, [reservationId]))[0];
+  if (!r) return;
+  await notifyNewRoomBooking(reservationId);
+  await toAll(`💳 اتدفع أونلاين بـ Paymob: ${(amountCents / 100).toLocaleString('en-US')} ${r.currency} · ${r.reference}\nالحجز مستني تأكيد الاستقبال من الداش بورد.`);
+}
+
 /** A WhatsApp to a taxi driver that could not go out automatically: one tap for the owner to send it. */
 export async function notifyDriverMessage(what: string, wa: WaResult) {
   if (wa.sent) return;

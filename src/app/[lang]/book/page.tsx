@@ -44,8 +44,9 @@ export default async function Book({ params, searchParams }: { params: Promise<{
   const step = !check?.ok ? 1 : !selected ? 2 : 3;
   const qs = (extra: Record<string, string>) => new URLSearchParams({ checkIn: checkIn ?? '', checkOut: checkOut ?? '', guests: String(guests), ...extra }).toString();
 
-  const methods = [
-    ...(paymobEnabled(cur) ? (['paymob'] as const) : []),
+  // Online room bookings are paid by Paymob, then reception confirms them. Only if Paymob is not set up does the
+  // site fall back to InstaPay / pay at the villa, so bookings still come in.
+  const methods = paymobEnabled(cur) ? (['paymob'] as const) as unknown as ('paymob' | 'instapay' | 'hostel')[] : [
     ...(walletOn(await getWallets(), 'instapay', cur) ? (['instapay'] as const) : []),
     'hostel' as const,
   ];
@@ -98,6 +99,7 @@ export default async function Book({ params, searchParams }: { params: Promise<{
                         <Img src={a.photos[0]} alt={nm(a.name, lang)} w={600} className="bk-room-img" />
                         <div className="bk-room-b">
                           <span className="meta">{a.kind === 'dorm' ? `${(d.v2.who as any)[a.gender] ?? ''} · ${fill(d.book.bedsNeeded, { n: guests })}` : nm(a.details?.bed, lang)}</span>
+                          {a.terms && (a.terms.cancellation || a.terms.deposit) && <span className="meta bk-terms">{[a.terms.cancellation, a.terms.deposit].filter(Boolean).join(' · ')}</span>}
                           <h3>{nm(a.name, lang)}</h3>
                           {!a.canFit && <span className="bk-flag">{d.v2.soldOut}</span>}
                           {a.canFit && a.priceMissing && <span className="bk-flag">{d.v2.onRequest}</span>}
@@ -149,6 +151,8 @@ export default async function Book({ params, searchParams }: { params: Promise<{
                 needGov={reqFacts.includes('nationality') && reqFacts.includes('id_governorate')}
                 methods={methods}
                 mixedDorm={selected.kind === 'dorm' && selected.gender === 'mixed'}
+                allCountries={countryOptions(lang)}
+                terms={selected.terms ?? null}
                 countries={countryOptions(lang, { excludeArab: selected.kind === 'dorm' && selected.gender === 'mixed' })}
                 labels={{
                   fullName: d.book.form.fullName, email: d.book.form.email, phone: d.book.form.phone,

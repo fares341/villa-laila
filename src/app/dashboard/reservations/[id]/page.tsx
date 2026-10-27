@@ -34,7 +34,7 @@ export default async function StayPage({ params, searchParams }: { params: Promi
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   let f;
   try { f = await getFolio(id); } catch (e) { if (e instanceof BookingError) notFound(); throw e; }
-  const res = (await q<any>(`SELECT r.*, g.full_name, g.email, g.phone, g.nationality, g.id gid, t.name tname, t.kind FROM reservations r JOIN guests g ON g.id=r.guest_id JOIN room_types t ON t.id=r.room_type_id WHERE r.id=$1`, [id]))[0];
+  const res = (await q<any>(`SELECT r.*, g.full_name, g.email, g.phone, g.nationality, g.address, g.id gid, t.name tname, t.kind FROM reservations r JOIN guests g ON g.id=r.guest_id JOIN room_types t ON t.id=r.room_type_id WHERE r.id=$1`, [id]))[0];
   const live = ['hold', 'pending', 'confirmed', 'checked_in'].includes(res.status);
   const [units, pays, events, ext, mv] = await Promise.all([
     q<any>(`SELECT ru.id, ru.active, ru.during::text during, ru.guests, u.label, rm.name room, rm.hk_status, t.kind FROM reservation_units ru JOIN units u ON u.id=ru.unit_id JOIN rooms rm ON rm.id=u.room_id JOIN room_types t ON t.id=rm.room_type_id
@@ -243,6 +243,8 @@ export default async function StayPage({ params, searchParams }: { params: Promi
           <Card title="Guest">
             <p className="font-semibold"><Link className="underline" href={`/dashboard/guests/${res.gid}`}>{res.full_name}</Link></p>
             <p className="text-sm text-slate-600">{[res.phone, res.email, res.nationality].filter(Boolean).join(' · ') || 'No contact saved'}</p>
+            {res.address && <p className="text-sm text-slate-600">{[res.address.line1, res.address.line2, res.address.city, res.address.state, res.address.postcode, res.address.country].filter(Boolean).join(', ')}</p>}
+            {res.arrival_time && <p className="text-sm text-slate-600">Arrives around {res.arrival_time}</p>}
             <p className="mt-2 text-sm text-slate-600">{res.tname?.en} · booked {dt(res.created_at)}</p>
             <div className="mt-3 flex flex-wrap gap-3 text-sm font-semibold">
               <Link className="text-cocoa-700 underline" href={`/dashboard/taxi?reservation=${id}`}>Book airport taxi</Link>

@@ -41,7 +41,9 @@ export default async function Booked({ params, searchParams }: { params: Promise
     .filter((x: any, i: number, all: any[]) => all.findIndex((y: any) => y.name === x.name && y.price_cents === x.price_cents && y.currency === x.currency) === i);
 
   const banner =
-    sp.payment === 'paid' ? { cls: 'ok', text: L('Payment received — thank you! It’s already on your booking.', 'تم استلام الدفع — شكرًا! تم تسجيله على حجزك.') } :
+    sp.payment === 'paid' ? { cls: 'ok', text: r.status === 'pending'
+      ? L('Payment received — thank you! Reception will now check and confirm your booking; you get the confirmation by e-mail and WhatsApp.', 'تم استلام الدفع — شكرًا! الاستقبال هيراجع حجزك ويأكده، وهيوصلك التأكيد بالإيميل والواتساب.')
+      : L('Payment received — thank you! It’s already on your booking.', 'تم استلام الدفع — شكرًا! تم تسجيله على حجزك.') } :
     sp.payment === 'failed' ? { cls: 'bad', text: L('The payment didn’t go through. Your request is still saved; you can try again below.', 'لم يتم الدفع. طلبك محفوظ ويمكنك المحاولة مرة أخرى بالأسفل.') } :
     sp.payment === 'pending' ? { cls: 'wait', text: L('Your payment is processing. Refresh this page in a minute.', 'الدفع قيد المعالجة. حدّث الصفحة بعد دقيقة.') } :
     sp.payment === 'submitted' ? { cls: 'wait', text: L('Thanks! We’ll check your InstaPay transfer and confirm.', 'شكرًا! سنراجع تحويل InstaPay ونؤكد.') } :

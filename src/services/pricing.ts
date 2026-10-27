@@ -10,7 +10,23 @@ export type Quote = { nights: number; units: number; lines: NightLine[]; perUnit
  * rate wins over the base rate. Old daily rates imported from Little Hotelier are only used for a date that has no
  * rate of our own. Never multiplies one night's price across other dates.
  */
-export async function dayRate(c: Q, roomTypeId: string, date: string): Promise<{ cents: number; name: string; source: 'little_hotelier' | 'local_rate'; demo: boolean } | null> {
+export async function dayRate(c: Q, roomTypeId: string, date: string): Promise<{ cents: number; name: string; source: 'little_hotelier' | 'local_rate' | 'direct_book'; demo: boolean } | null> {
+  // 1. The hostel's own booking engine (direct-book.com), read by the lh-reader in the last 2 days: the price the
+  //    guest would see there, converted to the hostel currency at today's rate.
+  const db = await c.query(
+    `SELECT d.price_cents, d.currency, (SELECT value FROM settings WHERE key='currency') hc, (SELECT value FROM settings WHERE key='fx_rates') fx
+       FROM direct_prices d JOIN room_types t ON t.code=d.room_code
+      WHERE t.id=$1 AND d.stay_date=$2::date AND d.available AND d.price_cents > 0 AND d.checked_at > now() - interval '2 days'`,
+    [roomTypeId, date]).catch(() => ({ rows: [] as any[] }));
+  const dr = db.rows[0];
+  if (dr) {
+    const hc = String((typeof dr.hc === 'string' ? dr.hc : dr.hc ?? 'EGP')).replace(/"/g, '').toUpperCase() || 'EGP';
+    const from = String(dr.currency).toUpperCase();
+    const fx = (typeof dr.fx === 'string' ? JSON.parse(dr.fx) : dr.fx) ?? {};
+    const egpPer = (cur: string) => (cur === 'EGP' ? 1 : Number(fx?.[cur]) > 0 ? Number(fx[cur]) : null);
+    const a = egpPer(from), b = egpPer(hc);
+    if (a && b) return { cents: Math.round(Number(dr.price_cents) * a / b), name: 'Booking engine price', source: 'direct_book', demo: false };
+  }
   const r = await c.query(
     `SELECT price_cents, name, is_demo FROM rates WHERE room_type_id=$1 AND valid_during @> $2::date ORDER BY priority DESC, price_cents ASC LIMIT 1`,
     [roomTypeId, date]);

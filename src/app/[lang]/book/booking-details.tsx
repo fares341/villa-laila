@@ -19,6 +19,10 @@ export function BookingDetails(p: {
   needNationality: boolean; needGov: boolean; methods: Method[];
   /** Countries the guest may pick (Arab countries are left out for a mixed dorm). */
   countries: { code: string; name: string }[]; mixedDorm: boolean;
+  /** Every country, for the address (Country/Region). */
+  allCountries: { code: string; name: string }[];
+  /** Cancellation and deposit terms from the booking engine. */
+  terms?: { cancellation: string | null; deposit: string | null } | null;
   labels: { fullName: string; email: string; phone: string; nationality: string; idGovernorate: string; notes: string };
 }) {
   const ar = p.lang === 'ar';
@@ -26,6 +30,13 @@ export function BookingDetails(p: {
   const [stage, setStage] = useState<'details' | 'payment'>('details');
   const [method, setMethod] = useState<Method>(p.methods[0]);
   const [nat, setNat] = useState('');
+  const emailRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
+  const checkConfirm = () => {
+    const c = confirmRef.current; if (!c) return;
+    c.setCustomValidity(c.value && emailRef.current && c.value.trim().toLowerCase() !== emailRef.current.value.trim().toLowerCase() ? L('The two e-mails are not the same', 'الإيميلين مش زي بعض') : '');
+  };
+  const times = ['', ...Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`)];
   const detailsRef = useRef<HTMLFieldSetElement>(null);
 
   const go = (s: 'details' | 'payment') => {
@@ -35,6 +46,7 @@ export function BookingDetails(p: {
   };
   const next = () => {
     const inputs = Array.from(detailsRef.current?.querySelectorAll('input, textarea, select') ?? []) as (HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement)[];
+    checkConfirm();
     for (const el of inputs) if (!el.checkValidity()) { el.reportValidity(); return; }
     go('payment');
   };
@@ -58,9 +70,22 @@ export function BookingDetails(p: {
       <fieldset ref={detailsRef} className="evb-step" hidden={stage !== 'details'}>
         <legend><span className="evb-n">3</span>{L('Your details', 'بياناتك')}</legend>
         <div className="bk-fields">
-          <div className="evb-field"><label htmlFor="fn">{p.labels.fullName}</label><input id="fn" name="fullName" required minLength={2} maxLength={80} autoComplete="name" /></div>
-          <div className="evb-field"><label htmlFor="em">{p.labels.email}</label><input id="em" name="email" type="email" required autoComplete="email" dir="ltr" /></div>
-          <div className="evb-field"><label htmlFor="ph">{p.labels.phone}</label><input id="ph" name="phone" type="tel" autoComplete="tel" dir="ltr" /></div>
+          <div className="evb-field"><label htmlFor="fn">{L('First name', 'الاسم الأول')}</label><input id="fn" name="firstName" required minLength={1} maxLength={40} autoComplete="given-name" /></div>
+          <div className="evb-field"><label htmlFor="ln">{L('Last name', 'اسم العائلة')}</label><input id="ln" name="lastName" required minLength={1} maxLength={40} autoComplete="family-name" /></div>
+          <div className="evb-field"><label htmlFor="em">{p.labels.email}</label><input id="em" ref={emailRef} name="email" type="email" required autoComplete="email" dir="ltr" onChange={checkConfirm} /></div>
+          <div className="evb-field"><label htmlFor="em2">{L('Confirm e-mail', 'تأكيد الإيميل')}</label><input id="em2" ref={confirmRef} name="emailConfirm" type="email" required autoComplete="email" dir="ltr" onChange={checkConfirm} onPaste={(e) => e.preventDefault()} /></div>
+          <div className="evb-field"><label htmlFor="ph">{L('Phone', 'رقم الموبايل')}</label><input id="ph" name="phone" type="tel" required minLength={6} maxLength={30} autoComplete="tel" dir="ltr" /></div>
+          <div className="evb-field"><label htmlFor="ad1">{L('Address', 'العنوان')}</label><input id="ad1" name="address1" required maxLength={120} autoComplete="address-line1" /></div>
+          <div className="evb-field"><label htmlFor="ad2">{L('Address (additional line)', 'العنوان (سطر إضافي)')} <small>{L('optional', 'اختياري')}</small></label><input id="ad2" name="address2" maxLength={120} autoComplete="address-line2" /></div>
+          <div className="evb-field"><label htmlFor="ci2">{L('City', 'المدينة')}</label><input id="ci2" name="city" required maxLength={60} autoComplete="address-level2" /></div>
+          <div className="evb-field"><label htmlFor="st">{L('State', 'الولاية / المحافظة')} <small>{L('optional', 'اختياري')}</small></label><input id="st" name="state" maxLength={60} autoComplete="address-level1" /></div>
+          <div className="evb-field"><label htmlFor="pc">{L('Post code', 'الرمز البريدي')}</label><input id="pc" name="postcode" required maxLength={20} autoComplete="postal-code" dir="ltr" /></div>
+          <div className="evb-field"><label htmlFor="cr">{L('Country/Region', 'الدولة/المنطقة')}</label>
+            <select id="cr" name="country" required defaultValue="" autoComplete="country">
+              <option value="" disabled>{L('Select a country...', 'اختر الدولة...')}</option>
+              {p.allCountries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            </select>
+          </div>
           {p.needNationality && (
             <div className="evb-field"><label htmlFor="na">{p.labels.nationality}</label>
               <select id="na" name="nationality" required value={nat} onChange={(e) => setNat(e.target.value)}>
@@ -77,7 +102,14 @@ export function BookingDetails(p: {
               </select>
             </div>
           )}
-          <div className="evb-field wide"><label htmlFor="no">{p.labels.notes}</label><textarea id="no" name="notes" rows={3} maxLength={500} /></div>
+          <p className="evb-fine wide">{L('Help us ensure a warm welcome and smooth check-in at your arrival.', 'ساعدنا نستقبلك كويس ونخلّص تسجيل الوصول بسرعة.')}</p>
+          <div className="evb-field"><label htmlFor="at">{L('Planned arrival time?', 'ميعاد وصولك المتوقع؟')}</label>
+            <select id="at" name="arrivalTime" defaultValue="">
+              {times.map((t) => <option key={t || 'x'} value={t}>{t || L('Select time', 'اختر الوقت')}</option>)}
+            </select>
+          </div>
+          <div className="evb-field wide"><label htmlFor="no">{L('Any personal requests?', 'أي طلبات خاصة؟')}</label><textarea id="no" name="notes" rows={3} maxLength={500} /></div>
+          <p className="evb-fine wide">{L('For security purposes, please do not enter your credit card details on this page.', 'لأمانك، متكتبش بيانات الكارت في الصفحة دي.')}</p>
         </div>
         <div className="bk-nav">
           <button type="button" className="btn btn-primary" onClick={next}>{L('Continue to payment', 'متابعة للدفع')}</button>
@@ -104,7 +136,10 @@ export function BookingDetails(p: {
         <div className="bk-nav">
           <button type="button" className="btn btn-line" onClick={() => go('details')}>{L('Back', 'رجوع')}</button>
         </div>
-        <p className="evb-fine">{L('Reception confirms every booking. Beds are held for you while it’s reviewed.', 'الاستقبال يؤكد كل حجز، والأسرّة محجوزة لك أثناء المراجعة.')}</p>
+        {p.terms && (p.terms.cancellation || p.terms.deposit) && <p className="evb-fine">{[p.terms.cancellation, p.terms.deposit].filter(Boolean).join(' · ')}</p>}
+        <p className="evb-fine">{method === 'paymob'
+          ? L('After you pay, reception reviews your booking and confirms it by e-mail and WhatsApp. If it can’t be confirmed, the payment is refunded.', 'بعد الدفع، الاستقبال بيراجع حجزك ويأكده بالإيميل والواتساب. لو الحجز ماتأكدش، المبلغ بيرجعلك.')
+          : L('Reception confirms every booking. Beds are held for you while it’s reviewed.', 'الاستقبال يؤكد كل حجز، والأسرّة محجوزة لك أثناء المراجعة.')}</p>
       </fieldset>
     </form>
   );

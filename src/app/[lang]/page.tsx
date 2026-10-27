@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { isSiteLang } from '@/i18n/site';
-import { syncHostelworldData, readCachedRates, getDefaultRates } from '@/services/hostelworld-sync';
+import { getDefaultRates } from '@/services/hostelworld-sync';
+import { homeRoomPrices } from '@/services/direct-book';
+import { addDays, todayLocal } from '@/lib/dates';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs, ClaudeBottomBar } from '@/components/claude-shell';
 import { ClaudeHome } from '@/components/claude-home';
 import { listPublicEvents } from '@/services/events';
@@ -15,15 +17,7 @@ export default async function Home({ params }: { params: Promise<{ lang: string 
   if (!isSiteLang(lang)) notFound();
   const view = await visitorPriceView();
 
-  let initialRates = readCachedRates()?.rooms;
-  if (!initialRates) {
-    try {
-      const synced = await syncHostelworldData();
-      initialRates = synced.rooms;
-    } catch {
-      initialRates = getDefaultRates().rooms;
-    }
-  }
+  const initialRates = await homeRoomPrices(addDays(todayLocal(), 1)).catch(() => getDefaultRates().rooms);
 
   const events = (await listPublicEvents()).map((e) => toEventCard(e, lang, view));
   // Website content from the dashboard (Website). Nothing set yet → the built-in defaults.

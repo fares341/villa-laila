@@ -6,7 +6,7 @@ import { dayRate } from '../pricing';
 import { BookingError } from '../errors';
 import { audit } from '../audit';
 
-export type RateSource = 'override' | 'booking' | 'little_hotelier' | 'local_rate';
+export type RateSource = 'override' | 'booking' | 'little_hotelier' | 'local_rate' | 'direct_book';
 
 /**
  * The price of ONE night for one unit. Order: manager override → the rate the guest booked for that date →
