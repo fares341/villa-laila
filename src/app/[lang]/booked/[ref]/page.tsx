@@ -29,10 +29,11 @@ export default async function Booked({ params, searchParams }: { params: Promise
   const until = r.hold_expires_at ? new Intl.DateTimeFormat(lang === 'ar' ? 'ar-EG-u-nu-latn' : lang, { dateStyle: 'medium', timeStyle: 'short', timeZone: process.env.HOSTEL_TZ || 'Africa/Cairo' }).format(new Date(r.hold_expires_at)) : '—';
   const confirmed = ['confirmed', 'checked_in', 'checked_out'].includes(r.status);
   const open = ['pending', 'confirmed', 'hold'].includes(r.status);
-  const pay = await reservationPaymentInfo(r.id, Number(r.total_cents)).catch(() => ({ due: Number(r.total_cents), paid: false, pendingInstapay: false }));
-  const due = money(pay.due, r.currency, lang);
+  const pay = await reservationPaymentInfo(r.id, Number(r.total_cents)).catch(() => ({ due: Number(r.total_cents), paid: false, pendingInstapay: false, deposit: null as number | null, depositPaid: false, onlineDue: Number(r.total_cents), atHotel: 0, paidCents: 0 }));
+  const due = money(pay.onlineDue, r.currency, lang);
+  const atHotel = money(pay.atHotel, r.currency, lang);
   const view = await visitorPriceView();
-  const canPaymob = open && pay.due > 0 && paymobEnabled(r.currency);
+  const canPaymob = open && pay.onlineDue > 0 && paymobEnabled(r.currency);
   const wallets = await getWallets();
   const canInstapay = open && pay.due > 0 && !pay.pendingInstapay && walletOn(wallets, 'instapay', r.currency);
   const ip = wallets.instapay;
@@ -71,7 +72,10 @@ export default async function Booked({ params, searchParams }: { params: Promise
             <dl className="bkd-pay">
               <div><dt>{L('Total', 'الإجمالي')}</dt><dd dir="ltr">{money(Number(r.total_cents), r.currency, lang)}{view.cur !== String(r.currency).toUpperCase() && <small className="bk-egp">≈ {showPrice(Number(r.total_cents), r.currency, view, lang)}</small>}</dd></div>
               <div><dt>{L('Payment', 'الدفع')}</dt><dd>
-                {pay.paid ? <span className="tk-status ok">{L('Paid', 'مدفوع')}</span>
+                {pay.deposit != null && !pay.paid ? (pay.depositPaid
+                    ? <span className="tk-status ok">{L('Deposit paid', 'العربون اتدفع')} · {L('rest at the hotel', 'الباقي في الفندق')}: <span dir="ltr">{atHotel}</span></span>
+                    : <span className="tk-status wait">{L('Deposit due', 'العربون المطلوب')}: <span dir="ltr">{due}</span> · {L('rest at the hotel', 'الباقي في الفندق')}: <span dir="ltr">{atHotel}</span></span>)
+                  : pay.paid ? <span className="tk-status ok">{L('Paid', 'مدفوع')}</span>
                   : pay.pendingInstapay ? <span className="tk-status wait">{L('InstaPay being checked', 'جارٍ مراجعة InstaPay')}</span>
                   : <span className="tk-status wait">{L('Due', 'مستحق')}: <span dir="ltr">{due}</span></span>}
               </dd></div>
@@ -82,8 +86,8 @@ export default async function Booked({ params, searchParams }: { params: Promise
 
           {(canPaymob || canInstapay) && (
             <section className="tk-pay" id="pay" aria-labelledby="payH">
-              <h2 id="payH">{L('Pay now to secure your stay', 'ادفع الآن لتأمين إقامتك')}</h2>
-              <p className="tk-due">{L('Amount due', 'المبلغ المطلوب')}: <b dir="ltr">{due}</b></p>
+              <h2 id="payH">{pay.deposit != null ? L('Pay the deposit to secure your stay', 'ادفع العربون لتأمين إقامتك') : L('Pay now to secure your stay', 'ادفع الآن لتأمين إقامتك')}</h2>
+              <p className="tk-due">{pay.deposit != null ? L('Deposit', 'العربون') : L('Amount due', 'المبلغ المطلوب')}: <b dir="ltr">{due}</b>{pay.deposit != null && pay.atHotel > 0 && <> · {L('rest at the hotel', 'الباقي في الفندق')}: <span dir="ltr">{atHotel}</span></>}</p>
               <div className="tk-pay-grid">
                 {canPaymob && (
                   <form action={payReservationPaymobAction} className="tk-pay-card">

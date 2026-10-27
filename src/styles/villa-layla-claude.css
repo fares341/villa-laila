@@ -1439,6 +1439,7 @@
 .evb-egp { display: block; margin-top: 4px; font-size: 12.5px; color: var(--color-text-muted, #76695D); text-align: end; }
 .bk-egp { display: block; font-size: 12px; font-weight: 500; color: var(--color-text-muted, #76695D); }
 .bk-terms { display: block; color: #146C3A; font-size: 12.5px; }
+.bk-dep { display: block; margin-top: 6px; font-weight: 700; color: var(--color-primary-dark, #4A3222); }
 .evb-pwyw { display: block; font-size: 22px; font-weight: 800; color: var(--color-primary-dark); }
 .evb-pwyw-dinner { font-weight: 700; color: var(--color-primary) !important; }
 .evb-meal-link:hover { background: var(--color-gold-light); border-style: solid; }

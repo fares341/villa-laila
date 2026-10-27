@@ -164,7 +164,7 @@ export async function notifyAttendance(bookingId: string) {
 
 /** New room booking from the website: confirm it, and block the beds in the channel manager. */
 export async function notifyNewRoomBooking(reservationId: string) {
-  const r = (await q<any>(`SELECT r.reference, r.check_in::text ci, r.check_out::text co, r.guests_count, r.total_cents, r.currency, g.full_name, g.phone, g.nationality, t.name->>'ar' t_ar, t.name->>'en' t_en
+  const r = (await q<any>(`SELECT r.reference, r.check_in::text ci, r.check_out::text co, r.guests_count, r.total_cents, r.deposit_cents, r.currency, g.full_name, g.phone, g.nationality, t.name->>'ar' t_ar, t.name->>'en' t_en
     FROM reservations r JOIN guests g ON g.id=r.guest_id LEFT JOIN room_types t ON t.id=r.room_type_id WHERE r.id=$1`, [reservationId]))[0];
   if (!r) return;
   await toAll([
@@ -174,6 +174,7 @@ export async function notifyNewRoomBooking(reservationId: string) {
     `الغرفة: ${r.t_ar || r.t_en || '—'} · ${r.guests_count} فرد`,
     `من ${r.ci} لـ ${r.co}`,
     `الإجمالي: ${(Number(r.total_cents) / 100).toLocaleString('en-US')} ${r.currency}`,
+    ...(r.deposit_cents != null ? [`العربون أونلاين: ${(Number(r.deposit_cents) / 100).toLocaleString('en-US')} · الباقي يتحصل في الفندق: ${((Number(r.total_cents) - Number(r.deposit_cents)) / 100).toLocaleString('en-US')} ${r.currency}`] : []),
     '',
     '١) أكّد الحجز من الداش بورد (Reservations).',
     '٢) اقفل نفس السرير/الأوضة في الشانل مانجر (Little Hotelier) وعلّم «Done in the channel manager».',

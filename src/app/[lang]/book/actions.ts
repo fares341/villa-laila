@@ -11,6 +11,7 @@ import { q } from '@/lib/db';
 import { normalizeNationality } from '@/bot/flow';
 import { siteBase } from '@/lib/base-url';
 import { startReservationPaymob, submitReservationInstapay } from '@/services/online-payments';
+import { websiteDepositPct } from '@/services/direct-book';
 
 const schema = z.object({
   lang: z.string(), checkIn: z.string(), checkOut: z.string(), guests: z.coerce.number().int().min(1).max(40),
@@ -52,7 +53,11 @@ export async function submitBooking(formData: FormData) {
     await q(`UPDATE guests SET address=$2 WHERE id=$1`, [res.guest_id, JSON.stringify({ line1: v.address1, line2: v.address2 || null, city: v.city, state: v.state || null, postcode: v.postcode, country: v.country })]);
     await q(`UPDATE reservations SET arrival_time=$2 WHERE id=$1`, [res.id, v.arrivalTime || null]);
     // Paid online: the beds are held 45 minutes for the payment; once Paymob confirms it, they stay held until reception confirms.
-    if (v.payMethod === 'paymob') await q(`UPDATE reservations SET hold_expires_at=now() + interval '45 minutes' WHERE id=$1 AND status='pending'`, [res.id]);
+    if (v.payMethod === 'paymob') {
+      // Only the deposit is paid online (the booking engine's %, default 10); the rest is collected at the hotel.
+      const pct = await websiteDepositPct(v.roomTypeId, v.checkIn);
+      await q(`UPDATE reservations SET hold_expires_at=now() + interval '45 minutes', deposit_cents=GREATEST(100, round(total_cents * $2::numeric / 100)) WHERE id=$1 AND status='pending'`, [res.id, pct]);
+    }
     // Owner's Telegram: confirm it and block the beds in the channel manager.
     // (Paid by Paymob: reception is told once the payment comes in, see the Paymob webhook.)
     if (v.payMethod !== 'paymob') import('@/services/admin-bot').then((m) => m.notifyNewRoomBooking(res.id)).catch((e) => console.error('[admin bot room]', e));

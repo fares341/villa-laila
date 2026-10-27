@@ -16,6 +16,8 @@ export function BookingDetails(p: {
   lang: string; checkIn: string; checkOut: string; guests: number; roomTypeId: string; roomCode: string; total: string;
   /** The amount actually charged, in EGP, when the visitor sees another currency (Paymob charges EGP). */
   totalEgp?: string | null;
+  /** Paid online by Paymob: only the deposit; the rest is collected at the hotel. */
+  deposit?: { pct: number; now: string; nowEgp: string; atHotel: string };
   needNationality: boolean; needGov: boolean; methods: Method[];
   /** Countries the guest may pick (Arab countries are left out for a mixed dorm). */
   countries: { code: string; name: string }[]; mixedDorm: boolean;
@@ -52,7 +54,7 @@ export function BookingDetails(p: {
   };
 
   const M: Record<Method, { t: string; d: string }> = {
-    paymob: { t: L('Card or mobile wallet', 'بطاقة أو محفظة إلكترونية'), d: L('Visa, Mastercard, Meeza, wallets — secure checkout by Paymob. Your payment is recorded instantly.', 'فيزا، ماستركارد، ميزة، المحافظ — دفع آمن عبر Paymob ويُسجَّل فورًا.') },
+    paymob: { t: L('Card or mobile wallet', 'بطاقة أو محفظة إلكترونية'), d: L('Visa, Mastercard, Meeza, wallets — secure checkout by Paymob. You pay the deposit now and the rest at the hotel.', 'فيزا، ماستركارد، ميزة، المحافظ — دفع آمن عبر Paymob. بتدفع العربون دلوقتي والباقي في الفندق.') },
     instapay: { t: 'InstaPay', d: L('Transfer from your bank app. We show you the InstaPay address on the next page.', 'حوّل من تطبيق البنك. هتلاقي عنوان InstaPay في الصفحة الجاية.') },
     hostel: { t: L('Pay at the villa', 'ادفع عند الوصول'), d: L('Send the request now and pay at check-in. Reception confirms your booking.', 'أرسل الطلب الآن وادفع عند تسجيل الوصول. الاستقبال يؤكد حجزك.') },
   };
@@ -127,9 +129,19 @@ export function BookingDetails(p: {
           ))}
         </div>
         <div className="evb-sum">
-          <div><small>{L('Total for your stay', 'إجمالي الإقامة')}</small><b className="num" dir="ltr">{p.total}</b>{p.totalEgp && <small className="bk-egp">{L(`Charged in Egyptian pounds: ${p.totalEgp}`, `بيتدفع بالجنيه المصري: ${p.totalEgp}`)}</small>}</div>
+          {method === 'paymob' && p.deposit ? (
+            <div>
+              <small>{L('Total for your stay', 'إجمالي الإقامة')}: <span dir="ltr">{p.total}</span></small>
+              <small className="bk-dep">{L(`Pay now (${p.deposit.pct}% deposit)`, `ادفع الآن (عربون ${p.deposit.pct}%)`)}</small>
+              <b className="num" dir="ltr">{p.deposit.now}</b>
+              {p.totalEgp && <small className="bk-egp">{L(`Charged in Egyptian pounds: ${p.deposit.nowEgp}`, `بيتدفع بالجنيه المصري: ${p.deposit.nowEgp}`)}</small>}
+              <small className="bk-egp">{L(`The rest, ${p.deposit.atHotel}, is paid at the hotel.`, `الباقي ${p.deposit.atHotel} بيتدفع في الفندق.`)}</small>
+            </div>
+          ) : (
+            <div><small>{L('Total for your stay', 'إجمالي الإقامة')}</small><b className="num" dir="ltr">{p.total}</b>{p.totalEgp && <small className="bk-egp">{L(`Charged in Egyptian pounds: ${p.totalEgp}`, `بيتدفع بالجنيه المصري: ${p.totalEgp}`)}</small>}</div>
+          )}
           <Submit
-            label={method === 'paymob' ? L('Pay now', 'ادفع الآن') : method === 'instapay' ? L('Book & pay with InstaPay', 'احجز وادفع بـ InstaPay') : L('Send booking request', 'أرسل طلب الحجز')}
+            label={method === 'paymob' ? (p.deposit ? L('Pay deposit', 'ادفع العربون') : L('Pay now', 'ادفع الآن')) : method === 'instapay' ? L('Book & pay with InstaPay', 'احجز وادفع بـ InstaPay') : L('Send booking request', 'أرسل طلب الحجز')}
             busy={L('Booking…', 'جارٍ الحجز…')}
           />
         </div>

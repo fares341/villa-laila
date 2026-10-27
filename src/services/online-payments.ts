@@ -40,7 +40,8 @@ export async function startReservationPaymob(reference: string, base: string): P
     [reference]))[0];
   if (!r) throw new BookingError('NOT_FOUND');
   if (!['pending', 'confirmed', 'hold'].includes(r.status)) throw new BookingError('BAD_STATE');
-  const due = await reservationDue(r.id, r.total_cents);
+  // Website bookings pay only the deposit online; the rest is collected at the hotel.
+  const due = (await reservationPaymentInfo(r.id, Number(r.total_cents))).onlineDue;
   if (due <= 0) throw new BookingError('BAD_STATE', 'Nothing to pay');
   if (!paymobEnabled(r.currency)) throw new BookingError('INVALID_INPUT', 'paymob_off');
   if (!r.email) throw new BookingError('INVALID_INPUT', 'email');
@@ -207,5 +208,11 @@ export async function decideInstapay(onlinePaymentId: string, ok: boolean, staff
 export async function reservationPaymentInfo(reservationId: string, totalCents: number) {
   const due = await reservationDue(reservationId, totalCents);
   const pendingInstapay = !!(await q<any>(`SELECT 1 FROM online_payments WHERE reservation_id=$1 AND provider='instapay' AND status='submitted'`, [reservationId]))[0];
-  return { due, paid: totalCents > 0 && due === 0, pendingInstapay };
+  const row = (await q<any>(`SELECT r.deposit_cents, COALESCE((SELECT sum(amount_cents) FROM payments p WHERE p.reservation_id=r.id AND p.status='verified'),0)::bigint paid
+    FROM reservations r WHERE r.id=$1`, [reservationId]))[0] ?? {};
+  const deposit = row.deposit_cents == null ? null : Number(row.deposit_cents);
+  const paidCents = Number(row.paid ?? 0);
+  // With a deposit: online = what is left of the deposit; the rest (hotel collect) is paid at the villa.
+  const onlineDue = deposit == null ? due : Math.min(due, Math.max(0, deposit - paidCents));
+  return { due, paid: totalCents > 0 && due === 0, pendingInstapay, deposit, depositPaid: deposit != null && paidCents >= deposit, onlineDue, atHotel: Math.max(0, due - onlineDue), paidCents };
 }

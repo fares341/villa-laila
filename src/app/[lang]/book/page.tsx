@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { websiteDepositPct } from '@/services/direct-book';
 import { visitorPriceView } from '@/services/visitor-currency';
 import { showPrice } from '@/lib/display-currency';
 import { dict, isSiteLang, fill } from '@/i18n/site';
@@ -41,6 +42,8 @@ export default async function Book({ params, searchParams }: { params: Promise<{
   const reqFacts = requiredFacts(await activeRules());
   const nights = check?.ok ? avail[0]?.nights ?? 0 : 0;
   const selected = check?.ok && sp.room ? avail.find((a) => a.code === sp.room && a.canFit && !a.priceMissing) : undefined;
+  const depPct = selected ? await websiteDepositPct(selected.roomTypeId, checkIn!) : 10;
+  const depCents = selected ? Math.max(100, Math.round(selected.totalCents! * depPct / 100)) : 0;
   const step = !check?.ok ? 1 : !selected ? 2 : 3;
   const qs = (extra: Record<string, string>) => new URLSearchParams({ checkIn: checkIn ?? '', checkOut: checkOut ?? '', guests: String(guests), ...extra }).toString();
 
@@ -147,6 +150,7 @@ export default async function Book({ params, searchParams }: { params: Promise<{
                 roomTypeId={selected.roomTypeId} roomCode={selected.code}
                 total={show(selected.totalCents!)}
                 totalEgp={foreign ? money(selected.totalCents!, cur, lang) : null}
+                deposit={{ pct: depPct, now: show(depCents), nowEgp: money(depCents, cur || 'EGP', lang), atHotel: show(selected.totalCents! - depCents) }}
                 needNationality={reqFacts.includes('nationality')}
                 needGov={reqFacts.includes('nationality') && reqFacts.includes('id_governorate')}
                 methods={methods}

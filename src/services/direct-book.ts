@@ -160,3 +160,22 @@ export async function homeRoomPrices(date: string) {
   }
   return out;
 }
+
+/** "10% deposit required" → 10. */
+export const depositPctOf = (text: string | null | undefined): number | null => {
+  const m = String(text ?? '').match(/(\d{1,3}(?:\.\d+)?)\s*%/);
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isFinite(n) && n > 0 && n <= 100 ? n : null;
+};
+
+/**
+ * The deposit a website booking pays online, in percent: what the booking engine says for that room on the
+ * arrival night, else the setting website_deposit_pct (default 10).
+ */
+export async function websiteDepositPct(roomTypeId: string, checkIn: string): Promise<number> {
+  const row = (await q<any>(`SELECT d.deposit FROM direct_prices d JOIN room_types t ON t.code=d.room_code WHERE t.id=$1 AND d.stay_date=$2`, [roomTypeId, checkIn]).catch(() => []))[0];
+  const fromEngine = depositPctOf(row?.deposit);
+  if (fromEngine) return fromEngine;
+  const s = (await q<any>(`SELECT value FROM settings WHERE key='website_deposit_pct'`).catch(() => []))[0]?.value;
+  return Number(s) > 0 && Number(s) <= 100 ? Number(s) : 10;
+}
