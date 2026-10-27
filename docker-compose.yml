@@ -62,6 +62,17 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
 
+  direct-reader:
+    build: .
+    command: npm run direct:sync
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://villa:${POSTGRES_PASSWORD}@db:5432/villa
+    shm_size: 512m
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
   backup:
     image: postgres:16-alpine
     restart: unless-stopped

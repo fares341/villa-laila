@@ -33,7 +33,7 @@ export default async function Booked({ params, searchParams }: { params: Promise
   const due = money(pay.onlineDue, r.currency, lang);
   const atHotel = money(pay.atHotel, r.currency, lang);
   const view = await visitorPriceView();
-  const canPaymob = open && pay.onlineDue > 0 && paymobEnabled(r.currency);
+  const canPaymob = open && pay.onlineDue > 0 && paymobEnabled();
   const wallets = await getWallets();
   const canInstapay = open && pay.due > 0 && !pay.pendingInstapay && walletOn(wallets, 'instapay', r.currency);
   const ip = wallets.instapay;

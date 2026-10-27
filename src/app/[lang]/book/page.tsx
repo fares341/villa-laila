@@ -37,7 +37,9 @@ export default async function Book({ params, searchParams }: { params: Promise<{
   const cur = await getSetting<string>('currency');
   const view = await visitorPriceView();
   const show = (c: number) => showPrice(c, cur || 'EGP', view, lang);
-  const foreign = view.cur !== (cur || 'EGP').toUpperCase();
+  // Paymob charges EGP: anyone not already seeing EGP is shown the EGP amount too.
+  const foreign = view.cur !== 'EGP';
+  const egp = (c: number) => showPrice(c, cur || 'EGP', { cur: 'EGP', fx: view.fx }, lang);
   const avail = check?.ok ? await availabilityFor(checkIn!, checkOut!, guests) : [];
   const reqFacts = requiredFacts(await activeRules());
   const nights = check?.ok ? avail[0]?.nights ?? 0 : 0;
@@ -49,7 +51,7 @@ export default async function Book({ params, searchParams }: { params: Promise<{
 
   // Online room bookings are paid by Paymob, then reception confirms them. Only if Paymob is not set up does the
   // site fall back to InstaPay / pay at the villa, so bookings still come in.
-  const methods = paymobEnabled(cur) ? (['paymob'] as const) as unknown as ('paymob' | 'instapay' | 'hostel')[] : [
+  const methods = paymobEnabled() ? (['paymob'] as const) as unknown as ('paymob' | 'instapay' | 'hostel')[] : [
     ...(walletOn(await getWallets(), 'instapay', cur) ? (['instapay'] as const) : []),
     'hostel' as const,
   ];
@@ -140,7 +142,7 @@ export default async function Book({ params, searchParams }: { params: Promise<{
                 </div>
                 <div className="bk-chosen-p">
                   <b className="num" dir="ltr">{show(selected.totalCents!)}</b>
-                  {foreign && <small className="bk-egp" dir="ltr">{money(selected.totalCents!, cur, lang)}</small>}
+                  {foreign && <small className="bk-egp" dir="ltr">{egp(selected.totalCents!)}</small>}
                   <a href={`/${lang}/book?${qs({})}`}>{L('Change room', 'غيّر الغرفة')}</a>
                 </div>
               </div>
@@ -149,8 +151,8 @@ export default async function Book({ params, searchParams }: { params: Promise<{
                 checkIn={checkIn!} checkOut={checkOut!} guests={guests}
                 roomTypeId={selected.roomTypeId} roomCode={selected.code}
                 total={show(selected.totalCents!)}
-                totalEgp={foreign ? money(selected.totalCents!, cur, lang) : null}
-                deposit={{ pct: depPct, now: show(depCents), nowEgp: money(depCents, cur || 'EGP', lang), atHotel: show(selected.totalCents! - depCents) }}
+                totalEgp={foreign ? egp(selected.totalCents!) : null}
+                deposit={{ pct: depPct, now: show(depCents), nowEgp: egp(depCents), atHotel: show(selected.totalCents! - depCents) }}
                 needNationality={reqFacts.includes('nationality')}
                 needGov={reqFacts.includes('nationality') && reqFacts.includes('id_governorate')}
                 methods={methods}

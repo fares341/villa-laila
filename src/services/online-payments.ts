@@ -43,21 +43,36 @@ export async function startReservationPaymob(reference: string, base: string): P
   // Website bookings pay only the deposit online; the rest is collected at the hotel.
   const due = (await reservationPaymentInfo(r.id, Number(r.total_cents))).onlineDue;
   if (due <= 0) throw new BookingError('BAD_STATE', 'Nothing to pay');
-  if (!paymobEnabled(r.currency)) throw new BookingError('INVALID_INPUT', 'paymob_off');
+  if (!paymobEnabled()) throw new BookingError('INVALID_INPUT', 'paymob_off');
   if (!r.email) throw new BookingError('INVALID_INPUT', 'email');
+  // Paymob charges Egyptian pounds. A booking kept in USD/EUR is charged its EGP value at today's rate; the
+  // payment is then recorded on the booking in its own currency.
+  const charge = await paymobCharge(due, r.currency);
   const ref = newRef('RES');
   const op = (await q<any>(
-    `INSERT INTO online_payments(merchant_ref,kind,reservation_id,provider,amount_cents,currency,status) VALUES($1,'room',$2,'paymob',$3,$4,'created') RETURNING id`,
-    [ref, r.id, due, r.currency]))[0];
+    `INSERT INTO online_payments(merchant_ref,kind,reservation_id,provider,amount_cents,currency,status,raw) VALUES($1,'room',$2,'paymob',$3,$4,'created',$5) RETURNING id`,
+    [ref, r.id, charge.cents, charge.currency, JSON.stringify({ booking: { cents: due, currency: r.currency } })]))[0];
   const roomName = (r.type_name && (r.type_name.en || Object.values(r.type_name)[0])) || 'Room';
   const it = await createIntention({
-    amountCents: due, currency: r.currency, merchantRef: ref,
+    amountCents: charge.cents, currency: charge.currency, merchantRef: ref,
     itemName: `Villa Layla — ${roomName}`, itemDescription: `Booking ${r.reference}, ${r.check_in} → ${r.check_out}`,
     customer: { name: r.full_name, email: r.email, phone: r.phone },
     notificationUrl: `${base}/api/paymob/webhook`, redirectionUrl: `${base}/api/paymob/return`,
   });
-  await q(`UPDATE online_payments SET provider_order_id=$2, raw=$3, updated_at=now() WHERE id=$1`, [op.id, it.orderId, JSON.stringify({ intention: it.intentionId })]);
+  await q(`UPDATE online_payments SET provider_order_id=$2, raw=$3, updated_at=now() WHERE id=$1`, [op.id, it.orderId, JSON.stringify({ intention: it.intentionId, booking: { cents: due, currency: r.currency } })]);
   return it.checkoutUrl;
+}
+
+/** What Paymob charges for `cents` in `currency`: the same in EGP, else converted at today's rate (fx_rates). */
+export async function paymobCharge(cents: number, currency: string): Promise<{ cents: number; currency: string }> {
+  const pc = (process.env.PAYMOB_CURRENCY || 'EGP').toUpperCase();
+  const cur = String(currency || pc).toUpperCase();
+  if (cur === pc) return { cents, currency: pc };
+  const { getRates } = await import('./pms/fx');
+  const fx: any = await getRates();
+  const rate = Number(fx?.[cur] ?? fx?.others?.[cur]);
+  if (!(pc === 'EGP' && rate > 0)) throw new BookingError('INVALID_INPUT', 'paymob_currency');
+  return { cents: Math.round(cents * rate), currency: pc };
 }
 
 /** Amount still owed on a reservation after verified payments and Paymob payments already received. */
@@ -95,13 +110,13 @@ export async function applyPaymobTxn(t: PaymobTxn, raw: unknown): Promise<any | 
     const amountOk = t.amountCents === Number(op.amount_cents) && t.currency.toUpperCase() === String(op.currency).toUpperCase();
     if (!t.success || t.pending || !amountOk) {
       if (!t.pending) {
-        await c.query(`UPDATE online_payments SET status='failed', provider_txn_id=$2, raw=$3, updated_at=now() WHERE id=$1 AND status='created'`, [op.id, t.txnId, JSON.stringify(raw)]);
+        await c.query(`UPDATE online_payments SET status='failed', provider_txn_id=$2, raw=jsonb_build_object('booking', raw->'booking', 'txn', $3::jsonb), updated_at=now() WHERE id=$1 AND status='created'`, [op.id, t.txnId, JSON.stringify(raw)]);
       }
       if (t.success && !amountOk) console.error('[paymob] amount mismatch', op.merchant_ref, t.amountCents, t.currency);
       return { ...op, status: t.pending ? op.status : 'failed' };
     }
 
-    await c.query(`UPDATE online_payments SET status='paid', provider_txn_id=$2, provider_order_id=COALESCE(provider_order_id,$3), raw=$4, updated_at=now() WHERE id=$1`,
+    await c.query(`UPDATE online_payments SET status='paid', provider_txn_id=$2, provider_order_id=COALESCE(provider_order_id,$3), raw=jsonb_build_object('booking', raw->'booking', 'txn', $4::jsonb), updated_at=now() WHERE id=$1`,
       [op.id, t.txnId, t.orderId, JSON.stringify(raw)]);
     if (op.kind === 'event') {
       await c.query(`UPDATE event_bookings SET status='paid', paid_at=now(), paid_cents=total_cents, hold_expires_at=NULL, pay_method='paymob', updated_at=now() WHERE id=$1 AND status <> 'cancelled'`, [op.event_booking_id]);
@@ -109,8 +124,11 @@ export async function applyPaymobTxn(t: PaymobTxn, raw: unknown): Promise<any | 
       // Paid by card/wallet through Paymob: the provider confirmed it (HMAC-verified), so it counts as verified.
       const dup = (await c.query(`SELECT 1 FROM payments WHERE reservation_id=$1 AND method='online_provider' AND reference=$2`, [op.reservation_id, 'paymob:' + t.txnId])).rows[0];
       if (!dup) {
+        // Charged in EGP for a booking kept in another currency: record the booking-currency amount.
+        const orig = op.raw?.booking;
+        const recCents = orig && String(orig.currency).toUpperCase() !== String(op.currency).toUpperCase() ? Number(orig.cents) : Number(op.amount_cents);
         await c.query(`INSERT INTO payments(reservation_id,amount_cents,method,reference,status,note,verified_at) VALUES($1,$2,'online_provider',$3,'verified',$4,now())`,
-          [op.reservation_id, op.amount_cents, 'paymob:' + t.txnId, 'Paymob online payment (order ' + t.orderId + ')']);
+          [op.reservation_id, recCents, 'paymob:' + t.txnId, 'Paymob online payment (order ' + t.orderId + (recCents !== Number(op.amount_cents) ? `, charged ${Number(op.amount_cents) / 100} ${op.currency}` : '') + ')']);
       }
       // Paid: the beds stay held until reception confirms the booking (no expiry any more).
       await c.query(`UPDATE reservations SET hold_expires_at=NULL, updated_at=now() WHERE id=$1 AND status IN ('pending','hold')`, [op.reservation_id]);

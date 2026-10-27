@@ -17,7 +17,7 @@ async function main() {
   let lastPrices = 0;
   // The hostel's booking engine (direct-book.com): room prices for the website, every DIRECT_BOOK_EVERY_MIN (default 20).
   const directEvery = Math.max(5, Number(process.env.DIRECT_BOOK_EVERY_MIN || 20)) * 60_000;
-  const directOn = process.env.DIRECT_BOOK_OFF !== '1';
+  const directOn = process.env.DIRECT_BOOK_IN_LH === '1'; // normally read by the direct-reader service
   let lastDirect = 0;
   const direct = async (page: any) => {
     if (!directOn || Date.now() - lastDirect < directEvery) return;
