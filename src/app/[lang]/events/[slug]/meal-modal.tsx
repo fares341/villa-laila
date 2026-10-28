@@ -8,7 +8,7 @@ type Loc = { ar?: string; en?: string };
 export type DayMeal = { title: Loc; dishes: Loc[]; description: Loc; img: string | null };
 
 /** Shown on a day with nothing in the weekly menu yet. */
-const STANDARD: DayMeal = {
+export const STANDARD: DayMeal = {
   img: '/photos/events/meals/beef-onion-tagen-plate.webp?v=20261025d',
   title: { ar: 'طاجن لحمة بالبصل المكرمل', en: 'Beef & caramelised onion tagen' },
   dishes: [
@@ -19,7 +19,7 @@ const STANDARD: DayMeal = {
   description: { ar: 'لحمة طرية مطهية على نار هادية مع البصل في صوص غني.', en: 'Tender beef slowly cooked with onions in a rich sauce.' },
 };
 
-const t = (x: Loc | undefined, ar: boolean) => (ar ? x?.ar || x?.en : x?.en || x?.ar) || '';
+export const t = (x: Loc | undefined, ar: boolean) => (ar ? x?.ar || x?.en : x?.en || x?.ar) || '';
 
 /** Button with the meal photo that opens the meal of the chosen day. */
 export function MealLink({ ar, onOpen, meal, day }: { ar: boolean; onOpen: () => void; meal?: DayMeal | null; day?: string | null }) {

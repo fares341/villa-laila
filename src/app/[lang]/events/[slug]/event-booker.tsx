@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { bookEventAction } from '../actions';
 import { MealLink, MealModal, DATE_EVENT, type DayMeal } from './meal-modal';
+import { PICK_EVENT } from './week-menu';
 import { methodsFor } from '@/lib/event-pay';
 
 type DateChip = { date: string; label: string; sub: string; left: number | null };
@@ -180,6 +181,19 @@ export function EventBooker(props: {
   const dayName = chosen?.label ?? null;
   // The meal card beside the booking box shows the chosen date's meal.
   useEffect(() => { if (date) window.dispatchEvent(new CustomEvent(DATE_EVENT, { detail: date })); }, [date]);
+  // A day picked in the week's menu: select it here (if it still has seats).
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<string>).detail;
+      const i = dates.findIndex((x) => x.date === d);
+      if (i < 0 || dates[i].left === 0) return;
+      setDate(d);
+      setQty((q) => Math.min(q, Math.max(1, dates[i].left ?? 20)));
+      if (i >= 6) setShowAll(true);
+    };
+    window.addEventListener(PICK_EVENT, on);
+    return () => window.removeEventListener(PICK_EVENT, on);
+  }, [dates]);
 
   const M: Record<Method, { t: string; d: string; icon: React.ReactNode }> = {
     paymob: {

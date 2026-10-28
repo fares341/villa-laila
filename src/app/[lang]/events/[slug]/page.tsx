@@ -1,4 +1,6 @@
 import { notFound } from 'next/navigation';
+import { todayLocal } from '@/lib/dates';
+import { WeekMenuCard } from './week-menu';
 import type { Metadata } from 'next';
 import { isSiteLang } from '@/i18n/site';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs } from '@/components/claude-shell';
@@ -6,7 +8,6 @@ import { getPublicEvent, seatsLeft, tr, eventMedia } from '@/services/events';
 import { getWallets } from '@/services/wallets';
 import { toEmbed } from '@/content/videos';
 import { MealGallery } from './meal-gallery';
-import { DayMealCard } from './meal-modal';
 import { HeroMedia } from './hero-media';
 import { whenLabel } from '@/services/event-view';
 import { showPrice } from '@/lib/display-currency';
@@ -63,7 +64,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
     return { date: d, label: isNear ? when : weekday, sub: isNear ? `${weekday} · ${dateLabel(d, lang, { day: 'numeric', month: 'long' })}` : dateLabel(d, lang, { day: 'numeric', month: 'long' }), left: left[d] };
   });
   const initialDate = sp.date && dates.some((d) => d.date === sp.date && d.left !== 0) ? sp.date : dates.find((d) => d.left !== 0)?.date ?? '';
-  const menu = ev.dinner_cents ? await weeklyMenu() : {};
+  // The weekly menu: for the dinner add-on, and for a dinner event that shows its food photos.
+  const menu = ev.dinner_cents || meals.length ? await weeklyMenu() : {};
+  const hasMenu = Object.values(menu).some(Boolean);
   const errMsg = sp.error ? L(ERR[sp.error] ?? ERR[sp.error.split(':')[0]] ?? ERR.generic) : null;
   const schedule = scheduleLabel(ev, lang, (d) => dateLabel(d, lang, { weekday: 'long', day: 'numeric', month: 'long' }));
   const time = `${timeLabel(ev.start_time, lang)} – ${timeLabel(ev.end_time, lang)}`;
@@ -119,8 +122,10 @@ export default async function EventPage({ params, searchParams }: { params: Prom
 
           <div className="evd-side">
           {ev.dinner_cents
-            ? <DayMealCard ar={isAr} menu={menu} dates={dates} initialDate={initialDate} priceLabel={showPrice(ev.dinner_cents, ev.currency, view, lang)} />
-            : <MealGallery lang={lang} photos={meals.map((m) => ({ id: m.id, src: m.src, caption: m.caption }))} />}
+            ? <WeekMenuCard ar={isAr} menu={menu} dates={dates} initialDate={initialDate} today={todayLocal()} priceLabel={showPrice(ev.dinner_cents, ev.currency, view, lang)} />
+            : hasMenu && dates.length
+              ? <WeekMenuCard ar={isAr} menu={menu} dates={dates} initialDate={initialDate} today={todayLocal()} fallback={false} />
+              : <MealGallery lang={lang} photos={meals.map((m) => ({ id: m.id, src: m.src, caption: m.caption }))} />}
           <aside className="evd-book" id="book" aria-labelledby="bookH">
             <h2 id="bookH">{isAr ? 'احجز تذكرتك' : 'Book your ticket'}</h2>
             {errMsg && <p role="alert" className="form-msg">{errMsg}</p>}
