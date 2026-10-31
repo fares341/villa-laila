@@ -94,6 +94,9 @@ export async function confirmAction(f: FormData) {
   const u = await requireUser('reservation.confirm'); const id = S(f, 'id');
   return run(`/dashboard/reservations/${id}`, async () => {
     await confirmReservation(id, u.email, u.id);
+    // Website booking confirmed: copy it into the booking engine (direct-book) so Little Hotelier closes the beds.
+    const src = (await q<any>(`SELECT source FROM reservations WHERE id=$1`, [id]))[0]?.source;
+    if (src === 'website') { const { queueDirectBooking } = await import('@/services/direct-book-push'); await queueDirectBooking(id, 'confirmed by reception'); }
     const sent = await notifyGuest(id, 'confirmed');
     return sent ? 'Confirmed. The guest was notified on Telegram.' : 'Confirmed. (Guest has no Telegram chat — contact them by phone/email.)';
   });
@@ -377,5 +380,17 @@ export async function commitImportAction(f: FormData) {
     if (!b) throw new BookingError('BAD_STATE', 'This import was already completed.');
     const r = await commitImport(id, b.report.rows, b.mapping, { defaultRoomTypeId: S(f, 'defaultRoomTypeId') || null, paidVerified: f.get('paidVerified') === 'on' }, u.id, u.email);
     return `Imported ${r.imported} reservation(s). ${r.rejected.length} row(s) were rejected — see the list below.`;
+  });
+}
+
+/** Reservation page: send (or re-send) a website booking to the booking engine now. */
+export async function directBookPushAction(f: FormData) {
+  const u = await requireUser('reservation.edit'); const id = S(f, 'id');
+  return run(`/dashboard/reservations/${id}`, async () => {
+    const { pushMode } = await import('@/services/direct-book-push');
+    if (pushMode() === 'off') return 'Copying to direct-book is off (DIRECT_BOOK_PUSH in the server .env).';
+    await q(`INSERT INTO direct_book_pushes(reservation_id,status,message) VALUES($1,'queued',$2)
+      ON CONFLICT (reservation_id) DO UPDATE SET status='queued', attempts=0, message=EXCLUDED.message, updated_at=now() WHERE direct_book_pushes.status <> 'booked'`, [id, 'sent by ' + u.email]);
+    return 'Queued: the booking is copied into direct-book within a minute or two.';
   });
 }

@@ -11,6 +11,7 @@
     "worker": "tsx src/bot/worker.ts",
     "lh:sync": "tsx src/bot/lh-worker.ts",
     "direct:sync": "tsx src/bot/direct-worker.ts",
+    "direct:push": "tsx src/bot/direct-push-cli.ts",
     "lh:discover": "tsx scripts/lh-discover.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

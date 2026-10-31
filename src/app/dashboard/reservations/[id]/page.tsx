@@ -83,6 +83,8 @@ export default async function StayPage({ params, searchParams }: { params: Promi
         {balance > 0 && <a href={pos} target="_blank" rel="noopener" className={Btn + ' self-stretch px-6 text-base'}><Icon name="wallet" size={18} /> Take payment on POS</a>}
       </div>
 
+      {res.source === 'website' && <DirectBookBox id={id} />}
+
       {canExtend && (
         <section id="extend" className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-cocoa-200 bg-white px-4 py-3">
           <span className="me-1 text-sm font-semibold text-cocoa-800"><Icon name="calendar-days" size={16} className="me-1 inline-block align-[-3px]" />Extend stay</span>
@@ -279,5 +281,31 @@ export default async function StayPage({ params, searchParams }: { params: Promi
         </div>
       </div>
     </>
+  );
+}
+
+/** Website booking → copied into direct-book (Little Hotelier) by the direct-reader service. */
+async function DirectBookBox({ id }: { id: string }) {
+  const { pushMode } = await import('@/services/direct-book-push');
+  const { directBookPushAction } = await import('../../actions');
+  const p = (await q<any>(`SELECT status, confirmation, message, attempts, updated_at, steps FROM direct_book_pushes WHERE reservation_id=$1`, [id]).catch(() => []))[0];
+  const mode = pushMode();
+  const tone = p?.status === 'booked' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : p?.status === 'failed' ? 'border-red-200 bg-red-50 text-red-900' : 'border-cocoa-200 bg-white text-cocoa-900';
+  const label: Record<string, string> = { queued: 'Waiting to be copied', running: 'Being copied now', booked: 'Booked in direct-book', failed: 'Could not copy', dry_ok: 'Test run OK (nothing booked)', skipped: 'Skipped' };
+  return (
+    <section className={`mb-5 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm ${tone}`}>
+      <b>direct-book / Little Hotelier:</b>
+      {mode === 'off' ? <span>copying is off (set DIRECT_BOOK_PUSH=dry or on in the server .env)</span>
+        : p ? <span>{label[p.status] ?? p.status}{p.confirmation ? ` · reference ${p.confirmation}` : ''}{p.message ? ` · ${p.message}` : ''}{p.attempts ? ` · tries ${p.attempts}` : ''}</span>
+        : <span>not sent yet (sent automatically when you confirm the booking){mode === 'dry' ? ' · test mode' : ''}</span>}
+      {mode !== 'off' && p?.status !== 'booked' && (
+        <form action={directBookPushAction} className="ms-auto"><input type="hidden" name="id" value={id} />
+          <button className="rounded-lg border border-cocoa-200 bg-white px-3 py-1.5 text-xs font-semibold text-cocoa-800">{p ? 'Try again now' : 'Copy to direct-book now'}</button></form>
+      )}
+      {Array.isArray(p?.steps) && p.steps.length > 0 && (
+        <details className="basis-full text-xs"><summary className="cursor-pointer">Steps</summary>
+          <ul className="mt-1 list-disc ps-5">{p.steps.map((s: any, i: number) => <li key={i}>{s.ok ? 'OK' : 'Problem'} · {s.step}{s.note ? ` · ${s.note}` : ''}</li>)}</ul></details>
+      )}
+    </section>
   );
 }

@@ -23,6 +23,10 @@ const ROOMS: Record<string, string> = {
   'violet': 'violet', 'islamic': 'islamic', 'amira': 'amira', 'ibn battuta': 'ibn-battuta', 'french lady': 'french-lady', 'mamluk': 'mamluk',
 };
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+/** Our room code → its name on direct-book (lower case), to find it on the page. */
+export function directNameFor(code: string): string | null {
+  return Object.entries(ROOMS).find(([, c]) => c === code)?.[0] ?? null;
+}
 export function roomCodeFor(name: string): string | null {
   const n = norm(name);
   if (ROOMS[n]) return ROOMS[n];

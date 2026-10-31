@@ -20,6 +20,7 @@ export async function POST(req: Request) {
     // A room booking just paid: tell reception it is waiting for their confirmation (once, on the first "paid").
     if (op?.status === 'paid' && op.kind === 'room' && op.reservation_id && op.justPaid) {
       import('@/services/admin-bot').then((m) => m.notifyRoomPaid(op.reservation_id, Number(op.amount_cents))).catch((e) => console.error('[admin bot paid]', e));
+      import('@/services/direct-book-push').then((m) => m.queueDirectBooking(op.reservation_id, 'deposit paid by Paymob')).catch((e) => console.error('[direct push]', e));
     }
     return Response.json({ ok: true });
   } catch (e) {

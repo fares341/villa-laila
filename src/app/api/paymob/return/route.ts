@@ -18,6 +18,7 @@ export async function GET(req: Request) {
       if (op) {
         if (op.status === 'paid' && op.kind === 'room' && op.reservation_id && op.justPaid) {
           import('@/services/admin-bot').then((m) => m.notifyRoomPaid(op.reservation_id, Number(op.amount_cents))).catch((e) => console.error('[admin bot paid]', e));
+      import('@/services/direct-book-push').then((m) => m.queueDirectBooking(op.reservation_id, 'deposit paid by Paymob')).catch((e) => console.error('[direct push]', e));
         }
         target = await landingFor(op);
         state = op.status === 'paid' ? 'paid' : t.pending ? 'pending' : 'failed';
