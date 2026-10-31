@@ -9,7 +9,7 @@ import { availabilityFor } from '@/services/availability';
 import { validateStay, todayLocal, addDays } from '@/lib/dates';
 import { getSetting } from '@/services/settings';
 import { activeRules, requiredFacts } from '@/services/policy';
-import { paymobEnabled } from '@/services/paymob';
+import { roomPaymobOn } from '@/services/paymob';
 import { getWallets, walletOn } from '@/services/wallets';
 import { BookingSteps } from '@/components/booking-steps';
 import { BookingDetails } from './booking-details';
@@ -51,10 +51,8 @@ export default async function Book({ params, searchParams }: { params: Promise<{
 
   // Online room bookings are paid by Paymob, then reception confirms them. Only if Paymob is not set up does the
   // site fall back to InstaPay / pay at the villa, so bookings still come in.
-  const methods = paymobEnabled() ? (['paymob'] as const) as unknown as ('paymob' | 'instapay' | 'hostel')[] : [
-    ...(walletOn(await getWallets(), 'instapay', cur) ? (['instapay'] as const) : []),
-    'hostel' as const,
-  ];
+  // Paymob deposit when ROOM_PAYMOB=1; for now (owner) the booking is sent and paid at the villa, reception confirms.
+  const methods: ('paymob' | 'instapay' | 'hostel')[] = roomPaymobOn() ? ['paymob'] : ['hostel'];
 
   const dateErr = check && !check.ok
     ? (d.book.errors as any)[check.code === 'order' ? 'invalid_dates' : check.code === 'past' ? 'past_date' : check.code === 'too_long' ? 'too_long' : 'invalid_dates']

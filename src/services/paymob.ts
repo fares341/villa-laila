@@ -145,3 +145,9 @@ export function txnFromRedirect(p: Record<string, string | undefined>): PaymobTx
     merchantRef: p.merchant_order_id ?? null,
   };
 }
+
+/**
+ * Online payment for ROOM bookings on the website. Off for now (owner's decision): guests send the booking and pay
+ * at the villa; reception confirms. Set ROOM_PAYMOB=1 in .env to take the deposit by Paymob again.
+ */
+export const roomPaymobOn = () => process.env.ROOM_PAYMOB === '1' && paymobEnabled();

@@ -8,7 +8,7 @@ import { money } from '@/components/site';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs } from '@/components/claude-shell';
 import { BookingSteps } from '@/components/booking-steps';
 import { CopyButton } from '@/components/copy-button';
-import { paymobEnabled } from '@/services/paymob';
+import { roomPaymobOn, paymobEnabled } from '@/services/paymob';
 import { getWallets, walletOn } from '@/services/wallets';
 import { reservationPaymentInfo } from '@/services/online-payments';
 import { payReservationPaymobAction, submitReservationInstapayAction } from '../../book/actions';
@@ -33,9 +33,9 @@ export default async function Booked({ params, searchParams }: { params: Promise
   const due = money(pay.onlineDue, r.currency, lang);
   const atHotel = money(pay.atHotel, r.currency, lang);
   const view = await visitorPriceView();
-  const canPaymob = open && pay.onlineDue > 0 && paymobEnabled();
+  const canPaymob = open && pay.onlineDue > 0 && roomPaymobOn();
   const wallets = await getWallets();
-  const canInstapay = open && pay.due > 0 && !pay.pendingInstapay && walletOn(wallets, 'instapay', r.currency);
+  const canInstapay = process.env.ROOM_INSTAPAY === '1' && open && pay.due > 0 && !pay.pendingInstapay && walletOn(wallets, 'instapay', r.currency);
   const ip = wallets.instapay;
   // Same product listed twice (e.g. once per category) is shown once.
   const extras = (await q<any>(`SELECT name, price_cents, currency, unit_label FROM products WHERE is_active AND public_visible ORDER BY sort_order, name`).catch(() => []))
