@@ -5,7 +5,7 @@ import { isSiteLang } from '@/i18n/site';
 import { ClaudeHeader, ClaudeFooter } from '@/components/claude-shell';
 import { getTicket, ticketValid, tr } from '@/services/events';
 import { priceLabel } from '@/services/event-view';
-import { paymobEnabled } from '@/services/paymob';
+import { eventPaymobOn } from '@/services/events';
 import { getWallets } from '@/services/wallets';
 import { liveMethods } from '@/services/events';
 import { methodsFor } from '@/lib/event-pay';
@@ -124,7 +124,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
               <h2 id="payH">{L('Complete your payment', 'أكمل الدفع')}</h2>
               <p className="tk-due">{L('Amount due now', 'المطلوب الآن')}: <b dir="ltr">{dueNow}</b>{b.deposit_cents != null && Number(b.deposit_cents) < Number(b.total_cents) && <> · {L('deposit; the rest is paid at the villa', 'عربون، والباقي يُدفع في الفيلا')}</>}</p>
               <div className="tk-pay-grid">
-                {paymobEnabled(b.currency) && (
+                {eventPaymobOn(b.currency) && (
                   <form action={retryEventPaymobAction} className="tk-pay-card">
                     <input type="hidden" name="lang" value={lang} /><input type="hidden" name="code" value={b.ticket_code} />
                     <h3>{L('Card or mobile wallet', 'بطاقة أو محفظة إلكترونية')}</h3>
@@ -140,9 +140,9 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
                     {villaWa && <a className="btn btn-whatsapp" href={villaWa} target="_blank" rel="noopener noreferrer">{L('Send booking on WhatsApp', 'ابعت الحجز على واتساب')}</a>}
                   </div>
                 )}
-                {!paymobEnabled(b.currency) && !walletMethods.length && (
+                {!eventPaymobOn(b.currency) && !walletMethods.length && (
                   <div className="tk-pay-card">
-                    <p>{L('Online payment isn’t available right now. Message us and we’ll sort it out.', 'الدفع أونلاين غير متاح الآن. راسلنا وهنظبطها.')}</p>
+                    <p>{L('Pay at the villa when you arrive. Message us on WhatsApp and reception will confirm your ticket.', 'الدفع في الفيلا لما توصل. ابعتلنا على واتساب والاستقبال هيأكد تذكرتك.')}</p>
                     <a className="btn btn-wa" href={`https://wa.me/201040551515?text=${encodeURIComponent('Ticket ' + b.ticket_code)}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>
                   </div>
                 )}

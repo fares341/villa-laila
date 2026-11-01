@@ -39,10 +39,15 @@ export const makeTicketCode = () => 'EV-' + Array.from({ length: 6 }, () => ALPH
  * InstaPay / Vodafone Cash only need to be switched on (EGP): the guest books, goes to WhatsApp, and reception sends the
  * number there, so no account details have to be on the website.
  */
+export const eventPaymobOn = (currency?: string) => process.env.EVENT_PAYMOB === '1' && paymobEnabled(currency);
+
 export function liveMethods(ev: Pick<EventRow, 'pay_methods' | 'currency'>, w: Wallets): PayMethod[] {
   const egp = (ev.currency || 'EGP').toUpperCase() === 'EGP';
   // Vodafone Cash is no longer offered (owner, Oct 2026); old bookings paid that way still show as such.
-  return ev.pay_methods.filter((m) => (m === 'paymob' ? paymobEnabled(ev.currency) : m === 'instapay' ? egp && w.instapay.enabled : m === 'cash'));
+  // Card (Paymob) only when EVENT_PAYMOB=1 (owner, Nov 2026: Paymob goes live later; until then pay at the villa).
+  const live = ev.pay_methods.filter((m) => (m === 'paymob' ? eventPaymobOn(ev.currency) : m === 'instapay' ? egp && w.instapay.enabled : m === 'cash'));
+  // An event that only took the card still takes bookings: pay at the villa, reception confirms.
+  return live.length ? live : ['cash'];
 }
 
 function toPublic(e: EventRow, w: Wallets, now = new Date()): PublicEvent {

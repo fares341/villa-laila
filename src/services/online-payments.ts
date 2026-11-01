@@ -6,7 +6,7 @@ import { BookingError } from './errors';
 import { audit } from './audit';
 import { createIntention, paymobEnabled, type PaymobTxn } from './paymob';
 import { getWallets, walletOn, isWallet, type WalletMethod } from './wallets';
-import { tr, EVENT_COLS, type EventRow } from './events';
+import { tr, EVENT_COLS, eventPaymobOn, type EventRow } from './events';
 
 const newRef = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString('hex').toUpperCase()}`;
 
@@ -16,7 +16,7 @@ export async function startEventPaymob(ticketCode: string, base: string): Promis
   const b = (await q<any>('SELECT * FROM event_bookings WHERE ticket_code=$1', [ticketCode]))[0];
   if (!b) throw new BookingError('NOT_FOUND');
   if (b.status !== 'awaiting_payment' || b.total_cents <= 0) throw new BookingError('BAD_STATE');
-  if (!paymobEnabled(b.currency)) throw new BookingError('INVALID_INPUT', 'paymob_off');
+  if (!eventPaymobOn(b.currency)) throw new BookingError('INVALID_INPUT', 'paymob_off');
   const ev = (await q<EventRow>(`SELECT ${EVENT_COLS} FROM events WHERE id=$1`, [b.event_id]))[0];
   const ref = newRef('EVT');
   const op = (await q<any>(
