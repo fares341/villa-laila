@@ -60,3 +60,10 @@ a.cbx-brand:hover { transform: translateY(-2px); }
 .cbx-done-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
 @keyframes cbx-draw { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .cbx-tick svg { animation: none; stroke-dashoffset: 0; } }
+
+/* "More at Villa Layla": a swipeable row of cards on phones instead of a long stack */
+@media (max-width: 640px) {
+  #more .ev-grid { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; margin-inline: -16px; padding: 4px 16px 10px; scrollbar-width: none; }
+  #more .ev-grid::-webkit-scrollbar { display: none; }
+  #more .ev-card { flex: 0 0 82%; scroll-snap-align: start; }
+}

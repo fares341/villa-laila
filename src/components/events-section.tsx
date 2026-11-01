@@ -15,6 +15,9 @@ export type EventCard = {
   /** Collab events: own page (/c/<slug>), partner name, and sign-up instead of tickets. */
   href?: string;
   partner?: string;
+  /** Highlighted card (e.g. "Same day" on a collab page): its own badge text and a gold outline. */
+  badge?: string;
+  hl?: boolean;
 };
 
 const ic = {
@@ -36,20 +39,20 @@ const ic = {
 };
 
 /** "Events at Villa Layla" — sits right under the services section on the home page. */
-export function EventsSection({ lang, events, heading = 'h2', limit }: { lang: string; events: EventCard[]; heading?: 'h1' | 'h2'; limit?: number }) {
+export function EventsSection({ lang, events, heading = 'h2', limit, head, id = 'events' }: { lang: string; events: EventCard[]; heading?: 'h1' | 'h2'; limit?: number; head?: { kicker: string; title: string; intro?: string }; id?: string }) {
   if (!events.length) return null;
   const isAr = lang === 'ar';
   const H = heading;
   const shown = limit ? events.slice(0, limit) : events;
   return (
-    <section className="sec band-white ev-sec" id="events" aria-labelledby="eventsH">
+    <section className="sec band-white ev-sec" id={id} aria-labelledby={`${id}H`}>
       <div className="wrap">
         <div className="sec-hd">
           <div>
-            <span className="kicker">{isAr ? 'فعاليات فيلا ليلى' : 'Events at Villa Layla'}</span>
-            <H id="eventsH">{isAr ? 'ماذا يحدث في الفيلا قريبًا.' : 'What’s on at the villa.'}</H>
+            <span className="kicker">{head?.kicker ?? (isAr ? 'فعاليات فيلا ليلى' : 'Events at Villa Layla')}</span>
+            <H id={`${id}H`}>{head?.title ?? (isAr ? 'ماذا يحدث في الفيلا قريبًا.' : 'What’s on at the villa.')}</H>
             <p>
-              {isAr
+              {head ? head.intro : isAr
                 ? 'فطور في الحديقة، يوم في المسبح، يوغا وعشاء بيتي. احجز تذكرتك وادفع أونلاين، وتوصلك التذكرة فورًا.'
                 : 'Breakfast in the garden, pool days, yoga and homemade dinners. Book and pay online, and your ticket arrives instantly.'}
             </p>
@@ -60,12 +63,12 @@ export function EventsSection({ lang, events, heading = 'h2', limit }: { lang: s
           {shown.map((e) => {
             const href = e.href ?? `/${lang}/events/${e.slug}`;
             return (
-            <article key={href} className="ev-card">
+            <article key={href} className={`ev-card ${e.hl ? 'ev-hl' : ''}`}>
               <a href={href} className="ev-media" aria-label={e.title}>
                 {e.image && <img src={e.image} alt="" loading="lazy" />}
                 {e.soldOut
                   ? <span className="ev-when sold">{isAr ? 'نفدت التذاكر' : 'Sold out'}</span>
-                  : <span className={`ev-when ${e.soon ? 'soon' : ''}`}>{e.next}{e.left != null && e.left <= 10 ? (isAr ? ` · باقي ${e.left}` : ` · ${e.left} left`) : ''}</span>}
+                  : <span className={`ev-when ${e.soon || e.hl ? 'soon' : ''}`}>{e.badge ?? e.next}{e.left != null && e.left <= 10 ? (isAr ? ` · باقي ${e.left}` : ` · ${e.left} left`) : ''}</span>}
               </a>
               <div className="ev-body">
                 <div className="meta">

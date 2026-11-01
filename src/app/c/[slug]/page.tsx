@@ -9,6 +9,9 @@ import { HeroMedia } from '@/app/[lang]/events/[slug]/hero-media';
 import { RsvpForm } from './rsvp-form';
 import { PhotoStrip } from './photo-strip';
 import { weeklyMenu } from '@/services/weekly-menu';
+import { EventsSection } from '@/components/events-section';
+import { moreEventsFor } from '@/services/event-view';
+import { visitorPriceView } from '@/services/visitor-currency';
 import './collab.css';
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +46,8 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
   const ar = lang === 'ar';
   const L = (en: string, a: string) => (ar ? a : en);
   const going = await peopleGoing(c.id);
+  const more = await moreEventsFor(c, lang, await visitorPriceView().catch(() => undefined));
+  const sameDay = more.filter((e) => e.hl).length;
   const left = c.capacity == null ? null : Math.max(0, c.capacity - going);
   const over = !!c.event_date && c.event_date < new Date(Date.now() + 2 * 3600_000).toISOString().slice(0, 10);
   const when = c.event_date ? new Intl.DateTimeFormat(ar ? 'ar-EG-u-nu-latn' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(c.event_date + 'T12:00:00Z')) : null;
@@ -174,6 +179,13 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
             </aside>
           </div>
         </div>
+        <EventsSection lang={lang} events={more} limit={6} id="more" head={{
+          kicker: L('More at Villa Layla', 'كمان في فيلا ليلى'),
+          title: sameDay ? L('Make a day of it.', 'خليها يوم كامل.') : L('Other events at the villa.', 'فعاليات تانية في الفيلا.'),
+          intro: sameDay
+            ? L(`${sameDay === 1 ? 'One more thing is' : sameDay <= 5 ? `${sameDay} more things are` : 'More things are'} on at the villa that day. Come early or stay longer.`, `${sameDay === 1 ? 'في حاجة تانية' : sameDay <= 5 ? `في ${sameDay} حاجات تانية` : 'في حاجات تانية كتير'} في الفيلا نفس اليوم. تعالى بدري أو خليك معانا أكتر.`)
+            : L('Breakfast in the garden, pool days, homemade dinners and more. Book online in a minute.', 'فطار في الجنينة، أيام في البيسين، عشا بيتي وحاجات تانية. احجز أونلاين في دقيقة.'),
+        }} />
       </main>
       <ClaudeFooter lang={lang} />
       <ClaudeFabs lang={lang} />

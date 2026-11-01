@@ -78,3 +78,27 @@ export async function withCollabs(events: EventCard[], lang: string, limit?: num
   out.splice(Math.ceil(room / 2), 0, ...collabs.map((c) => c.card));
   return out;
 }
+
+/**
+ * "More at the villa" under a collab event: the villa's events and the other collabs. Events that run on the
+ * collab's own day come first (badge "Same day", their link opens that date); the rest in their usual order.
+ */
+export async function moreEventsFor(collab: { slug: string; event_date: string | null }, lang: string, view?: PriceView): Promise<EventCard[]> {
+  const ar = lang === 'ar';
+  const { listPublicEvents } = await import('./events');
+  const day = collab.event_date;
+  const today = todayLocal();
+  const same: EventCard[] = [], rest: EventCard[] = [];
+  for (const e of await listPublicEvents().catch(() => [])) {
+    const card = toEventCard(e, lang, view);
+    if (day && day >= today && e.dates.includes(day)) {
+      same.push({ ...card, hl: true, left: null, soldOut: false, badge: `${ar ? 'نفس اليوم' : 'Same day'} · ${dateLabel(day, lang)}`, href: `/${lang}/events/${e.slug}?date=${day}#book` });
+    } else if (e.nextDate) rest.push(card);
+  }
+  for (const { card, date } of await collabCards(lang).catch(() => [])) {
+    if (card.href?.startsWith(`/c/${collab.slug}?`)) continue;
+    if (day && date === day) same.push({ ...card, hl: true, badge: `${ar ? 'نفس اليوم' : 'Same day'} · ${dateLabel(day, lang)}` });
+    else rest.push(card);
+  }
+  return [...same, ...rest];
+}
