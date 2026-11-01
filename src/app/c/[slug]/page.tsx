@@ -3,12 +3,16 @@ import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import React from 'react';
 import { getCollabBySlug, peopleGoing, type Loc } from '@/services/collabs';
-import { aboutParts, rich } from '@/app/[lang]/events/[slug]/event-about';
+import { ClaudeHeader, ClaudeFooter, ClaudeFabs } from '@/components/claude-shell';
+import { EventAbout } from '@/app/[lang]/events/[slug]/event-about';
+import { HeroMedia } from '@/app/[lang]/events/[slug]/hero-media';
 import { RsvpForm } from './rsvp-form';
 import { PhotoStrip } from './photo-strip';
 import './collab.css';
 
 export const dynamic = 'force-dynamic';
+
+const MAP_URL = 'https://maps.app.goo.gl/H7YGjCVT7nshDExj9';
 
 const pickLang = async (q?: string) => {
   if (q === 'ar' || q === 'en') return q;
@@ -26,8 +30,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 /**
- * A collab event's own page, made for Instagram stories (most visitors arrive on a phone, from a story link):
- * our logo & the partner's logo and name, the title and when, the description, photos, meals, then "I'm coming".
+ * A collab event's page, in the same look as the villa's own event pages: photo header with both logos,
+ * the facts, the description, photos and meals, and the sign-up form on the side (under the facts on phones).
  */
 export default async function CollabPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { slug } = await params;
@@ -43,12 +47,11 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
   const when = c.event_date ? new Intl.DateTimeFormat(ar ? 'ar-EG-u-nu-latn' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(c.event_date + 'T12:00:00Z')) : null;
   const time = (x: string | null) => (x ? new Intl.DateTimeFormat(ar ? 'ar-EG-u-nu-latn' : 'en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }).format(new Date(`2000-01-01T${x}:00Z`)) : '');
   const hoursList = [time(c.start_time), time(c.end_time)].filter(Boolean);
-  const hours = hoursList.join(' – ');
   // Each time kept whole (so Arabic "8:00 م" never gets split by the direction of the line).
   const hoursEl = hoursList.map((h, i) => <React.Fragment key={i}>{i > 0 && ' – '}<bdi>{h}</bdi></React.Fragment>);
   const title = t(c.title, ar);
-  const parts = aboutParts(t(c.description, ar));
   const meals = c.meals.filter((m) => t(m.title, ar));
+  const place = t(c.place, ar);
   const cal = c.event_date ? (() => {
     const d = c.event_date!.replace(/-/g, '');
     const st = (c.start_time || '19:00').replace(':', '') + '00', en = (c.end_time || '23:00').replace(':', '') + '00';
@@ -57,83 +60,114 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
     u.searchParams.set('dates', `${d}T${st}/${d}T${en}`); u.searchParams.set('ctz', 'Africa/Cairo'); u.searchParams.set('location', t(c.place, false) || 'Villa Layla, Cairo');
     return u.toString();
   })() : null;
+  const wa = `https://wa.me/201040551515?text=${encodeURIComponent(`${L('About', 'بخصوص')}: ${title} — Villa Layla & ${c.partner_name}`)}`;
 
   return (
-    <div className="cb" dir={ar ? 'rtl' : 'ltr'} lang={lang} style={{ ['--acc' as string]: c.accent }}>
-      <div className="cb-bg" aria-hidden style={c.photos[0] ? { backgroundImage: `url(${c.photos[0]})` } : undefined} />
-      <a className="cb-lang" href={`?lang=${ar ? 'en' : 'ar'}`}>{ar ? 'English' : 'عربي'}</a>
-      <a className="cb-lang cb-back" href={`/${lang}/events`}><span aria-hidden>{ar ? '→' : '←'}</span> {L('All events', 'كل الفعاليات')}</a>
-
-      <header className="cb-hero">
-        <div className="cb-logos">
-          <span className="cb-logo ours"><img src="/assets/logo-240.webp" alt="Villa Layla" /></span>
-          <span className="cb-x" aria-hidden>&amp;</span>
-          <span className="cb-logo theirs">{c.partner_logo ? <img src={c.partner_logo} alt={c.partner_name} /> : <b>{c.partner_name.slice(0, 2)}</b>}</span>
-        </div>
-        <p className="cb-names">Villa Layla <span>&amp;</span> {c.partner_link ? <a href={c.partner_link} target="_blank" rel="noopener noreferrer">{c.partner_name}</a> : c.partner_name}</p>
-        <h1>{title}</h1>
-        {!over && (left === 0 || (left != null && left <= 15) || going >= 10) && <p className="cb-left">{left === 0 ? L('Fully booked', 'العدد اكتمل') : left != null && left <= 15 ? L(`Only ${left} places left`, `باقي ${left} أماكن بس`) : L(`${going} people already coming`, `${going} مسجلين لحد دلوقتي`)}</p>}
-      </header>
-
-      <section className="cb-sec">
-        <div className="cb-card cb-info">
-          {when && <div><svg viewBox="0 0 24 24" aria-hidden><rect x="3" y="4.5" width="18" height="16" rx="2.5" /><path d="M3 9.5h18M8 2.5v4M16 2.5v4" /></svg><small>{L('Date', 'اليوم')}</small><b>{when}</b></div>}
-          {hours && <div><svg viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg><small>{L('Time', 'الميعاد')}</small><b>{hoursEl}</b></div>}
-          {t(c.place, ar) && <div><svg viewBox="0 0 24 24" aria-hidden><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg><small>{L('Place', 'المكان')}</small><b>{t(c.place, ar)}</b></div>}
-          {t(c.price_note, ar) && <div><svg viewBox="0 0 24 24" aria-hidden><path d="M3 7h18v10H3z" /><circle cx="12" cy="12" r="2.5" /></svg><small>{L('Entry', 'الدخول')}</small><b>{t(c.price_note, ar)}</b></div>}
-        </div>
-      </section>
-
-      {parts.length > 0 && (
-        <section className="cb-sec">
-          <h2><small>{L('The night', 'الإيفنت')}</small>{L('About the night', 'عن الإيفنت')}</h2>
-          <div className="cb-card cb-about">
-          {parts.map((x, i) => x.kind === 'h' ? <h3 key={i}>{x.text}</h3>
-            : x.kind === 'ul' ? <ul key={i}>{x.items.map((it, j) => <li key={j}>{it.icon && <span aria-hidden>{it.icon} </span>}{rich(it.text)}</li>)}</ul>
-            : <p key={i}>{rich(x.text)}</p>)}
+    <div className={`vl-page min-h-screen flex flex-col ${ar ? 'ar-font' : ''}`} lang={lang} dir={ar ? 'rtl' : 'ltr'}>
+      <ClaudeHeader lang={lang} />
+      <main id="main" className="flex-1">
+        <section className="evd-hero cbx-hero">
+          <HeroMedia video={null} photos={c.photos} cover={c.partner_logo} />
+          <div className="wrap evd-hero-in">
+            <a href={`/${lang}/events`} className="evd-back">{ar ? '→ كل الفعاليات' : '← All events'}</a>
+            {/* Each logo with its name under it; both open that side's Instagram */}
+            <div className="cbx-logos">
+              <a className="cbx-brand" href="https://instagram.com/villalaylacairo" target="_blank" rel="noopener noreferrer" aria-label="Villa Layla — Instagram">
+                <span className="cbx-logo"><img src="/assets/logo-240.webp" alt="" /><i className="cbx-ig" aria-hidden /></span>
+                <span className="cbx-name">Villa Layla</span>
+              </a>
+              <span className="cbx-amp" aria-hidden>&amp;</span>
+              {(() => {
+                const inner = (
+                  <>
+                    <span className="cbx-logo">{c.partner_logo ? <img src={c.partner_logo} alt="" /> : <b>{c.partner_name.slice(0, 2)}</b>}{c.partner_link && <i className="cbx-ig" aria-hidden />}</span>
+                    <span className="cbx-name">{c.partner_name}</span>
+                  </>
+                );
+                return c.partner_link
+                  ? <a className="cbx-brand" href={c.partner_link} target="_blank" rel="noopener noreferrer" aria-label={`${c.partner_name} — Instagram`}>{inner}</a>
+                  : <div className="cbx-brand">{inner}</div>;
+              })()}
+            </div>
+            <h1>{title}</h1>
+            {!over && (left === 0 || (left != null && left <= 15) || going >= 10) && (
+              <p className="cbx-left">{left === 0 ? L('Fully booked', 'العدد اكتمل') : left != null && left <= 15 ? L(`Only ${left} places left`, `باقي ${left} أماكن بس`) : L(`${going} people already coming`, `${going} مسجلين لحد دلوقتي`)}</p>
+            )}
           </div>
+          <a className="cbx-lang" href={`?lang=${ar ? 'en' : 'ar'}`}>{ar ? 'English' : 'عربي'}</a>
         </section>
-      )}
 
-      {c.photos.length > 0 && (
-        <section className="cb-sec cb-photos" aria-label={L('Photos', 'الصور')}>
-          <h2><small>{L('Gallery', 'من أجواء الإيفنت')}</small>{L('Photos', 'الصور')}</h2>
-          <PhotoStrip photos={c.photos} ar={ar} />
-        </section>
-      )}
+        <div className="wrap evd-grid">
+          <div className="evd-info">
+            <dl className="evd-facts cbx-facts">
+              {when && <div><dt>{L('Date', 'اليوم')}</dt><dd>{when}</dd></div>}
+              {hoursList.length > 0 && <div><dt>{L('Time', 'الوقت')}</dt><dd className="cbx-time">{hoursEl}</dd></div>}
+              {t(c.price_note, ar) && <div><dt>{L('Entry', 'الدخول')}</dt><dd>{t(c.price_note, ar)}</dd></div>}
+              <div><dt>{L('Where', 'المكان')}</dt><dd className="evd-where">
+                <span>{place || L('Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab', 'فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب')}</span>
+                <a className="evd-map" href={MAP_URL} target="_blank" rel="noopener noreferrer" aria-label={L('Open in Google Maps', 'افتح المكان على خرائط جوجل')}>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z" /><circle cx="12" cy="10" r="2.6" /></svg>
+                  <span>{L('Map', 'الخريطة')}</span>
+                </a>
+              </dd></div>
+              <div className="cbx-partner"><dt>{L('In collaboration with', 'بالتعاون مع')}</dt><dd>
+                {c.partner_logo && <img src={c.partner_logo} alt="" />}
+                {c.partner_link ? <a href={c.partner_link} target="_blank" rel="noopener noreferrer">{c.partner_name}</a> : c.partner_name}
+              </dd></div>
+            </dl>
 
-      {meals.length > 0 && (
-        <section className="cb-sec">
-          <h2><small>{L('Menu', 'المنيو')}</small>{L('On the menu', 'الأكل')}</h2>
-          <div className="cb-meals">
-            {meals.map((m, i) => {
-              const pts = t(m.points, ar).split(/\n+/).filter(Boolean);
-              return (
-                <article key={i} className="cb-meal">
-                  {m.img && <img src={m.img} alt={t(m.title, ar)} loading="lazy" />}
-                  <div>
-                    <h3>{t(m.title, ar)}</h3>
-                    {pts.length > 0 && <ul>{pts.map((p, j) => <li key={j}>{p}</li>)}</ul>}
-                  </div>
-                </article>
-              );
-            })}
+            <EventAbout isAr={ar} text={t(c.description, ar)} includes={[]} note="" />
+
+            {c.photos.length > 0 && (
+              <>
+                <h2>{L('Photos', 'من أجواء الإيفنت')}</h2>
+                <PhotoStrip photos={c.photos} ar={ar} />
+              </>
+            )}
+
+            {meals.length > 0 && (
+              <>
+                <h2>{L('On the menu', 'المنيو')}</h2>
+                <div className="cb-meals">
+                  {meals.map((m, i) => {
+                    const pts = t(m.points, ar).split(/\n+/).filter(Boolean);
+                    return (
+                      <article key={i} className="cb-meal">
+                        {m.img && <img src={m.img} alt={t(m.title, ar)} loading="lazy" />}
+                        <div>
+                          <h3>{t(m.title, ar)}</h3>
+                          {pts.length > 0 && <ul>{pts.map((p, j) => <li key={j}>{p}</li>)}</ul>}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
-        </section>
-      )}
 
-      <section className="cb-sec cb-join" id="join">
-        {over ? <p className="cb-over">{L('This event has taken place. Thank you to everyone who came!', 'الإيفنت ده خلص. شكرًا لكل اللي حضروا!')}</p>
-          : left === 0 ? <p className="cb-over">{L('All places are taken. Message us on WhatsApp to join the waiting list.', 'الأماكن خلصت. كلمنا على واتساب عشان نضيفك على قايمة الانتظار.')}</p>
-          : <RsvpForm slug={c.slug} ar={ar} askEmail={c.ask_email} maxPeople={left == null ? 10 : Math.min(10, left)} title={title} partner={c.partner_name} calendarUrl={cal} />}
-      </section>
-
-      <footer className="cb-foot">
-        <img src="/assets/logo-240.webp" alt="" />
-        <a className="cb-foot-ev" href={`/${lang}/events`}>{L('More events at Villa Layla', 'فعاليات تانية في فيلا ليلى')}</a>
-        <p>Villa Layla · {L('20 Safiya Zaghloul St, El Sayeda Zeinab, Cairo', '20 شارع صفية زغلول، السيدة زينب، القاهرة')}</p>
-        <a href="https://wa.me/201040551515" target="_blank" rel="noopener noreferrer">WhatsApp +20 104 055 1515</a>
-      </footer>
+          <div className="evd-side">
+            <aside className="evd-book" id="join" aria-labelledby="joinH">
+              <h2 id="joinH">{L('Save your spot', 'سجّل حضورك')}</h2>
+              {over ? (
+                <div className="evd-off">
+                  <p><b>{L('This event has taken place', 'الإيفنت ده خلص')}</b> · {L('Thank you to everyone who came! Follow us for the next one.', 'شكرًا لكل اللي حضروا! تابعنا عشان تعرف الجاي.')}</p>
+                  <a className="btn btn-line" href={`/${lang}/events`}>{L('See other events', 'شوف فعاليات تانية')}</a>
+                </div>
+              ) : left === 0 ? (
+                <div className="evd-off">
+                  <p><b>{L('Fully booked', 'العدد اكتمل')}</b> · {L('Message us on WhatsApp to join the waiting list.', 'كلمنا على واتساب عشان نضيفك على قايمة الانتظار.')}</p>
+                  <a className="btn btn-wa" href={wa} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                </div>
+              ) : (
+                <RsvpForm slug={c.slug} ar={ar} askEmail={c.ask_email} maxPeople={left == null ? 10 : Math.min(10, left)} title={title} partner={c.partner_name} calendarUrl={cal} />
+              )}
+            </aside>
+          </div>
+        </div>
+      </main>
+      <ClaudeFooter lang={lang} />
+      <ClaudeFabs lang={lang} />
     </div>
   );
 }

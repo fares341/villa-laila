@@ -129,6 +129,11 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
                 <div><Lbl htmlFor="c-cap">Places (people), empty = no limit</Lbl><input id="c-cap" name="capacity" type="number" min={1} defaultValue={c.capacity ?? ''} className={Input} /></div>
                 <label className="flex items-center gap-2"><input type="checkbox" name="askEmail" defaultChecked={!!c.ask_email} /> Ask for e-mail too</label>
                 <p className="text-xs text-slate-500">The form always asks name, phone and how many people (up to 10). The same phone twice updates the first sign-up.</p>
+                <div>
+                  <Lbl htmlFor="c-ne">Send every sign-up to these e-mails</Lbl>
+                  <textarea id="c-ne" name="notifyEmails" rows={3} dir="ltr" defaultValue={(c.notify_emails ?? []).join('\n')} className={Input} placeholder={'you@villalaylahostel.com\npartner@example.com'} />
+                  <p className="mt-1 text-xs text-slate-500">One per line (yours and the partner’s). Each new or changed sign-up is e-mailed to all of them. Leave empty for none.</p>
+                </div>
               </div>
             </Card>
             <Card title="Look">

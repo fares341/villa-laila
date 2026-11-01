@@ -33,7 +33,7 @@ export async function collabSaveAction(f: FormData) {
       titleAr: S(f, 'titleAr'), titleEn: S(f, 'titleEn'), descAr: S(f, 'descAr'), descEn: S(f, 'descEn'),
       date: S(f, 'date'), startTime: S(f, 'startTime'), endTime: S(f, 'endTime'), placeAr: S(f, 'placeAr'), placeEn: S(f, 'placeEn'),
       priceAr: S(f, 'priceAr'), priceEn: S(f, 'priceEn'), capacity: S(f, 'capacity') ? Number(S(f, 'capacity')) : null,
-      accent: S(f, 'accent'), askEmail: f.get('askEmail') === 'on',
+      accent: S(f, 'accent'), askEmail: f.get('askEmail') === 'on', notifyEmails: S(f, 'notifyEmails'),
       logo: await fileOf(f.get('logo')), newPhotos: photos, keepPhotos: f.getAll('keepPhoto').map(String), meals,
     }, u.email);
   } catch (e) { go(back, 'err', (e as Error).message || 'Could not save'); }

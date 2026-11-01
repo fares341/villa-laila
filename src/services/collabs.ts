@@ -14,11 +14,11 @@ export type CollabMeal = { title: Loc; points: Loc; img: string | null };
 export type Collab = {
   id: string; slug: string; active: boolean; partner_name: string; partner_logo: string | null; partner_link: string | null;
   title: Loc; description: Loc; event_date: string | null; start_time: string | null; end_time: string | null; place: Loc; price_note: Loc;
-  capacity: number | null; accent: string; photos: string[]; meals: CollabMeal[]; ask_email: boolean; created_at: string; updated_at: string;
+  capacity: number | null; accent: string; photos: string[]; meals: CollabMeal[]; ask_email: boolean; notify_emails: string[]; created_at: string; updated_at: string;
 };
 
 const COLS = `id, slug, active, partner_name, partner_logo, partner_link, title, description, event_date::text event_date, start_time, end_time, place, price_note,
-  capacity, accent, photos, meals, ask_email, created_at, updated_at`;
+  capacity, accent, photos, meals, ask_email, notify_emails, created_at, updated_at`;
 const clean = (s: unknown, max: number) => String(s ?? '').trim().slice(0, max);
 const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'collab';
 const MAX_IMG = 10 * 1024 * 1024;
@@ -33,6 +33,13 @@ export async function savePhoto(f: Upload): Promise<string> {
   const id = randomUUID();
   await saveBuffer(`site/${id}.${ext}`, f.bytes);
   return `/api/media/site/${id}.${ext}`;
+}
+
+/** "a@x.com, b@y.com" or one per line → valid, unique addresses (at most 10). */
+export function parseEmails(raw?: string | null): string[] {
+  const out = new Set<string>();
+  for (const e of String(raw ?? '').split(/[\s,;]+/)) if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) out.add(e.toLowerCase().slice(0, 120));
+  return [...out].slice(0, 10);
 }
 
 export async function listCollabs(): Promise<(Collab & { going: number; people: number })[]> {
@@ -56,7 +63,7 @@ export async function peopleGoing(collabId: string): Promise<number> {
 export type CollabInput = {
   id?: string | null; active: boolean; partnerName: string; partnerLink?: string; titleAr?: string; titleEn?: string; descAr?: string; descEn?: string;
   date?: string; startTime?: string; endTime?: string; placeAr?: string; placeEn?: string; priceAr?: string; priceEn?: string;
-  capacity?: number | null; accent?: string; askEmail?: boolean;
+  capacity?: number | null; accent?: string; askEmail?: boolean; notifyEmails?: string;
   logo?: Upload | null; newPhotos?: Upload[]; keepPhotos?: string[];
   meals?: { titleAr: string; titleEn: string; pointsAr: string; pointsEn: string; img: string | null; photo?: Upload | null; remove?: boolean }[];
 };
@@ -97,6 +104,7 @@ export async function saveCollab(v: CollabInput, actor: string): Promise<string>
     id = (await q<any>(`INSERT INTO collabs(slug, partner_name, partner_logo, partner_link, title, description, event_date, start_time, end_time, place, price_note,
       capacity, accent, photos, meals, ask_email, active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`, [slug, ...row]))[0].id;
   }
+  await q(`UPDATE collabs SET notify_emails=$2 WHERE id=$1`, [id, parseEmails(v.notifyEmails)]);
   await audit(actor, old ? 'collab.update' : 'collab.create', 'collab', id!, { partner });
   return id!;
 }
@@ -151,3 +159,31 @@ export const csvOf = (rows: any[]) => {
   const esc = (x: unknown) => `"${String(x ?? '').replace(/"/g, '""')}"`;
   return ['Name,Phone,Email,People,Instagram,Note,Status,Checked in,Signed up', ...rows.map((r) => [r.full_name, r.phone, r.email, r.people, r.instagram, r.note, r.status, r.checked_in_at ?? '', new Date(r.created_at).toISOString()].map(esc).join(','))].join('\n');
 };
+
+/** E-mails one sign-up to the addresses chosen for that collab (ours and the partner's). */
+export async function emailCollabRsvp(r: any, c: Collab, updated: boolean, base = '') {
+  const { sendMail, mailEnabled } = await import('@/lib/mailer');
+  const to = c.notify_emails ?? [];
+  if (!to.length) return;
+  if (!mailEnabled()) { console.warn('[collab mail] SMTP_* not set in .env, sign-up not e-mailed'); return; }
+  const title = c.title.en || c.title.ar || 'Collab event';
+  const going = await peopleGoing(c.id);
+  const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
+  const rows: [string, string][] = [
+    ['Name', r.full_name], ['Phone / WhatsApp', r.phone], ['People', String(r.people)],
+    ...(r.email ? [['E-mail', r.email] as [string, string]] : []),
+    ...(r.instagram ? [['Instagram', '@' + r.instagram] as [string, string]] : []),
+    ...(r.note ? [['Note', r.note] as [string, string]] : []),
+  ];
+  const total = `${going} people signed up${c.capacity ? ` of ${c.capacity}` : ''}`;
+  const subject = `${updated ? 'Sign-up changed' : 'New sign-up'}: ${r.full_name} (${r.people}) · ${title}`;
+  const text = [`${updated ? 'A sign-up was changed' : 'New sign-up'} for ${title} — Villa Layla & ${c.partner_name}${c.event_date ? ` (${c.event_date})` : ''}`, '',
+    ...rows.map(([k, v]) => `${k}: ${v}`), '', total, base ? `Page: ${base}/c/${c.slug}` : ''].join('\n');
+  const html = `<div style="font-family:Arial,sans-serif;max-width:520px;color:#2F2925">
+<p style="margin:0 0 4px;color:#9a7a55;font-size:12px;letter-spacing:.08em;text-transform:uppercase">Villa Layla &amp; ${esc(c.partner_name)}</p>
+<h2 style="margin:0 0 14px;font-size:20px">${updated ? 'Sign-up changed' : 'New sign-up'} · ${esc(title)}</h2>
+<table style="border-collapse:collapse;width:100%;font-size:15px">${rows.map(([k, v]) => `<tr><td style="padding:8px 10px;border:1px solid #eadfce;color:#7a6a5c;width:150px">${esc(k)}</td><td style="padding:8px 10px;border:1px solid #eadfce;font-weight:bold">${esc(v)}</td></tr>`).join('')}</table>
+<p style="margin:14px 0 0;font-size:14px">${esc(total)}${c.event_date ? ` · ${esc(c.event_date)}` : ''}</p>
+${base ? `<p style="margin:6px 0 0;font-size:13px"><a href="${esc(base)}/c/${esc(c.slug)}">${esc(base)}/c/${esc(c.slug)}</a></p>` : ''}</div>`;
+  await sendMail({ to, subject, text, html, replyTo: r.email || null });
+}

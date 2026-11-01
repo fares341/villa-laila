@@ -28,7 +28,7 @@ export function RsvpForm({ slug, ar, askEmail, maxPeople, title, partner, calend
     try {
       const r = await fetch('/api/collab/rsvp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...Object.fromEntries(f.entries()), slug, people }) });
       const d = await r.json().catch(() => null);
-      if (d?.ok) { setDone({ name: String(f.get('fullName') || '').split(' ')[0], people, updated: !!d.updated }); window.scrollTo({ top: (document.getElementById('join')?.offsetTop ?? 0) - 20, behavior: 'smooth' }); }
+      if (d?.ok) { setDone({ name: String(f.get('fullName') || '').split(' ')[0], people, updated: !!d.updated }); document.getElementById('join')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
       else { const m = ERR[d?.error] ?? ERR[String(d?.error ?? '').split(':')[0]]; setErr(m ? (ar ? m[1] : m[0]) : L('Something went wrong. Try again or message us on WhatsApp.', 'حصلت مشكلة. جرب تاني أو كلمنا على واتساب.')); }
     } catch { setErr(L('No connection. Try again.', 'مفيش اتصال. جرب تاني.')); }
     setBusy(false);
@@ -37,38 +37,37 @@ export function RsvpForm({ slug, ar, askEmail, maxPeople, title, partner, calend
   if (done) {
     const share = `${title} · Villa Layla & ${partner}\n${typeof window !== 'undefined' ? window.location.href.split('#')[0] : ''}`;
     return (
-      <div className="cb-done">
-        <div className="cb-tick" aria-hidden><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></div>
-        <h2>{done.updated ? L(`Updated, ${done.name}!`, `اتعدّل يا ${done.name}!`) : L(`You’re on the list, ${done.name}!`, `اسمك اتسجل يا ${done.name}!`)}</h2>
+      <div className="cbx-done">
+        <div className="cbx-tick" aria-hidden><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></div>
+        <h3>{done.updated ? L(`Updated, ${done.name}!`, `اتعدّل يا ${done.name}!`) : L(`You’re on the list, ${done.name}!`, `اسمك اتسجل يا ${done.name}!`)}</h3>
         <p>{L(`${done.people} ${done.people === 1 ? 'person' : 'people'} · see you there. We’ll message you on WhatsApp before the event.`, `${done.people} ${done.people === 1 ? 'فرد' : 'أفراد'} · مستنيينك. هنبعتلك على واتساب قبل الإيفنت.`)}</p>
-        <div className="cb-done-acts">
-          {calendarUrl && <a className="cb-btn line" href={calendarUrl} target="_blank" rel="noopener noreferrer">{L('Add to calendar', 'ضيفه للتقويم')}</a>}
-          <a className="cb-btn line" href={`https://wa.me/?text=${encodeURIComponent(share)}`} target="_blank" rel="noopener noreferrer">{L('Send to a friend', 'ابعته لصاحبك')}</a>
+        <div className="cbx-done-acts">
+          {calendarUrl && <a className="btn btn-line" href={calendarUrl} target="_blank" rel="noopener noreferrer">{L('Add to calendar', 'ضيفه للتقويم')}</a>}
+          <a className="btn btn-wa" href={`https://wa.me/?text=${encodeURIComponent(share)}`} target="_blank" rel="noopener noreferrer">{L('Send to a friend', 'ابعته لصاحبك')}</a>
         </div>
       </div>
     );
   }
 
   return (
-    <form className="cb-form" onSubmit={submit}>
-      <h2><small>{L('Sign up', 'التسجيل')}</small>{L('Save your spot', 'سجّل حضورك')}</h2>
-      <p className="cb-sub">{L('It takes 20 seconds. No payment now.', 'هتاخد ٢٠ ثانية. مفيش دفع دلوقتي.')}</p>
-      <input name="website" tabIndex={-1} autoComplete="off" aria-hidden className="cb-hp" />
-      <label className="cb-field"><span>{L('Your name', 'اسمك')}</span><input name="fullName" required minLength={2} maxLength={80} autoComplete="name" /></label>
-      <label className="cb-field"><span>{L('Phone (WhatsApp)', 'رقم الموبايل (واتساب)')}</span><input name="phone" type="tel" required minLength={7} maxLength={30} autoComplete="tel" dir="ltr" placeholder="+20 1xx xxx xxxx" /></label>
-      {askEmail && <label className="cb-field"><span>{L('E-mail', 'الإيميل')}</span><input name="email" type="email" required autoComplete="email" dir="ltr" /></label>}
-      <div className="cb-field cb-people">
+    <form className="evb" onSubmit={submit}>
+      <p className="evb-fine cbx-sub">{L('It takes 20 seconds. No payment now.', 'هتاخد ٢٠ ثانية. مفيش دفع دلوقتي.')}</p>
+      <input name="website" tabIndex={-1} autoComplete="off" aria-hidden className="cbx-hp" />
+      <div className="evb-field"><label htmlFor="cb-name">{L('Full name', 'الاسم')}</label><input id="cb-name" name="fullName" required minLength={2} maxLength={80} autoComplete="name" /></div>
+      <div className="evb-field"><label htmlFor="cb-phone">{L('Mobile / WhatsApp', 'رقم الموبايل / واتساب')}</label><input id="cb-phone" name="phone" type="tel" required minLength={7} maxLength={30} autoComplete="tel" dir="ltr" placeholder="+20 1xx xxx xxxx" /></div>
+      {askEmail && <div className="evb-field"><label htmlFor="cb-email">{L('Email', 'البريد الإلكتروني')}</label><input id="cb-email" name="email" type="email" required autoComplete="email" dir="ltr" /></div>}
+      <div className="evb-qty">
         <span>{L('How many people?', 'عددكم كام؟')}</span>
-        <div className="cb-stepper">
+        <div className="evb-stepper">
           <button type="button" onClick={() => setPeople((p) => Math.max(1, p - 1))} disabled={people <= 1} aria-label={L('Fewer', 'أقل')}>−</button>
-          <output aria-live="polite">{people}</output>
+          <output aria-live="polite" className="num">{people}</output>
           <button type="button" onClick={() => setPeople((p) => Math.min(maxPeople, p + 1))} disabled={people >= maxPeople} aria-label={L('More', 'أكتر')}>+</button>
         </div>
       </div>
-      <label className="cb-field"><span>{L('Instagram (optional)', 'إنستجرام (اختياري)')}</span><input name="instagram" maxLength={60} dir="ltr" placeholder="@" /></label>
-      <label className="cb-field"><span>{L('Anything we should know? (optional)', 'حاجة عايزنا نعرفها؟ (اختياري)')}</span><textarea name="note" rows={2} maxLength={300} /></label>
-      {err && <p className="cb-err" role="alert">{err}</p>}
-      <button className="cb-btn" disabled={busy}>{busy ? L('Saving…', 'بنسجل…') : L('I’m coming', 'أكّد حضوري')}</button>
+      <div className="evb-field"><label htmlFor="cb-ig">{L('Instagram (optional)', 'إنستجرام (اختياري)')}</label><input id="cb-ig" name="instagram" maxLength={60} dir="ltr" placeholder="@" /></div>
+      <div className="evb-field"><label htmlFor="cb-note">{L('Anything we should know? (optional)', 'حاجة عايزنا نعرفها؟ (اختياري)')}</label><textarea id="cb-note" name="note" rows={2} maxLength={300} /></div>
+      {err && <p className="form-msg evb-err" role="alert">{err}</p>}
+      <button type="submit" className={`btn btn-book evb-submit ${busy ? 'loading' : ''}`} disabled={busy} aria-busy={busy}>{busy ? L('Saving…', 'بنسجل…') : L('Confirm I’m coming', 'أكّد حضوري')}</button>
     </form>
   );
 }
