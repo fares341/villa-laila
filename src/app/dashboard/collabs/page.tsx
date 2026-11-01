@@ -36,14 +36,15 @@ export default async function CollabsPage({ searchParams }: { searchParams: Prom
                   <span className="text-xl font-light text-white/80">&amp;</span>
                   {c.partner_logo
                     // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={c.partner_logo} alt={c.partner_name} className="h-12 w-12 rounded-full bg-white object-cover" />
-                    : <span className="grid h-12 w-12 place-items-center rounded-full bg-white/90 text-sm font-bold text-cocoa-800">{c.partner_name.slice(0, 2)}</span>}
+                    ? <img src={c.partner_logo} alt={c.partner_name} className="h-12 w-12 rounded bg-white/95 object-contain p-1" />
+                    : <span className="grid h-12 w-12 place-items-center rounded bg-white/90 text-sm font-bold text-cocoa-800">{c.partner_name.slice(0, 2)}</span>}
                 </div>
                 <div className="flex flex-1 flex-col gap-2 p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-base font-semibold text-cocoa-900">{c.title.en || c.title.ar}</h3>
                     {!c.active ? <Pill tone="slate">Hidden</Pill> : past ? <Pill tone="amber">Done</Pill> : <Pill tone="green">Live</Pill>}
                   </div>
+                  <p className="text-xs text-slate-500">{c.active && !past ? '✓ Shown with the events on the website' : c.active ? 'Date has passed: no longer on the website' : 'Hidden: not on the website (tick «Page is live» to show it)'}</p>
                   <p className="text-xs text-slate-500">with <b>{c.partner_name}</b>{c.event_date ? ` · ${c.event_date}` : ''}{c.start_time ? ` · ${c.start_time}` : ''}</p>
                   <p className="text-sm"><b className="text-lg tabular-nums text-cocoa-800">{c.people}</b> people signed up{c.capacity ? ` of ${c.capacity}` : ''} <span className="text-xs text-slate-500">({c.going} sign-ups)</span></p>
                   <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">

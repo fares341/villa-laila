@@ -43,11 +43,11 @@ export async function collabCards(lang: string): Promise<{ card: EventCard; date
   const t = (x: { ar?: string; en?: string } | undefined) => (ar ? x?.ar || x?.en : x?.en || x?.ar) || '';
   const plain = (s: string) => s.split(/\n+/).map((l) => l.replace(/^\s*(#+|-|\*)\s*/, '').replace(/\*\*|__|\*|_/g, '').trim()).filter(Boolean).map((l) => (/[.!?؟:،,]$/.test(l) ? l : l + '.')).join(' ');
   return (await listCollabs())
-    .filter((c) => c.active && c.event_date && c.event_date >= today)
-    .sort((a, b) => a.event_date!.localeCompare(b.event_date!))
+    .filter((c) => c.active && (!c.event_date || c.event_date >= today))
+    .sort((a, b) => (a.event_date ?? '9999').localeCompare(b.event_date ?? '9999'))
     .map((c) => {
       const left = c.capacity == null ? null : Math.max(0, c.capacity - c.people);
-      const d = c.event_date!;
+      const d = c.event_date ?? '';
       return {
         date: d,
         card: {
@@ -60,8 +60,8 @@ export async function collabCards(lang: string): Promise<{ card: EventCard; date
           price: t(c.price_note) || (ar ? 'مجانًا' : 'Free'),
           schedule: `Villa Layla & ${c.partner_name}`,
           time: [c.start_time, c.end_time].filter(Boolean).map((x) => timeLabel(x!, lang)).join(' – '),
-          next: whenLabel(d, lang),
-          soon: d === today || d === addDays(today, 1),
+          next: d ? whenLabel(d, lang) : ar ? 'قريبًا' : 'Coming soon',
+          soon: !!d && (d === today || d === addDays(today, 1)),
           soldOut: left === 0,
           left,
         },
