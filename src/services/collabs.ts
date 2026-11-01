@@ -6,7 +6,7 @@ import { BookingError } from './errors';
 
 /**
  * Collaboration events: an event made together with a partner. It has its own page (/c/<slug>) made to be shared on
- * Instagram stories: our logo × the partner's logo, the partner's name, the description, photos, the meals of the
+ * Instagram stories: our logo & the partner's logo, the partner's name, the description, photos, the meals of the
  * night, then a short form to say "I'm coming". Managed in Dashboard → Collab events.
  */
 export type Loc = { ar?: string; en?: string };

@@ -30,7 +30,7 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
 
   return (
     <>
-      <PageHeader title={isNew ? 'New collab event' : `${c.title?.en || c.title?.ar} × ${c.partner_name}`} sub="Our logo × the partner’s logo, the description, photos, the meals, then the sign-up form. Share the link on Instagram stories.">
+      <PageHeader title={isNew ? 'New collab event' : `${c.title?.en || c.title?.ar} & ${c.partner_name}`} sub="Our logo & the partner’s logo, the description, photos, the meals, then the sign-up form. Share the link on Instagram stories.">
         <Link href="/dashboard/collabs" className={BtnGhost}><Icon name="chevron-left" size={16} /> Collab events</Link>
         {!isNew && <a href={`/c/${c.slug}`} target="_blank" rel="noopener" className={BtnGhost}><Icon name="external-link" size={16} /> Open the page</a>}
       </PageHeader>

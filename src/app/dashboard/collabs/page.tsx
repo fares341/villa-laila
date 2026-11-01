@@ -19,7 +19,7 @@ export default async function CollabsPage({ searchParams }: { searchParams: Prom
   const today = new Date().toISOString().slice(0, 10);
   return (
     <>
-      <PageHeader title="Collab events" sub="Events you make with a partner. Each one has its own page (our logo × theirs, photos, meals, and a sign-up form) made to share on Instagram stories.">
+      <PageHeader title="Collab events" sub="Events you make with a partner. Each one has its own page (our logo & theirs, photos, meals, and a sign-up form) made to share on Instagram stories.">
         {canEdit && <Link href="/dashboard/collabs/new" className={Btn}><Icon name="plus" size={16} /> New collab event</Link>}
       </PageHeader>
       <Flash sp={sp} />
@@ -33,7 +33,7 @@ export default async function CollabsPage({ searchParams }: { searchParams: Prom
                 <div className="flex items-center justify-center gap-4 px-4 py-5" style={{ background: `linear-gradient(135deg, #2F2925, ${c.accent})` }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/assets/logo-240.webp" alt="Villa Layla" className="h-12 w-auto rounded bg-white/95 p-1" />
-                  <span className="text-xl font-light text-white/80">×</span>
+                  <span className="text-xl font-light text-white/80">&amp;</span>
                   {c.partner_logo
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={c.partner_logo} alt={c.partner_name} className="h-12 w-12 rounded-full bg-white object-cover" />

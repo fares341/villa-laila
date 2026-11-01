@@ -18,7 +18,7 @@
 .cb-logo img { width: 100%; height: 100%; object-fit: contain; padding: 10px; }
 
 .cb-logo.theirs b { font-size: 28px; color: #2F2925; text-transform: uppercase; }
-.cb-x { font-size: 34px; font-weight: 200; color: var(--gold); line-height: 1; }
+.cb-x { font-family: "Playfair Display", Georgia, "Times New Roman", serif; font-style: italic; font-size: 44px; font-weight: 400; color: var(--gold); line-height: 1; }
 .cb-names { margin: 6px 0 0; font-size: 13px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); }
 .cb-names span { opacity: .7; margin-inline: 4px; }
 .cb-names a { color: inherit; text-decoration: none; border-bottom: 1px solid currentColor; }

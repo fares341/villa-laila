@@ -35,7 +35,7 @@ export function RsvpForm({ slug, ar, askEmail, maxPeople, title, partner, calend
   };
 
   if (done) {
-    const share = `${title} · Villa Layla × ${partner}\n${typeof window !== 'undefined' ? window.location.href.split('#')[0] : ''}`;
+    const share = `${title} · Villa Layla & ${partner}\n${typeof window !== 'undefined' ? window.location.href.split('#')[0] : ''}`;
     return (
       <div className="cb-done">
         <div className="cb-tick" aria-hidden><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></div>

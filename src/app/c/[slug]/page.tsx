@@ -21,13 +21,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const c = await getCollabBySlug(slug);
   if (!c) return {};
-  const title = `${c.title.en || c.title.ar} · Villa Layla × ${c.partner_name}`;
+  const title = `${c.title.en || c.title.ar} · Villa Layla & ${c.partner_name}`;
   return { title, description: (c.description.en || c.description.ar || '').replace(/[*_#-]/g, '').slice(0, 160), openGraph: { title, images: c.photos[0] ? [c.photos[0]] : c.partner_logo ? [c.partner_logo] : [] } };
 }
 
 /**
  * A collab event's own page, made for Instagram stories (most visitors arrive on a phone, from a story link):
- * our logo × the partner's logo and name, the title and when, the description, photos, meals, then "I'm coming".
+ * our logo & the partner's logo and name, the title and when, the description, photos, meals, then "I'm coming".
  */
 export default async function CollabPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { slug } = await params;
@@ -53,7 +53,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
     const d = c.event_date!.replace(/-/g, '');
     const st = (c.start_time || '19:00').replace(':', '') + '00', en = (c.end_time || '23:00').replace(':', '') + '00';
     const u = new URL('https://calendar.google.com/calendar/render');
-    u.searchParams.set('action', 'TEMPLATE'); u.searchParams.set('text', `${title} · Villa Layla × ${c.partner_name}`);
+    u.searchParams.set('action', 'TEMPLATE'); u.searchParams.set('text', `${title} · Villa Layla & ${c.partner_name}`);
     u.searchParams.set('dates', `${d}T${st}/${d}T${en}`); u.searchParams.set('ctz', 'Africa/Cairo'); u.searchParams.set('location', t(c.place, false) || 'Villa Layla, Cairo');
     return u.toString();
   })() : null;
@@ -67,10 +67,10 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
       <header className="cb-hero">
         <div className="cb-logos">
           <span className="cb-logo ours"><img src="/assets/logo-240.webp" alt="Villa Layla" /></span>
-          <span className="cb-x" aria-hidden>×</span>
+          <span className="cb-x" aria-hidden>&amp;</span>
           <span className="cb-logo theirs">{c.partner_logo ? <img src={c.partner_logo} alt={c.partner_name} /> : <b>{c.partner_name.slice(0, 2)}</b>}</span>
         </div>
-        <p className="cb-names">Villa Layla <span>×</span> {c.partner_link ? <a href={c.partner_link} target="_blank" rel="noopener noreferrer">{c.partner_name}</a> : c.partner_name}</p>
+        <p className="cb-names">Villa Layla <span>&amp;</span> {c.partner_link ? <a href={c.partner_link} target="_blank" rel="noopener noreferrer">{c.partner_name}</a> : c.partner_name}</p>
         <h1>{title}</h1>
         {!over && (left === 0 || (left != null && left <= 15) || going >= 10) && <p className="cb-left">{left === 0 ? L('Fully booked', 'العدد اكتمل') : left != null && left <= 15 ? L(`Only ${left} places left`, `باقي ${left} أماكن بس`) : L(`${going} people already coming`, `${going} مسجلين لحد دلوقتي`)}</p>}
       </header>

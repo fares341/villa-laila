@@ -58,7 +58,7 @@ export async function collabCards(lang: string): Promise<{ card: EventCard; date
           summary: plain(t(c.description)).slice(0, 180),
           image: c.photos[0] ?? c.partner_logo,
           price: t(c.price_note) || (ar ? 'مجانًا' : 'Free'),
-          schedule: `Villa Layla × ${c.partner_name}`,
+          schedule: `Villa Layla & ${c.partner_name}`,
           time: [c.start_time, c.end_time].filter(Boolean).map((x) => timeLabel(x!, lang)).join(' – '),
           next: whenLabel(d, lang),
           soon: d === today || d === addDays(today, 1),
