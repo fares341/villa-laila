@@ -6,7 +6,6 @@ import { getCollabBySlug, peopleGoing, type Loc } from '@/services/collabs';
 import { aboutParts, rich } from '@/app/[lang]/events/[slug]/event-about';
 import { RsvpForm } from './rsvp-form';
 import { PhotoStrip } from './photo-strip';
-import { StickyCta } from './sticky-cta';
 import './collab.css';
 
 export const dynamic = 'force-dynamic';
@@ -72,7 +71,6 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
         </div>
         <p className="cb-names">Villa Layla <span>×</span> {c.partner_link ? <a href={c.partner_link} target="_blank" rel="noopener noreferrer">{c.partner_name}</a> : c.partner_name}</p>
         <h1>{title}</h1>
-        {!over && <a className="cb-cta" href="#join">{L('I’m coming', 'هحضر · سجّل اسمك')}</a>}
         {!over && (left === 0 || (left != null && left <= 15) || going >= 10) && <p className="cb-left">{left === 0 ? L('Fully booked', 'العدد اكتمل') : left != null && left <= 15 ? L(`Only ${left} places left`, `باقي ${left} أماكن بس`) : L(`${going} people already coming`, `${going} مسجلين لحد دلوقتي`)}</p>}
       </header>
 
@@ -134,7 +132,6 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
         <p>Villa Layla · {L('20 Safiya Zaghloul St, El Sayeda Zeinab, Cairo', '20 شارع صفية زغلول، السيدة زينب، القاهرة')}</p>
         <a href="https://wa.me/201040551515" target="_blank" rel="noopener noreferrer">WhatsApp +20 104 055 1515</a>
       </footer>
-      {!over && left !== 0 && <StickyCta label={L('I’m coming', 'هحضر · سجّل اسمك')} />}
     </div>
   );
 }
