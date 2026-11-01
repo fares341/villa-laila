@@ -9,6 +9,8 @@ import { ConfirmButton } from '@/components/ConfirmButton';
 import { RichTextarea } from '@/components/rich-textarea';
 import { getCollab, listRsvps, type Collab } from '@/services/collabs';
 import { siteBase } from '@/lib/base-url';
+import { weeklyMenu, WEEKDAYS } from '@/services/weekly-menu';
+import { MealSlot, type MenuChoice } from './meal-slot';
 import { collabSaveAction, collabDeleteAction, collabRsvpAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -27,6 +29,17 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
   const people = going.reduce((s, r) => s + Number(r.people), 0);
   const link = isNew ? '' : `${await siteBase().catch(() => '')}/c/${c.slug}`;
   const meals = [...(c.meals ?? []), { title: {}, points: {}, img: null }, { title: {}, points: {}, img: null }].slice(0, 8);
+  // The villa's weekly menu (dinner and breakfast), to pick a meal from instead of uploading one.
+  const choices: MenuChoice[] = [];
+  for (const meal of ['dinner', 'breakfast'] as const) {
+    const wk = await weeklyMenu(meal);
+    for (const d of WEEKDAYS) {
+      const m = wk[d.d];
+      if (!m || !(m.title.en || m.title.ar)) continue;
+      choices.push({ key: `${meal}:${d.d}`, group: meal === 'dinner' ? 'Dinner menu' : 'Breakfast menu', label: `${d.en} · ${m.title.en || m.title.ar}`,
+        titleAr: m.title.ar ?? '', titleEn: m.title.en ?? '', points: (m.description.en || m.description.ar || m.dishes.map((x) => x.en || x.ar).filter(Boolean).join('\n')) ?? '', img: m.img });
+    }
+  }
 
   return (
     <>
@@ -84,29 +97,9 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
               <p className="mt-1 text-xs text-slate-500">Untick «keep» to remove a photo. The first photo is the big one at the top.</p>
             </Card>
             <Card title="Meals of the night (optional)">
-              <p className="mb-3 text-xs text-slate-500">Shown like our menu: the photo in a gold frame, the name, and up to 6 points about it. Leave the name empty to skip.</p>
+              <p className="mb-3 text-xs text-slate-500">Pick one of Villa Layla’s weekly menu meals, or add a meal of its own (photo, name, up to 6 points). Shown like our menu, in a gold frame. Empty slots are skipped.</p>
               <div className="space-y-4">
-                {meals.map((m, i) => (
-                  <fieldset key={i} className="rounded-xl border border-cocoa-200 p-3">
-                    <legend className="px-1 text-sm font-semibold text-cocoa-800">Meal {i + 1}</legend>
-                    <input type="hidden" name={`m${i}_present`} value="1" />
-                    <input type="hidden" name={`m${i}_img`} value={m.img ?? ''} />
-                    <div className="grid gap-3 sm:grid-cols-[96px_1fr]">
-                      {m.img
-                        // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={m.img} alt="" className="aspect-square w-24 rounded-lg bg-black object-contain" />
-                        : <span className="grid aspect-square w-24 place-items-center rounded-lg bg-cocoa-50 text-xs text-slate-500">No photo</span>}
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <input name={`m${i}_titleAr`} dir="rtl" defaultValue={m.title.ar ?? ''} placeholder="اسم الوجبة" className={Input} aria-label="Meal name (Arabic)" />
-                        <input name={`m${i}_titleEn`} defaultValue={m.title.en ?? ''} placeholder="Meal name" className={Input} aria-label="Meal name (English)" />
-                        <textarea name={`m${i}_pointsAr`} dir="rtl" rows={4} defaultValue={m.points.ar ?? ''} placeholder={'نقطة في كل سطر'} className={Input} aria-label="Points (Arabic)" />
-                        <textarea name={`m${i}_pointsEn`} rows={4} defaultValue={m.points.en ?? ''} placeholder={'One point per line'} className={Input} aria-label="Points (English)" />
-                        <input name={`m${i}_photo`} type="file" accept="image/*" className={Input} aria-label="Meal photo" />
-                        {(m.title.ar || m.title.en) && <label className="flex items-center gap-2 text-sm text-red-700"><input type="checkbox" name={`m${i}_remove`} /> Remove this meal</label>}
-                      </div>
-                    </div>
-                  </fieldset>
-                ))}
+                {meals.map((m, i) => <MealSlot key={i} i={i} m={m as any} choices={choices} />)}
               </div>
             </Card>
           </div>

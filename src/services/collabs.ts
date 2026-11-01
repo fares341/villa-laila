@@ -10,7 +10,7 @@ import { BookingError } from './errors';
  * night, then a short form to say "I'm coming". Managed in Dashboard → Collab events.
  */
 export type Loc = { ar?: string; en?: string };
-export type CollabMeal = { title: Loc; points: Loc; img: string | null };
+export type CollabMeal = { title: Loc; points: Loc; img: string | null; from?: string | null };
 export type Collab = {
   id: string; slug: string; active: boolean; partner_name: string; partner_logo: string | null; partner_link: string | null;
   title: Loc; description: Loc; event_date: string | null; start_time: string | null; end_time: string | null; place: Loc; price_note: Loc;
@@ -65,7 +65,7 @@ export type CollabInput = {
   date?: string; startTime?: string; endTime?: string; placeAr?: string; placeEn?: string; priceAr?: string; priceEn?: string;
   capacity?: number | null; accent?: string; askEmail?: boolean; notifyEmails?: string;
   logo?: Upload | null; newPhotos?: Upload[]; keepPhotos?: string[];
-  meals?: { titleAr: string; titleEn: string; pointsAr: string; pointsEn: string; img: string | null; photo?: Upload | null; remove?: boolean }[];
+  meals?: { titleAr: string; titleEn: string; pointsAr: string; pointsEn: string; img: string | null; photo?: Upload | null; remove?: boolean; pick?: string }[];
 };
 
 const points = (s: unknown) => String(s ?? '').split(/\r?\n/).map((x) => x.trim().replace(/^[-•*·]\s*/, '').slice(0, 160)).filter(Boolean).slice(0, 6).join('\n');
@@ -87,6 +87,17 @@ export async function saveCollab(v: CollabInput, actor: string): Promise<string>
   const meals: CollabMeal[] = [];
   for (const m of v.meals ?? []) {
     if (m.remove) continue;
+    // A meal from the villa's weekly menu ("dinner:6" = Saturday dinner): its name, points and photo come from there.
+    const pk = /^(dinner|breakfast):([0-6])$/.exec(m.pick ?? '');
+    if (pk) {
+      const { weeklyMenu } = await import('./weekly-menu');
+      const d = (await weeklyMenu(pk[1] as 'dinner' | 'breakfast'))[Number(pk[2])];
+      if (d && (d.title.ar || d.title.en)) {
+        const pts = (x: 'ar' | 'en') => points(d.description[x] || d.dishes.map((y) => y[x] || '').filter(Boolean).join('\n'));
+        meals.push({ title: { ar: d.title.ar ?? '', en: d.title.en ?? '' }, points: { ar: pts('ar'), en: pts('en') }, img: d.img, from: m.pick });
+      }
+      continue;
+    }
     const t = { ar: clean(m.titleAr, 80), en: clean(m.titleEn, 80) };
     if (!t.ar && !t.en) continue;
     meals.push({ title: t, points: { ar: points(m.pointsAr), en: points(m.pointsEn) }, img: m.photo ? await savePhoto(m.photo) : m.img });

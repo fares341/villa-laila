@@ -24,6 +24,7 @@ export async function collabSaveAction(f: FormData) {
       meals.push({
         titleAr: S(f, `m${i}_titleAr`), titleEn: S(f, `m${i}_titleEn`), pointsAr: S(f, `m${i}_pointsAr`), pointsEn: S(f, `m${i}_pointsEn`),
         img: S(f, `m${i}_img`) || null, photo: await fileOf(f.get(`m${i}_photo`)), remove: f.get(`m${i}_remove`) === 'on',
+        pick: S(f, `m${i}_mode`) === 'menu' ? S(f, `m${i}_pick`) : '',
       });
     }
     const photos: Upload[] = [];

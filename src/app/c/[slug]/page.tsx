@@ -8,6 +8,7 @@ import { EventAbout } from '@/app/[lang]/events/[slug]/event-about';
 import { HeroMedia } from '@/app/[lang]/events/[slug]/hero-media';
 import { RsvpForm } from './rsvp-form';
 import { PhotoStrip } from './photo-strip';
+import { weeklyMenu } from '@/services/weekly-menu';
 import './collab.css';
 
 export const dynamic = 'force-dynamic';
@@ -50,7 +51,15 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
   // Each time kept whole (so Arabic "8:00 م" never gets split by the direction of the line).
   const hoursEl = hoursList.map((h, i) => <React.Fragment key={i}>{i > 0 && ' – '}<bdi>{h}</bdi></React.Fragment>);
   const title = t(c.title, ar);
-  const meals = c.meals.filter((m) => t(m.title, ar));
+  // Meals picked from the villa's weekly menu follow the menu (its current photo, name and points).
+  const menus = c.meals.some((m) => m.from) ? { dinner: await weeklyMenu('dinner'), breakfast: await weeklyMenu('breakfast') } : null;
+  const meals = c.meals.map((m) => {
+    const pk = m.from ? /^(dinner|breakfast):([0-6])$/.exec(m.from) : null;
+    const d = pk && menus ? menus[pk[1] as 'dinner' | 'breakfast'][Number(pk[2])] : null;
+    if (!d || !(d.title.ar || d.title.en)) return m;
+    const pts = (x: 'ar' | 'en') => (d.description[x] || d.dishes.map((y) => y[x] || '').filter(Boolean).join('\n')).split(/\r?\n/).map((l) => l.trim().replace(/^[-•*·]\s*/, '')).filter(Boolean).slice(0, 6).join('\n');
+    return { ...m, title: d.title, points: { ar: pts('ar'), en: pts('en') }, img: d.img ?? m.img };
+  }).filter((m) => t(m.title, ar));
   const place = t(c.place, ar);
   const cal = c.event_date ? (() => {
     const d = c.event_date!.replace(/-/g, '');
