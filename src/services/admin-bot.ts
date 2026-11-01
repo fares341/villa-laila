@@ -593,3 +593,12 @@ export async function testAdminBot(): Promise<string> {
   }
   return me.username;
 }
+
+/** Someone signed up on a collab event page. */
+export async function notifyCollabRsvp(r: { full_name: string; phone: string; people: number; note?: string | null }, c: { partner_name: string; title: { ar?: string; en?: string }; event_date: string | null }, updated: boolean) {
+  await toAll([
+    `${updated ? '✏️ عدّل تسجيله' : '🎟 تسجيل جديد'} · ${c.title.ar || c.title.en} × ${c.partner_name}${c.event_date ? ` (${c.event_date})` : ''}`,
+    `${r.full_name} · ${r.phone} · ${r.people} فرد`,
+    r.note ? `ملاحظة: ${r.note}` : '',
+  ].filter(Boolean).join('\n'));
+}

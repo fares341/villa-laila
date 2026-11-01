@@ -32,6 +32,7 @@ const NAV: [string, NavItem[]][] = [
     { href: '/pos', label: 'Point of Sale', perm: 'pos.use', icon: 'shopping-cart', external: true },
     { href: '/dashboard/catalog', label: 'Products & tours', perm: 'inventory.manage', icon: 'package', count: 'lowstock', match: ['/dashboard/tours'] },
     { href: '/dashboard/events', label: 'Events', perm: 'events.bookings', icon: 'ticket' },
+    { href: '/dashboard/collabs', label: 'Collab events', perm: 'events.bookings', icon: 'users' },
   ]],
   ['Money', [
     { href: '/dashboard/shift-reports', label: 'Shifts & cash', perm: 'reports.view', icon: 'receipt', count: 'shortages' },
