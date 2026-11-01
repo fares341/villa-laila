@@ -8,6 +8,8 @@ import { BookingError } from './errors';
  * meal on the booking (Telegram / dashboard).
  */
 export type Loc = { ar?: string; en?: string };
+export type Meal = 'dinner' | 'breakfast';
+export const mealOf = (x: unknown): Meal => (x === 'breakfast' ? 'breakfast' : 'dinner');
 export type DayMenu = { weekday: number; title: Loc; dishes: Loc[]; description: Loc; img: string | null };
 
 export const WEEKDAYS: { d: number; en: string; ar: string }[] = [
@@ -20,11 +22,13 @@ export const weekdayOf = (date: string) => new Date(date + 'T12:00:00Z').getUTCD
 
 const MAX_PHOTO = 8 * 1024 * 1024;
 const clean = (s: unknown, max: number) => String(s ?? '').trim().slice(0, max);
+/** The meal's description: up to 6 short points, one per line. */
+const points = (s: unknown) => String(s ?? '').split(/\r?\n/).map((x) => x.trim().replace(/^[-•*·]\s*/, '').slice(0, 160)).filter(Boolean).slice(0, 6).join('\n');
 const lines = (s: unknown) => String(s ?? '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean).slice(0, 12);
 
 const toDay = (r: any): DayMenu => {
   const v = new Date(r.updated_at).getTime();
-  let img = r.has_photo ? `/api/media/menu/${r.weekday}?v=${v}` : r.image_url ?? null;
+  let img = r.has_photo ? `/api/media/menu/${r.weekday}?meal=${r.meal ?? 'dinner'}&v=${v}` : r.image_url ?? null;
   if (img && !img.includes('?')) {
     img = `${img}?v=${v}`;
   }
@@ -38,15 +42,15 @@ const toDay = (r: any): DayMenu => {
 };
 
 /** The meal of each weekday (null = nothing set for that day). */
-export async function weeklyMenu(): Promise<Record<number, DayMenu | null>> {
-  const rows = await q<any>(`SELECT weekday, title, dishes, description, image_url, (photo IS NOT NULL) has_photo, updated_at FROM weekly_menu`).catch(() => []);
+export async function weeklyMenu(meal: Meal = 'dinner'): Promise<Record<number, DayMenu | null>> {
+  const rows = await q<any>(`SELECT meal, weekday, title, dishes, description, image_url, (photo IS NOT NULL) has_photo, updated_at FROM weekly_menu WHERE meal=$1`, [meal]).catch(() => []);
   const out: Record<number, DayMenu | null> = { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null, 6: null };
   for (const r of rows) out[r.weekday] = toDay(r);
   return out;
 }
 
-export async function menuForDate(date: string): Promise<DayMenu | null> {
-  return (await weeklyMenu())[weekdayOf(date)] ?? null;
+export async function menuForDate(date: string, meal: Meal = 'dinner'): Promise<DayMenu | null> {
+  return (await weeklyMenu(meal))[weekdayOf(date)] ?? null;
 }
 
 /** One line for the kitchen: "طاجن لحمة بالبصل: أرز بالشعرية، شوربة، سلطة". */
@@ -66,7 +70,7 @@ function checkPhoto(photo: { bytes: Buffer; mime: string } | null | undefined) {
 }
 
 /** Save the meal of one weekday. Dishes are one per line (Arabic and English lines are paired in order). */
-export async function saveDay(weekday: number, input: { titleAr: string; titleEn: string; dishesAr: string; dishesEn: string; descAr?: string; descEn?: string; photo?: { bytes: Buffer; mime: string } | null; imageUrl?: string | null }, actor: string) {
+export async function saveDay(weekday: number, input: { titleAr: string; titleEn: string; dishesAr: string; dishesEn: string; descAr?: string; descEn?: string; photo?: { bytes: Buffer; mime: string } | null; imageUrl?: string | null }, actor: string, meal: Meal = 'dinner') {
   if (!(Number.isInteger(weekday) && weekday >= 0 && weekday <= 6)) throw new BookingError('INVALID_INPUT', 'day');
   const title = { ar: clean(input.titleAr, 80), en: clean(input.titleEn, 80) };
   const ar = lines(input.dishesAr), en = lines(input.dishesEn);
@@ -74,30 +78,30 @@ export async function saveDay(weekday: number, input: { titleAr: string; titleEn
   if (!title.ar && !title.en && !dishes.length) throw new BookingError('INVALID_INPUT', 'Write the meal name or its dishes');
   const photo = checkPhoto(input.photo);
   const url = input.imageUrl && /^(https?:\/\/|\/)/.test(input.imageUrl.trim()) ? input.imageUrl.trim().slice(0, 400) : null;
-  await q(`INSERT INTO weekly_menu(weekday, title, dishes, description, photo, photo_mime, image_url, updated_at)
-           VALUES($1,$2,$3,$4,$5,$6,$7,now())
-           ON CONFLICT (weekday) DO UPDATE SET title=EXCLUDED.title, dishes=EXCLUDED.dishes, description=EXCLUDED.description,
+  await q(`INSERT INTO weekly_menu(weekday, title, dishes, description, photo, photo_mime, image_url, updated_at, meal)
+           VALUES($1,$2,$3,$4,$5,$6,$7,now(),$8)
+           ON CONFLICT (meal, weekday) DO UPDATE SET title=EXCLUDED.title, dishes=EXCLUDED.dishes, description=EXCLUDED.description,
              photo=COALESCE(EXCLUDED.photo, CASE WHEN EXCLUDED.image_url IS NOT NULL THEN NULL ELSE weekly_menu.photo END),
              photo_mime=COALESCE(EXCLUDED.photo_mime, CASE WHEN EXCLUDED.image_url IS NOT NULL THEN NULL ELSE weekly_menu.photo_mime END),
              image_url=COALESCE(EXCLUDED.image_url, CASE WHEN EXCLUDED.photo IS NOT NULL THEN NULL ELSE weekly_menu.image_url END),
              updated_at=now()`,
-    [weekday, JSON.stringify(title), JSON.stringify(dishes), JSON.stringify({ ar: clean(input.descAr, 300), en: clean(input.descEn, 300) }), photo?.bytes ?? null, photo?.mime ?? null, url]);
-  await audit(actor, 'menu.save_day', 'weekly_menu', null, { weekday, title });
+    [weekday, JSON.stringify(title), JSON.stringify(dishes), JSON.stringify({ ar: points(input.descAr), en: points(input.descEn) }), photo?.bytes ?? null, photo?.mime ?? null, url, meal]);
+  await audit(actor, 'menu.save_day', 'weekly_menu', null, { weekday, title, meal });
 }
 
-export async function clearDay(weekday: number, actor: string) {
-  await q(`DELETE FROM weekly_menu WHERE weekday=$1`, [weekday]);
-  await audit(actor, 'menu.clear_day', 'weekly_menu', null, { weekday });
+export async function clearDay(weekday: number, actor: string, meal: Meal = 'dinner') {
+  await q(`DELETE FROM weekly_menu WHERE weekday=$1 AND meal=$2`, [weekday, meal]);
+  await audit(actor, 'menu.clear_day', 'weekly_menu', null, { weekday, meal });
 }
 
 /** Copy one day's meal to other days (replaces theirs). */
-export async function copyDay(from: number, to: number[], actor: string) {
+export async function copyDay(from: number, to: number[], actor: string, meal: Meal = 'dinner') {
   const days = to.filter((d) => Number.isInteger(d) && d !== from && d >= 0 && d <= 6);
   for (const d of days) {
-    await q(`INSERT INTO weekly_menu(weekday, title, dishes, description, photo, photo_mime, image_url, updated_at)
-             SELECT $2, title, dishes, description, photo, photo_mime, image_url, now() FROM weekly_menu WHERE weekday=$1
-             ON CONFLICT (weekday) DO UPDATE SET title=EXCLUDED.title, dishes=EXCLUDED.dishes, description=EXCLUDED.description,
-               photo=EXCLUDED.photo, photo_mime=EXCLUDED.photo_mime, image_url=EXCLUDED.image_url, updated_at=now()`, [from, d]);
+    await q(`INSERT INTO weekly_menu(weekday, title, dishes, description, photo, photo_mime, image_url, updated_at, meal)
+             SELECT $2, title, dishes, description, photo, photo_mime, image_url, now(), meal FROM weekly_menu WHERE weekday=$1 AND meal=$3
+             ON CONFLICT (meal, weekday) DO UPDATE SET title=EXCLUDED.title, dishes=EXCLUDED.dishes, description=EXCLUDED.description,
+               photo=EXCLUDED.photo, photo_mime=EXCLUDED.photo_mime, image_url=EXCLUDED.image_url, updated_at=now()`, [from, d, meal]);
   }
   await audit(actor, 'menu.copy_day', 'weekly_menu', null, { from, to: days });
 }
@@ -117,7 +121,7 @@ export type MenuImportDay = { day: string | number; title_ar?: string; title_en?
  * Arabic), 0–6 (0 = Sunday), or a date YYYY-MM-DD (its weekday). `image` is a link (downloaded and stored) or a
  * path in /public.
  */
-export async function importMenu(days: MenuImportDay[], actor: string): Promise<{ days: number; imageErrors: string[] }> {
+export async function importMenu(days: MenuImportDay[], actor: string, meal: Meal = 'dinner'): Promise<{ days: number; imageErrors: string[] }> {
   if (!Array.isArray(days) || !days.length) throw new BookingError('INVALID_INPUT', 'The file has no days');
   const imageErrors: string[] = [];
   let n = 0;
@@ -141,7 +145,7 @@ export async function importMenu(days: MenuImportDay[], actor: string): Promise<
       titleAr: d.title_ar ?? '', titleEn: d.title_en ?? '',
       dishesAr: (d.dishes ?? []).map((x) => x.ar ?? '').join('\n'), dishesEn: (d.dishes ?? []).map((x) => x.en ?? '').join('\n'),
       descAr: d.desc_ar, descEn: d.desc_en, photo, imageUrl,
-    }, actor);
+    }, actor, meal);
     n++;
   }
   return { days: n, imageErrors };

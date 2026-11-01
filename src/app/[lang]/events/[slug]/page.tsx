@@ -4,7 +4,7 @@ import { WeekMenuCard } from './week-menu';
 import type { Metadata } from 'next';
 import { isSiteLang } from '@/i18n/site';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs } from '@/components/claude-shell';
-import { getPublicEvent, seatsLeft, tr, eventMedia } from '@/services/events';
+import { getPublicEvent, seatsLeft, tr, eventMedia, listPublicEvents, guestModeOf } from '@/services/events';
 import { getWallets } from '@/services/wallets';
 import { toEmbed } from '@/content/videos';
 import { MealGallery } from './meal-gallery';
@@ -30,13 +30,16 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
 }
 
 const ERR: Record<string, { en: string; ar: string }> = {
+  'invalid_input:attendees': { en: 'Write the name and phone of every person coming with you.', ar: 'اكتب اسم ورقم موبايل كل فرد جاي معاك.' },
+  'invalid_input:pwyw': { en: 'Write how much you would like to pay for the tickets.', ar: 'اكتب المبلغ اللي حابب تدفعه للتذاكر.' },
+  'invalid_input:addon_date': { en: 'The extra event isn’t on that day. Pick another day or untick it.', ar: 'الإيفنت الإضافي مش موجود في اليوم ده. اختار يوم تاني أو شيله.' },
+  'no_availability:addon': { en: 'There aren’t enough places left in the extra event on that day.', ar: 'الإيفنت الإضافي مفيهوش أماكن كفاية في اليوم ده.' },
   no_availability: { en: 'Sorry, there aren’t enough places left on that date. Pick another date or fewer tickets.', ar: 'عذرًا، الأماكن المتبقية في هذا اليوم لا تكفي. اختر يومًا آخر أو عددًا أقل.' },
   invalid_dates: { en: 'That date is no longer available. Please pick another one.', ar: 'هذا اليوم لم يعد متاحًا. اختر يومًا آخر.' },
   'invalid_input:stay_reference': { en: 'We couldn’t find a stay with that booking reference on this date. Check it, or book at the regular price.', ar: 'لم نجد حجز إقامة بهذا الرقم في هذا اليوم. راجع الرقم أو احجز بالسعر العادي.' },
   'invalid_input:option': { en: 'Please choose an option.', ar: 'من فضلك اختر نوعًا.' },
   'invalid_input:pay_method': { en: 'That payment method isn’t available right now. Choose another one.', ar: 'طريقة الدفع هذه غير متاحة الآن. اختر طريقة أخرى.' },
   pwyw: { en: 'Write how much you want to pay for the tickets (a number, 0 or more).', ar: 'اكتب المبلغ اللي حابب تدفعه للتذاكر (رقم، صفر أو أكتر).' },
-  'invalid_input:pwyw': { en: 'That amount is too large. Please check it.', ar: 'المبلغ كبير جدًا، راجعه من فضلك.' },
   invalid_input: { en: 'Please check your details and try again.', ar: 'راجع بياناتك وحاول مرة أخرى.' },
   rate_limit: { en: 'Too many attempts. Please wait a few minutes and try again.', ar: 'محاولات كثيرة. انتظر دقائق وحاول مرة أخرى.' },
   generic: { en: 'Something went wrong. Please try again or message us on WhatsApp.', ar: 'حدث خطأ. حاول مرة أخرى أو راسلنا على واتساب.' },
@@ -65,7 +68,19 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   });
   const initialDate = sp.date && dates.some((d) => d.date === sp.date && d.left !== 0) ? sp.date : dates.find((d) => d.left !== 0)?.date ?? '';
   // The weekly menu: for the dinner add-on, and for a dinner event that shows its food photos.
-  const menu = ev.dinner_cents || meals.length ? await weeklyMenu() : {};
+  // Which weekly menu: set on the event, else dinner when it has the dinner add-on or meal photos.
+  const menuKind = ev.menu_kind ?? (ev.dinner_cents || meals.length ? 'dinner' : /breakfast|فطار|فطور/i.test(`${ev.slug} ${tr(ev.title, 'en')}`) ? 'breakfast' : 'none');
+  const menu = menuKind === 'none' ? {} : await weeklyMenu(menuKind);
+  // Other events that can be added the same day (only the dates they happen on, with seats left).
+  const addonRows = (ev.addon_event_ids ?? []).length ? (await listPublicEvents()).filter((x) => (ev.addon_event_ids ?? []).includes(x.id)) : [];
+  const addons = await Promise.all(addonRows.map(async (a) => {
+    const l = await seatsLeft(a);
+    return {
+      id: a.id, title: tr(a.title, lang), priceCents: Number(a.price_cents), guestMode: guestModeOf(a), guestPriceCents: a.guest_price_cents == null ? null : Number(a.guest_price_cents),
+      time: `${timeLabel(a.start_time, lang)} – ${timeLabel(a.end_time, lang)}`,
+      left: Object.fromEntries(a.dates.slice(0, 30).map((d) => [d, a.capacity == null ? null : l[d] ?? 0])),
+    };
+  }));
   const hasMenu = Object.values(menu).some(Boolean);
   const errMsg = sp.error ? L(ERR[sp.error] ?? ERR[sp.error.split(':')[0]] ?? ERR.generic) : null;
   const schedule = scheduleLabel(ev, lang, (d) => dateLabel(d, lang, { weekday: 'long', day: 'numeric', month: 'long' }));
@@ -159,6 +174,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 menu={menu}
                 currency={ev.currency}
                 view={view}
+                guestMode={guestModeOf(ev)}
+                addons={addons}
                 methods={ev.methods}
                 wallets={{
                   instapay: { address: wallets.instapay.address, phone: wallets.instapay.phone, name: wallets.instapay.name, link: wallets.instapay.link },

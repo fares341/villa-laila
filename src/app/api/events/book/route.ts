@@ -8,6 +8,16 @@ import { notifyNewEventBooking } from '@/services/admin-bot';
 import { isSiteLang } from '@/i18n/site';
 import { BookingError } from '@/services/errors';
 
+/** Name + phone of each extra person, from att_name_N / att_phone_N. */
+const attendeesOf = (raw: Record<string, any>) => {
+  const out: { name: string; phone: string }[] = [];
+  for (let i = 1; i <= 19; i++) {
+    if (raw[`att_name_${i}`] == null && raw[`att_phone_${i}`] == null) continue;
+    out.push({ name: String(raw[`att_name_${i}`] ?? '').trim(), phone: String(raw[`att_phone_${i}`] ?? '').trim() });
+  }
+  return out;
+};
+
 const schema = z.object({
   lang: z.string().default('ar'),
   slug: z.string().min(1).max(80),
@@ -53,8 +63,11 @@ export async function POST(req: NextRequest) {
     let pwywOfferCents: number | null = null;
     if (isGuest) {
       const n = Number(String(v.pwyw ?? '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[,\s]/g, ''));
-      if (!v.pwyw || !Number.isFinite(n) || n < 0 || n > 100000) return NextResponse.json({ ok: false, error: 'pwyw' }, { status: 400 });
-      pwywOfferCents = Math.round(n * 100);
+      // Required only when the event is pay-what-you-want (the booking service checks it).
+      if (v.pwyw) {
+        if (!Number.isFinite(n) || n < 0 || n > 100000) return NextResponse.json({ ok: false, error: 'pwyw' }, { status: 400 });
+        pwywOfferCents = Math.round(n * 100);
+      }
     }
 
     const lang = isSiteLang(v.lang) ? v.lang : 'ar';
@@ -73,6 +86,8 @@ export async function POST(req: NextRequest) {
       phone: v.phone || null,
       language: lang,
       payMethod: v.payMethod,
+      attendees: attendeesOf(raw), requireAttendees: true,
+      addonEventId: typeof raw.addon === 'string' && /^[0-9a-f-]{36}$/i.test(raw.addon) ? raw.addon : null,
     });
 
     await notifyNewEventBooking(booking.id).catch((e) => console.error('[admin bot]', e));

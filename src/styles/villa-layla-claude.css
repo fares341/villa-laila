@@ -1855,3 +1855,16 @@ html.vl-mt body { top: 0 !important; position: static !important; }
   .wk-day img, .wk-noimg { width: 92px; height: 92px; }
   .wk-go { grid-column: 1 / -1; text-align: center; }
 }
+.evmeal-pts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; width: 100%; max-width: 420px; text-align: start; }
+.evmeal-pts li { position: relative; padding-inline-start: 22px; font-size: 14.5px; line-height: 1.55; color: var(--color-text, #2F2925); }
+.evmeal-pts li::before { content: ""; position: absolute; inset-inline-start: 4px; top: .62em; width: 7px; height: 7px; transform: rotate(45deg); background: var(--color-gold, #D29A45); border-radius: 1px; }
+/* Event booking: name + phone of each extra person */
+.evb-people { display: grid; gap: 8px; margin-top: 4px; }
+.evb-person { display: grid; grid-template-columns: 28px 1fr 1fr; gap: 8px; align-items: center; }
+.evb-person-n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--color-sand, #F4ECE0); font-size: 12.5px; font-weight: 800; color: var(--color-primary-dark, #4A3222); }
+.evb-person input { min-width: 0; height: 46px; padding: 0 12px; border: 1.5px solid var(--color-border, #E6DACA); border-radius: 12px; background: #fff; font: inherit; }
+.evb-person input:focus { outline: none; border-color: var(--color-gold, #D29A45); }
+@media (max-width: 420px) { .evb-person { grid-template-columns: 26px 1fr; } .evb-person input + input { grid-column: 2; } }
+.evb-addon-t small { display: block; font-size: 12px; font-weight: 500; opacity: .75; }
+.evmeal.wk .wk-cover.noimg { display: grid; gap: 10px; justify-items: center; padding: 18px 12px; border-radius: 14px; background: #2F2925; }
+.evmeal.wk .wk-cover.noimg .wk-badge, .evmeal.wk .wk-cover.noimg .wk-cta { position: static; }

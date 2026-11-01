@@ -22,13 +22,25 @@ export function withLinks(text: string): React.ReactNode {
     return <a key={i} href={b} target="_blank" rel="noopener noreferrer" className="evd-link" dir="ltr">{label}</a>;
   });
 }
+/** Text with the description's marks: **bold**, _italic_ (from the dashboard toolbar), and links. */
+export function rich(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*\n]+\*\*|(?<![\w])_[^_\n]+_(?![\w]))/u);
+  if (parts.length === 1) return withLinks(text);
+  return parts.map((p, i) => {
+    if (/^\*\*[^*]+\*\*$/.test(p)) return <strong key={i}>{withLinks(p.slice(2, -2))}</strong>;
+    if (/^_[^_]+_$/.test(p)) return <em key={i}>{withLinks(p.slice(1, -1))}</em>;
+    return <React.Fragment key={i}>{withLinks(p)}</React.Fragment>;
+  });
+}
+
 export function aboutParts(text: string): AboutPart[] {
   const out: AboutPart[] = [];
   for (const raw of text.replace(/\r/g, '').split('\n')) {
     const line = raw.trim();
     const last = out[out.length - 1];
     if (!line) { out.push({ kind: 'p', text: '' }); continue; }
-    if (BULLET.test(line)) {
+    if (/^#{1,3}\s+/.test(line)) { out.push({ kind: 'h', text: line.replace(/^#{1,3}\s+/, '') }); continue; }
+    if (BULLET.test(line) && !line.startsWith('**')) {
       const em = line.match(EMOJI);
       const icon = em && !MARK.test(line) ? em[1] : undefined;
       const item = line.replace(BULLET, '').trim();
@@ -76,17 +88,17 @@ export function EventAbout({ text, includes, note, isAr }: { text: string; inclu
   return (
     <section className="evd-about" aria-labelledby="aboutH">
       <h2 id="aboutH" className="evd-about-k">{isAr ? 'عن الفعالية' : 'About the event'}</h2>
-      {tag && <p className="evd-about-tag">{withLinks(tag)}</p>}
+      {tag && <p className="evd-about-tag">{rich(tag)}</p>}
       {rest.length > 0 && (
         <div className="evd-about-body">
           {rest.map((x, i) => {
             if (x.kind === 'h') return <h3 key={i}>{x.text}</h3>;
             if (x.kind === 'ul') return (
               <ul key={i} className="evd-about-list">
-                {x.items.map((it, j) => <li key={j} className={it.icon ? 'ic' : undefined}>{it.icon && <span className="evd-about-ic" aria-hidden>{it.icon}</span>}<span>{withLinks(it.text)}</span></li>)}
+                {x.items.map((it, j) => <li key={j} className={it.icon ? 'ic' : undefined}>{it.icon && <span className="evd-about-ic" aria-hidden>{it.icon}</span>}<span>{rich(it.text)}</span></li>)}
               </ul>
             );
-            return <p key={i}>{withLinks(x.text)}</p>;
+            return <p key={i}>{rich(x.text)}</p>;
           })}
         </div>
       )}
@@ -95,7 +107,7 @@ export function EventAbout({ text, includes, note, isAr }: { text: string; inclu
           <h3>{isAr ? 'التذكرة تشمل' : 'Your ticket includes'}</h3>
           <ul>
             {includes.map((x, i) => (
-              <li key={i}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden><path d="m5 12 5 5 9-10" /></svg>{withLinks(x)}</li>
+              <li key={i}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden><path d="m5 12 5 5 9-10" /></svg>{rich(x)}</li>
             ))}
           </ul>
         </div>
@@ -103,7 +115,7 @@ export function EventAbout({ text, includes, note, isAr }: { text: string; inclu
       {note && (
         <p className="evd-about-note">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
-          <span>{withLinks(note)}</span>
+          <span>{rich(note)}</span>
         </p>
       )}
     </section>

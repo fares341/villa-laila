@@ -11,6 +11,16 @@ import { notifyNewEventBooking, notifyWalletProof } from '@/services/admin-bot';
 import { isWallet } from '@/services/wallets';
 import { BookingError } from '@/services/errors';
 
+/** Name + phone of each extra person, from att_name_N / att_phone_N. */
+const attendeesOf = (raw: Record<string, any>) => {
+  const out: { name: string; phone: string }[] = [];
+  for (let i = 1; i <= 19; i++) {
+    if (raw[`att_name_${i}`] == null && raw[`att_phone_${i}`] == null) continue;
+    out.push({ name: String(raw[`att_name_${i}`] ?? '').trim(), phone: String(raw[`att_phone_${i}`] ?? '').trim() });
+  }
+  return out;
+};
+
 const schema = z.object({
   lang: z.string(), slug: z.string().min(1).max(80), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   quantity: z.coerce.number().int().min(1).max(20), option: z.string().max(40).optional(),
@@ -41,8 +51,10 @@ export async function bookEventAction(formData: FormData) {
   let pwywOfferCents: number | null = null;
   if (v.hotelGuest === 'on') {
     const n = Number(String(v.pwyw ?? '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[,\s]/g, ''));
-    if (!v.pwyw || !Number.isFinite(n) || n < 0 || n > 100000) return back('pwyw');
-    pwywOfferCents = Math.round(n * 100);
+    if (v.pwyw) {
+      if (!Number.isFinite(n) || n < 0 || n > 100000) return back('pwyw');
+      pwywOfferCents = Math.round(n * 100);
+    }
   }
   let code: string;
   let bookingId: string;
@@ -51,6 +63,7 @@ export async function bookEventAction(formData: FormData) {
       slug: v.slug, date: v.date, quantity: v.quantity, optionKey: v.option || null,
       isHotelGuest: v.hotelGuest === 'on', stayReference: v.stayRef || null, pwywOfferCents, dinner: v.dinner === 'on',
       fullName: v.fullName, email: v.email, phone: v.phone || null, language: lang, payMethod: v.payMethod,
+      attendees: attendeesOf(raw), requireAttendees: true, addonEventId: /^[0-9a-f-]{36}$/i.test(raw.addon || '') ? raw.addon : null,
     });
     code = booking.ticket_code;
     bookingId = booking.id;

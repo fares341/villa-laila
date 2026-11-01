@@ -16,7 +16,16 @@ export type EventRow = Schedule & {
   id: string; slug: string; title: Loc; summary: Loc; description: Loc; includes: Loc[]; image: string | null;
   price_cents: number; guest_price_cents: number | null; deposit_cents?: number | null; dinner_cents?: number | null; currency: string;
   capacity: number | null; options: EventOption[]; pay_methods: PayMethod[]; note: Loc; active: boolean; sort_order: number;
+  /** Villa guests: pay what they want (pwyw), a fixed price (guest_price_cents), or no villa-guest option (none). */
+  guest_mode?: GuestMode;
+  /** Other events the guest can add on the same day. */
+  addon_event_ids?: string[];
+  /** Which weekly menu the page shows: dinner, breakfast, none; null = automatic. */
+  menu_kind?: 'dinner' | 'breakfast' | 'none' | null;
 };
+export type GuestMode = 'pwyw' | 'fixed' | 'none';
+export const guestModeOf = (e: Pick<EventRow, 'guest_mode' | 'guest_price_cents'>): GuestMode =>
+  e.guest_mode === 'none' ? 'none' : e.guest_mode === 'fixed' && e.guest_price_cents != null ? 'fixed' : 'pwyw';
 
 export type PublicEvent = EventRow & { dates: string[]; nextDate: string | null; methods: PayMethod[]; soldOut?: boolean; seatsLeftNext?: number | null };
 
@@ -83,12 +92,12 @@ export async function getPublicEvent(slug: string): Promise<PublicEvent | null> 
 
 /** Every column except the image bytes. */
 export const EVENT_COLS = `id, slug, title, summary, description, includes, image, price_cents, guest_price_cents, deposit_cents, dinner_cents, currency, start_time, end_time, recurrence, weekdays,
-  once_date, ends_on, capacity, options, pay_methods, note, active, sort_order, cost_per_attendee_cents, kind, (image_bytes IS NOT NULL) has_upload`;
+  once_date, ends_on, capacity, options, pay_methods, note, active, sort_order, cost_per_attendee_cents, kind, guest_mode, addon_event_ids, menu_kind, (image_bytes IS NOT NULL) has_upload`;
 
 const HELD = `(status IN ('paid','pending_verification','pay_on_site') OR (status='awaiting_payment' AND (hold_expires_at IS NULL OR hold_expires_at > now())))`;
 
 export async function seatsTaken(c: Q, eventId: string, date: string): Promise<number> {
-  const r = await c.query(`SELECT COALESCE(sum(quantity),0)::int n FROM event_bookings WHERE event_id=$1 AND event_date=$2 AND ${HELD}`, [eventId, date]);
+  const r = await c.query(`SELECT COALESCE(sum(quantity),0)::int n FROM event_bookings WHERE (event_id=$1 OR addon_event_id=$1) AND event_date=$2 AND ${HELD}`, [eventId, date]);
   return r.rows[0].n as number;
 }
 
@@ -97,7 +106,7 @@ export async function seatsLeft(ev: PublicEvent): Promise<Record<string, number 
   const out: Record<string, number | null> = {};
   if (ev.capacity == null) { for (const d of ev.dates) out[d] = null; return out; }
   const rows = await q<{ event_date: string; n: number }>(
-    `SELECT event_date, COALESCE(sum(quantity),0)::int n FROM event_bookings WHERE event_id=$1 AND event_date = ANY($2::date[]) AND ${HELD} GROUP BY event_date`,
+    `SELECT event_date, COALESCE(sum(quantity),0)::int n FROM event_bookings WHERE (event_id=$1 OR addon_event_id=$1) AND event_date = ANY($2::date[]) AND ${HELD} GROUP BY event_date`,
     [ev.id, ev.dates]);
   const taken = new Map(rows.map((r) => [r.event_date, r.n]));
   for (const d of ev.dates) out[d] = Math.max(0, ev.capacity - (taken.get(d) ?? 0));
@@ -107,6 +116,12 @@ export async function seatsLeft(ev: PublicEvent): Promise<Record<string, number 
 export type EventBookingInput = {
   slug: string; date: string; quantity: number; optionKey?: string | null;
   isHotelGuest?: boolean; stayReference?: string | null; pwywOfferCents?: number | null;
+  /** Name and phone of each person after the first (the booker). */
+  attendees?: { name: string; phone: string }[];
+  /** The website asks a name and phone for every person after the first. */
+  requireAttendees?: boolean;
+  /** Another event on the same day, added to this booking. */
+  addonEventId?: string | null;
   /** Optional add-on: home-cooked dinner by the pool, per person (only when the event offers it). */
   dinner?: boolean;
   fullName: string; email: string; phone?: string | null; language: string; payMethod: PayMethod;
@@ -135,19 +150,39 @@ export async function createEventBooking(input: EventBookingInput) {
       optionKey = opt.key;
     }
 
-    // Hostel guests: pay what you want for the ticket, at the villa. Only the dinner add-on, if chosen, has a (full) price.
+    // Villa guests (when the event offers it): pay what they want, or the event's guest price, at the villa.
+    // Only the dinner add-on, if chosen, keeps its full price.
+    const mode = guestModeOf(ev);
     let unit = ev.price_cents;
     let isGuest = false;
     let stayRef: string | null = null;
     // No booking reference needed for now: the guest just ticks it and leaves name and phone; reception checks at the villa.
-    if (input.isHotelGuest) {
+    if (input.isHotelGuest && mode !== 'none') {
       stayRef = (input.stayReference || '').trim().toUpperCase().slice(0, 20) || null;
-      unit = 0;
+      unit = mode === 'fixed' ? Number(ev.guest_price_cents) : 0;
       isGuest = true;
     }
     // What the guest says they will pay for the tickets (a note for reception; the money is taken on the POS).
-    const offer = isGuest && input.pwywOfferCents != null && Number.isFinite(input.pwywOfferCents) ? Math.max(0, Math.round(input.pwywOfferCents)) : null;
+    const offer = isGuest && mode === 'pwyw' && input.pwywOfferCents != null && Number.isFinite(input.pwywOfferCents) ? Math.max(0, Math.round(input.pwywOfferCents)) : null;
     if (offer != null && offer > 100_000_00) throw new BookingError('INVALID_INPUT', 'pwyw');
+    if (isGuest && mode === 'pwyw' && offer == null) throw new BookingError('INVALID_INPUT', 'pwyw');
+
+    // Every person after the first: name and phone (the booker is person 1).
+    const attendees = (input.attendees ?? []).slice(0, qty - 1).map((a) => ({ name: String(a.name ?? '').trim().slice(0, 80), phone: String(a.phone ?? '').trim().slice(0, 30) }));
+    if (input.requireAttendees && qty > 1 && (attendees.length < qty - 1 || attendees.some((a) => a.name.length < 2 || a.phone.replace(/\D/g, '').length < 6))) throw new BookingError('INVALID_INPUT', 'attendees');
+
+    // Another event the same day, added to this booking (same people). Its seats are held with this booking.
+    let addon: EventRow | null = null;
+    let addonEach = 0;
+    if (input.addonEventId) {
+      if (!(ev.addon_event_ids ?? []).includes(input.addonEventId)) throw new BookingError('INVALID_INPUT', 'addon');
+      addon = (await c.query(`SELECT ${EVENT_COLS} FROM events WHERE id=$1 AND active`, [input.addonEventId])).rows[0] ?? null;
+      if (!addon || !isBookableDate(addon, input.date)) throw new BookingError('INVALID_INPUT', 'addon_date');
+      const am = guestModeOf(addon);
+      addonEach = isGuest && am === 'pwyw' ? 0 : isGuest && am === 'fixed' ? Number(addon.guest_price_cents) : Number(addon.price_cents);
+      await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['ev:' + addon.id + ':' + input.date]);
+      if (addon.capacity != null && (await seatsTaken(c as unknown as Q, addon.id, input.date)) + qty > addon.capacity) throw new BookingError('NO_AVAILABILITY', 'addon');
+    }
 
     await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['ev:' + ev.id + ':' + input.date]);
     if (ev.capacity != null) {
@@ -157,7 +192,7 @@ export async function createEventBooking(input: EventBookingInput) {
 
     // Dinner add-on: (ticket + dinner) × people. The ticket price stays in unit_price_cents; dinner is kept apart for the kitchen.
     const dinnerEach = input.dinner && ev.dinner_cents != null && Number(ev.dinner_cents) > 0 ? Number(ev.dinner_cents) : 0;
-    const total = (unit + dinnerEach) * qty;
+    const total = (unit + dinnerEach + addonEach) * qty;
     const status = input.payMethod === 'cash' || total === 0 || isGuest ? 'pay_on_site' : 'awaiting_payment';
     // Deposit events: InstaPay / Vodafone Cash ask only the deposit now; the rest is paid at the villa (POS).
     const deposit = !isGuest && ev.deposit_cents && (input.payMethod === 'instapay' || input.payMethod === 'vodafone_cash') ? Math.min(total, Number(ev.deposit_cents) * qty) : null;
@@ -170,11 +205,12 @@ export async function createEventBooking(input: EventBookingInput) {
     }
     const row = (await c.query(
       `INSERT INTO event_bookings(ticket_code,event_id,event_date,quantity,option_key,is_hotel_guest,stay_reference,full_name,email,phone,language,
-         unit_price_cents,total_cents,currency,pay_method,status,hold_expires_at,deposit_cents,dinner,dinner_cents,pwyw_offer_cents)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, CASE WHEN $17::int IS NULL THEN NULL ELSE now() + make_interval(mins => $17::int) END, $18, $19, $20, $21)
+         unit_price_cents,total_cents,currency,pay_method,status,hold_expires_at,deposit_cents,dinner,dinner_cents,pwyw_offer_cents,attendees,addon_event_id,addon_cents)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, CASE WHEN $17::int IS NULL THEN NULL ELSE now() + make_interval(mins => $17::int) END, $18, $19, $20, $21, $22, $23, $24)
        RETURNING *`,
       [code, ev.id, input.date, qty, optionKey, isGuest, stayRef, input.fullName.trim(), input.email.trim(), input.phone?.trim() || null, input.language,
-        unit, total, ev.currency, input.payMethod, status, holdMin, deposit, dinnerEach > 0, dinnerEach, offer])).rows[0];
+        unit, total, ev.currency, input.payMethod, status, holdMin, deposit, dinnerEach > 0, dinnerEach, offer,
+        attendees.length ? JSON.stringify(attendees) : null, addon?.id ?? null, addon ? addonEach : null])).rows[0];
     await audit('website', 'event_booking.create', 'event_booking', row.id, { code, slug: ev.slug, date: input.date, qty, total, method: input.payMethod, dinner: dinnerEach > 0 }, c as unknown as Q);
     return { booking: row, event: ev };
   });
@@ -318,4 +354,17 @@ export async function moveEvent(id: string, dir: 'up' | 'down' | 'top' | 'bottom
   const order = list === all ? next : [...next, ...all.filter((x) => !next.includes(x))];
   await q(`UPDATE events e SET sort_order = v.n, updated_at = now() FROM (SELECT unnest($1::uuid[]) id, generate_series(10, $2::int * 10, 10) n) v WHERE e.id = v.id AND e.sort_order <> v.n`, [order, order.length]);
   await audit(actor, 'event.move', 'event', id, { dir, position: to + 1 });
+}
+
+/** Villa-guest pricing, same-day add-on events and the menu shown on the page. */
+export async function setEventExtras(eventId: string, v: { guestMode: string; addonEventIds: string[]; menuKind: string }, actor: string) {
+  const mode = ['pwyw', 'fixed', 'none'].includes(v.guestMode) ? v.guestMode : 'pwyw';
+  if (mode === 'fixed') {
+    const g = (await q<any>(`SELECT guest_price_cents FROM events WHERE id=$1`, [eventId]))[0];
+    if (g?.guest_price_cents == null) throw new BookingError('INVALID_INPUT', 'Write the price villa guests pay');
+  }
+  const ids = [...new Set(v.addonEventIds.filter((x) => /^[0-9a-f-]{36}$/i.test(x) && x !== eventId))].slice(0, 6);
+  const menu = ['dinner', 'breakfast', 'none'].includes(v.menuKind) ? v.menuKind : null;
+  await q(`UPDATE events SET guest_mode=$2, addon_event_ids=$3::uuid[], menu_kind=$4, updated_at=now() WHERE id=$1`, [eventId, mode, ids, menu]);
+  await audit(actor, 'event.extras', 'event', eventId, { mode, addons: ids.length, menu });
 }

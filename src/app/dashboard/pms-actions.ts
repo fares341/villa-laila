@@ -264,6 +264,10 @@ export async function eventSave(fd: FormData) {
     const { setEventDeposit, setEventDinner } = await import('@/services/events');
     await setEventDeposit(savedId, cents(fd.get('deposit')) ?? null, u.email);
     await setEventDinner(savedId, fd.get('dinnerOn') === 'on' ? (cents(fd.get('dinner')) ?? null) : null, u.email);
+    const { setEventExtras } = await import('@/services/events');
+    await setEventExtras(savedId, {
+      guestMode: str(fd.get('guestMode')), addonEventIds: fd.getAll('addonEvents').map(String), menuKind: str(fd.get('menuKind')),
+    }, u.email);
   } catch (e) { go(back, 'err', msg(e)); }
   revalidatePath('/dashboard/events'); revalidatePath('/en'); revalidatePath('/ar');
   go(`/dashboard/events/edit/${savedId}`, 'ok', 'Saved and published on the website');

@@ -19,6 +19,10 @@ const fmt = (cents: number, cur: string, ar: boolean) => {
 };
 
 const BOOK_ERR: Record<string, { ar: string; en: string }> = {
+  'invalid_input:attendees': { ar: 'اكتب اسم ورقم موبايل كل فرد جاي معاك.', en: 'Write the name and phone of every person coming with you.' },
+  'invalid_input:pwyw': { ar: 'اكتب المبلغ اللي حابب تدفعه للتذاكر.', en: 'Write how much you would like to pay for the tickets.' },
+  'invalid_input:addon_date': { ar: 'الإيفنت الإضافي مش موجود في اليوم ده. اختار يوم تاني أو شيله.', en: 'The extra event isn’t on that day. Pick another day or untick it.' },
+  'no_availability:addon': { ar: 'الإيفنت الإضافي مفيهوش أماكن كفاية في اليوم ده.', en: 'There aren’t enough places left in the extra event on that day.' },
   no_availability: { ar: 'عذرًا، الأماكن المتبقية في هذا اليوم لا تكفي. اختر يومًا آخر أو عددًا أقل.', en: 'Sorry, there aren’t enough places left on that date. Pick another date or fewer tickets.' },
   invalid_dates: { ar: 'هذا اليوم لم يعد متاحًا. اختر يومًا آخر.', en: 'That date is no longer available. Please pick another one.' },
   'invalid_input:pay_method': { ar: 'طريقة الدفع دي مش متاحة. اختار طريقة تانية.', en: 'That payment method isn’t available. Choose another one.' },
@@ -44,8 +48,12 @@ export function EventBooker(props: {
   options: { key: string; label: string }[]; priceCents: number; guestPriceCents: number | null; depositCents?: number | null; dinnerCents?: number | null; menu?: Record<number, DayMeal | null>; currency: string; methods: Method[]; wallets?: WalletInfo;
   /** The visitor's currency (Egypt EGP, Europe EUR, else USD) and today's rates: prices are shown in it, paid in EGP. */
   view?: PriceView;
+  /** Villa guests: pay what they want, a fixed price, or no villa-guest option. */
+  guestMode?: 'pwyw' | 'fixed' | 'none';
+  /** Other events the guest can add on the same day (only those happening on the chosen date are shown). */
+  addons?: { id: string; title: string; priceCents: number; guestMode: 'pwyw' | 'fixed' | 'none'; guestPriceCents: number | null; time: string; left: Record<string, number | null> }[];
 }) {
-  const { lang, slug, dates, options, priceCents, depositCents = null, dinnerCents = null, menu = {}, currency, methods, view } = props;
+  const { lang, slug, dates, options, priceCents, depositCents = null, dinnerCents = null, menu = {}, currency, methods, view, guestMode = 'pwyw', addons = [] } = props;
   const show = (c: number) => (view ? showPrice(c, currency, view, lang) : fmt(c, currency, lang === 'ar'));
   const foreign = !!view && view.cur !== currency.toUpperCase();
   const ar = lang === 'ar';
@@ -56,6 +64,7 @@ export function EventBooker(props: {
   const [hotelGuest, setHotelGuest] = useState(false);
   const [pwywStr, setPwywStr] = useState('');
   const [dinner, setDinner] = useState(false);
+  const [addonId, setAddonId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
 
@@ -89,7 +98,8 @@ export function EventBooker(props: {
         `• الموعد: ${when}`,
         `• عدد التذاكر: ${n}`,
         `• العشاء: ${dinner ? `نعم (${n} وجبة)` : 'لا'}`,
-        hotelGuest ? `• نزيل بالفيلا · ادفع اللي تحبه${pwyw != null ? ` · سأدفع ${fmt(pwyw, currency, ar)}` : ''}` : '',
+        hotelGuest ? (pwywMode ? `• نزيل بالفيلا · ادفع اللي تحبه${pwyw != null ? ` · سأدفع ${fmt(pwyw, currency, ar)}` : ''}` : '• نزيل بالفيلا') : '',
+        addon ? `• + ${addon.title}` : '',
         `• الإجمالي: ${fmt(grand, currency, ar)}`,
         `• طريقة الدفع: ${payLabel}`,
         `• الاسم: ${String(fd.get('fullName') || '')}`,
@@ -102,7 +112,8 @@ export function EventBooker(props: {
         `• When: ${when}`,
         `• Tickets: ${n}`,
         `• Dinner: ${dinner ? `Yes (${n} meal)` : 'No'}`,
-        hotelGuest ? `• Hostel guest · pay what you want${pwyw != null ? ` · I will pay ${fmt(pwyw, currency, ar)}` : ''}` : '',
+        hotelGuest ? (pwywMode ? `• Hostel guest · pay what you want${pwyw != null ? ` · I will pay ${fmt(pwyw, currency, ar)}` : ''}` : '• Hostel guest') : '',
+        addon ? `• + ${addon.title}` : '',
         `• Total: ${fmt(grand, currency, ar)}`,
         `• Payment: ${payLabel}`,
         `• Name: ${String(fd.get('fullName') || '')}`,
@@ -164,14 +175,20 @@ export function EventBooker(props: {
 
   const left = dates.find((d) => d.date === date)?.left ?? null;
   const maxQty = Math.max(1, Math.min(20, left ?? 20));
-  // Hostel guests: the ticket is pay what you want (at the villa); only the dinner, if chosen, has a price.
-  const unit = hotelGuest ? 0 : priceCents;
+  // Villa guests: pay what you want (0 now) or the event's guest price (at the villa); the dinner keeps its price.
+  const guestFixed = guestMode === 'fixed' && props.guestPriceCents != null;
+  const pwywMode = hotelGuest && guestMode === 'pwyw';
+  const unit = hotelGuest ? (guestFixed ? Number(props.guestPriceCents) : 0) : priceCents;
+  // Same-day add-on events happening on the chosen date (with seats left).
+  const dayAddons = addons.filter((a) => date in a.left && a.left[date] !== 0);
+  const addon = dayAddons.find((a) => a.id === addonId) ?? null;
+  const addonEach = !addon ? 0 : hotelGuest && addon.guestMode === 'pwyw' ? 0 : hotelGuest && addon.guestMode === 'fixed' && addon.guestPriceCents != null ? addon.guestPriceCents : addon.priceCents;
   const dinnerEach = dinner && dinnerCents != null && dinnerCents > 0 ? dinnerCents : 0;
   const n = Math.min(qty, maxQty);
   // Hostel guest: the amount they want to pay for all the tickets (whole pounds; Arabic digits accepted).
   const pwywNum = Number(pwywStr.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[,\s]/g, ''));
-  const pwyw = hotelGuest && pwywStr.trim() !== '' && Number.isFinite(pwywNum) && pwywNum >= 0 ? Math.round(pwywNum * 100) : null;
-  const total = (unit + dinnerEach) * n;
+  const pwyw = pwywMode && pwywStr.trim() !== '' && Number.isFinite(pwywNum) && pwywNum >= 0 ? Math.round(pwywNum * 100) : null;
+  const total = (unit + dinnerEach + addonEach) * n;
   const grand = total + (pwyw ?? 0);
   // Deposit events: only the deposit is sent now by InstaPay / Vodafone Cash; the rest is paid at the villa.
   const deposit = !hotelGuest && depositCents && (method === 'instapay' || method === 'vodafone_cash') ? Math.min(total, depositCents * Math.min(qty, maxQty)) : null;
@@ -274,11 +291,15 @@ export function EventBooker(props: {
           </div>
         )}
         {options.some((o) => isMealOption(o.label)) && !(dinnerCents != null && dinnerCents > 0) && <MealLink ar={ar} meal={dayMeal} day={dayName} onOpen={() => setMealOpen(true)} />}
+        {guestMode !== 'none' && (
         <label className="evb-check">
           <input type="checkbox" name="hotelGuest" checked={hotelGuest} onChange={(e) => setHotelGuest(e.target.checked)} />
-          <span>{ar ? 'أنا نازل في فيلا ليلى · ادفع اللي تحبه' : 'I’m staying at Villa Layla · pay what you want'}</span>
+          <span>{guestMode === 'fixed'
+            ? (ar ? `أنا نازل في فيلا ليلى · سعر النزلاء ${show(Number(props.guestPriceCents))} للفرد` : `I’m staying at Villa Layla · guest price ${show(Number(props.guestPriceCents))} per person`)
+            : (ar ? 'أنا نازل في فيلا ليلى · ادفع اللي تحبه' : 'I’m staying at Villa Layla · pay what you want')}</span>
         </label>
-        {hotelGuest && (
+        )}
+        {pwywMode && (
           <div className="evb-pwyw">
             <p className="evb-pwyw-msg">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.1 0 3.6 1.1 5.2 3 1.6-1.9 3.1-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z" /></svg>
@@ -303,6 +324,13 @@ export function EventBooker(props: {
             <span className="evb-addon-p num" dir="ltr">+{show(dinnerCents)}</span>
           </label>
         )}
+        {dayAddons.map((a) => (
+          <label key={a.id} className={`evb-addon ${addonId === a.id ? 'on' : ''}`}>
+            <input type="checkbox" name="addon" value={a.id} checked={addonId === a.id} onChange={(e) => setAddonId(e.target.checked ? a.id : '')} />
+            <span className="evb-addon-t"><b>{ar ? `أضف ${a.title} نفس اليوم` : `Add ${a.title} the same day`}</b><small>{a.time}</small></span>
+            <span className="evb-addon-p num" dir="ltr">{hotelGuest && a.guestMode === 'pwyw' ? (ar ? 'ادفع اللي تحبه' : 'pay what you want') : `+${show(hotelGuest && a.guestMode === 'fixed' && a.guestPriceCents != null ? a.guestPriceCents : a.priceCents)}`}</span>
+          </label>
+        ))}
         {mealOpen && <MealModal ar={ar} meal={dayMeal} day={dayName} priceLabel={dinnerCents ? show(dinnerCents) : null} onClose={closeMeal} />}
       </fieldset>
 
@@ -311,6 +339,18 @@ export function EventBooker(props: {
         <div className="evb-field"><label htmlFor="evb-name">{ar ? 'الاسم بالكامل' : 'Full name'}</label><input id="evb-name" name="fullName" required minLength={2} maxLength={80} autoComplete="name" /></div>
         <div className="evb-field"><label htmlFor="evb-email">{ar ? 'البريد الإلكتروني' : 'Email'}</label><input id="evb-email" name="email" type="email" required autoComplete="email" dir="ltr" /></div>
         <div className="evb-field"><label htmlFor="evb-phone">{ar ? 'رقم الموبايل / واتساب' : 'Mobile / WhatsApp'}</label><input id="evb-phone" name="phone" type="tel" required autoComplete="tel" dir="ltr" placeholder="+20 1xx xxx xxxx" /></div>
+        {n > 1 && (
+          <div className="evb-people">
+            <p className="evb-fine"><b>{ar ? 'باقي الأفراد' : 'The other people'}</b> · {ar ? 'اكتب اسم ورقم كل واحد جاي معاك.' : 'Write the name and phone of each person coming with you.'}</p>
+            {Array.from({ length: n - 1 }, (_, i) => (
+              <div key={i} className="evb-person">
+                <span className="evb-person-n">{i + 2}</span>
+                <input name={`att_name_${i + 1}`} required minLength={2} maxLength={80} autoComplete="off" placeholder={ar ? 'الاسم' : 'Name'} aria-label={(ar ? 'اسم الفرد ' : 'Name of person ') + (i + 2)} />
+                <input name={`att_phone_${i + 1}`} type="tel" required minLength={6} maxLength={30} autoComplete="off" dir="ltr" placeholder={ar ? 'رقم الموبايل' : 'Phone'} aria-label={(ar ? 'رقم الفرد ' : 'Phone of person ') + (i + 2)} />
+              </div>
+            ))}
+          </div>
+        )}
       </fieldset>
 
       <fieldset className="evb-step">
@@ -342,9 +382,15 @@ export function EventBooker(props: {
           {chosen && <small>{chosen.label} · {n} {ar ? (n === 1 ? 'فرد' : 'أفراد') : n === 1 ? 'person' : 'people'}</small>}
           <ul className="evb-lines">
             <li>
-              <span>{ar ? 'التذاكر' : 'Tickets'}{!hotelGuest && <small> {ar ? `(${n} ${n === 1 ? 'فرد' : 'أفراد'})` : `${n} × ${show(unit)}`}</small>}</span>
-              <b className={hotelGuest && pwyw == null ? '' : 'num'} dir={(hotelGuest && pwyw == null) || ar ? undefined : 'ltr'}>{hotelGuest ? (pwyw != null ? show(pwyw) : (ar ? 'ادفع اللي تحبه' : 'Pay what you want')) : show(unit * n)}</b>
+              <span>{ar ? 'التذاكر' : 'Tickets'}{!pwywMode && <small> {ar ? `(${n} ${n === 1 ? 'فرد' : 'أفراد'})` : `${n} × ${show(unit)}`}</small>}</span>
+              <b className={pwywMode && pwyw == null ? '' : 'num'} dir={(pwywMode && pwyw == null) || ar ? undefined : 'ltr'}>{pwywMode ? (pwyw != null ? show(pwyw) : (ar ? 'ادفع اللي تحبه' : 'Pay what you want')) : show(unit * n)}</b>
             </li>
+            {addon && (
+              <li>
+                <span>{addon.title}{addonEach > 0 && <small> {ar ? `(${n} ${n === 1 ? 'فرد' : 'أفراد'})` : `${n} × ${show(addonEach)}`}</small>}</span>
+                {addonEach > 0 ? <b className="num" dir={ar ? undefined : 'ltr'}>{show(addonEach * n)}</b> : <b>{ar ? 'ادفع اللي تحبه' : 'Pay what you want'}</b>}
+              </li>
+            )}
             {dinnerEach > 0 && (
               <li>
                 <span>{ar ? 'العشاء' : 'Dinner'}<small> {ar ? `(${n} ${n === 1 ? 'فرد' : 'أفراد'})` : `${n} × ${show(dinnerEach)}`}</small></span>
@@ -354,11 +400,11 @@ export function EventBooker(props: {
           </ul>
           <div className="evb-total">
             <span>{ar ? 'الإجمالي' : 'Total'}</span>
-            {hotelGuest && pwyw == null
+            {pwywMode && pwyw == null
               ? <b>{dinnerEach > 0 ? <><span className="num" dir={ar ? undefined : 'ltr'}>{show(total)}</span> {ar ? '+ اللي تحبه' : '+ what you want'}</> : (ar ? 'ادفع اللي تحبه' : 'Pay what you want')}</b>
               : <b className="num" dir={ar ? undefined : 'ltr'}>{show(grand)}</b>}
           </div>
-          {foreign && !(hotelGuest && pwyw == null) && <small className="evb-egp">{ar ? `بيتدفع بالجنيه المصري: ${fmt(grand, currency, ar)}` : `Charged in Egyptian pounds: ${fmt(grand, currency, ar)}`}</small>}
+          {foreign && !(pwywMode && pwyw == null) && <small className="evb-egp">{ar ? `بيتدفع بالجنيه المصري: ${fmt(grand, currency, ar)}` : `Charged in Egyptian pounds: ${fmt(grand, currency, ar)}`}</small>}
           {deposit != null && deposit < total && <small>{ar ? `الآن ${show(deposit)} · في الفيلا ${show(total - deposit)}` : `Now ${show(deposit)} · at the villa ${show(total - deposit)}`}</small>}
         </div>
         {formErr && <p role="alert" className="form-msg evb-err">{formErr}</p>}

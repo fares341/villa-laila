@@ -31,11 +31,13 @@ export function WeekMenuCard({ ar, menu, dates, initialDate, today, priceLabel, 
   const m = mealOf(shownDate) ?? Object.values(menu).find(Boolean) ?? STANDARD;
   const chip = dates.find((x) => x.date === shownDate);
   const title = t(m.title, ar);
+  // The meal's description: a few points (one per line), shown under the name.
+  const pts = t(m.description, ar).split(/\n+/).map((x) => x.trim()).filter(Boolean).slice(0, 6);
   const kicker = shownDate === today ? (ar ? 'وجبة النهارده' : 'Today’s meal') : (ar ? `وجبة ${chip?.label ?? ''}` : `Meal · ${chip?.label ?? ''}`);
 
   return (
     <section className="evmeal wk" aria-labelledby="evmealH" dir={ar ? 'rtl' : 'ltr'}>
-      <button type="button" className="wk-cover" onClick={() => setOpen(true)} aria-haspopup="dialog">
+      <button type="button" className={`wk-cover${m.img ? '' : ' noimg'}`} onClick={() => setOpen(true)} aria-haspopup="dialog">
         {m.img && <img className="evmeal-img" src={m.img} alt={title} loading="lazy" decoding="async" />}
         <span className="wk-badge">{kicker}</span>
         <span className="wk-cta">
@@ -45,7 +47,10 @@ export function WeekMenuCard({ ar, menu, dates, initialDate, today, priceLabel, 
       </button>
       <div className="evmeal-body">
         <h2 id="evmealH">{title}</h2>
-        {m.dishes.length > 0 && <p className="evmeal-desc">{m.dishes.map((x) => t(x, ar)).join(' · ')}</p>}
+        {pts.length > 0
+          ? <ul className="evmeal-pts">{pts.map((x, i) => <li key={i}>{x}</li>)}</ul>
+          : m.dishes.length > 0 && <p className="evmeal-desc">{m.dishes.map((x) => t(x, ar)).join(' · ')}</p>}
+        {pts.length > 0 && m.dishes.length > 0 && <p className="evmeal-desc">{m.dishes.map((x) => t(x, ar)).join(' · ')}</p>}
         {priceLabel && <p className="evmeal-price">{ar ? 'طبق كامل للفرد' : 'A full plate per person'} · <b dir="ltr">+{priceLabel}</b></p>}
       </div>
       {open && <WeekSheet ar={ar} dates={dates} mealOf={mealOf} chosen={shownDate} today={today} onClose={() => setOpen(false)} />}

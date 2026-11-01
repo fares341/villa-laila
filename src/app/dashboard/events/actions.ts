@@ -137,7 +137,9 @@ async function photoOf(v: FormDataEntryValue | null): Promise<{ bytes: Buffer; m
   const f = v as File;
   return { bytes: Buffer.from(await f.arrayBuffer()), mime: f.type || 'image/jpeg' };
 }
-const menuDone = (ok: string) => { revalidatePath(MENU); revalidatePath('/en'); revalidatePath('/ar'); redirect(`${MENU}?ok=${encodeURIComponent(ok)}`); };
+const mealIn = (f: FormData) => (f.get('meal') === 'breakfast' ? 'breakfast' : 'dinner') as 'breakfast' | 'dinner';
+const menuBack = (f: FormData) => (mealIn(f) === 'breakfast' ? `${MENU}?meal=breakfast` : MENU);
+const menuDone = (ok: string, f?: FormData) => { revalidatePath(MENU); revalidatePath('/en'); revalidatePath('/ar'); const b = f ? menuBack(f) : MENU; redirect(`${b}${b.includes('?') ? '&' : '?'}ok=${encodeURIComponent(ok)}`); };
 
 export async function menuSaveDayAction(f: FormData) {
   const u = await requireUser('events.manage');
@@ -148,16 +150,16 @@ export async function menuSaveDayAction(f: FormData) {
       dishesAr: String(f.get('dishesAr') || ''), dishesEn: String(f.get('dishesEn') || ''),
       descAr: String(f.get('descAr') || ''), descEn: String(f.get('descEn') || ''),
       photo: await photoOf(f.get('photo')), imageUrl: String(f.get('imageUrl') || '') || null,
-    }, u.email);
-  } catch (e) { fail(e, MENU); }
-  menuDone('Meal saved');
+    }, u.email, mealIn(f));
+  } catch (e) { fail(e, menuBack(f)); }
+  menuDone('Meal saved', f);
 }
 
 export async function menuClearDayAction(f: FormData) {
   const u = await requireUser('events.manage');
   const { clearDay } = await import('@/services/weekly-menu');
-  await clearDay(parseInt(String(f.get('weekday')), 10), u.email);
-  menuDone('Day cleared');
+  await clearDay(parseInt(String(f.get('weekday')), 10), u.email, mealIn(f));
+  menuDone('Day cleared', f);
 }
 
 export async function menuCopyAction(f: FormData) {
@@ -166,9 +168,9 @@ export async function menuCopyAction(f: FormData) {
     const { copyDay } = await import('@/services/weekly-menu');
     const to = f.getAll('to').map((x) => parseInt(String(x), 10));
     if (!to.length) throw new Error('Choose the days to copy to');
-    await copyDay(parseInt(String(f.get('from')), 10), to, u.email);
-  } catch (e) { fail(e, MENU); }
-  menuDone('Meal copied');
+    await copyDay(parseInt(String(f.get('from')), 10), to, u.email, mealIn(f));
+  } catch (e) { fail(e, menuBack(f)); }
+  menuDone('Meal copied', f);
 }
 
 export async function menuImportAction(f: FormData) {
@@ -179,10 +181,10 @@ export async function menuImportAction(f: FormData) {
     const text = file && typeof file !== 'string' && (file as File).size ? await (file as File).text() : String(f.get('json') || '');
     const json = JSON.parse(text);
     const { importMenu } = await import('@/services/weekly-menu');
-    const r = await importMenu(Array.isArray(json) ? json : json.days, u.email);
+    const r = await importMenu(Array.isArray(json) ? json : json.days, u.email, mealIn(f));
     msg = `Imported ${r.days} day(s)${r.imageErrors.length ? ` · photos not downloaded: ${r.imageErrors.join('; ')}` : ''}`;
-  } catch (e) { fail(e instanceof SyntaxError ? new Error('That is not valid JSON') : e, MENU); }
-  menuDone(msg);
+  } catch (e) { fail(e instanceof SyntaxError ? new Error('That is not valid JSON') : e, menuBack(f)); }
+  menuDone(msg, f);
 }
 
 export async function moveEventAction(f: FormData) {

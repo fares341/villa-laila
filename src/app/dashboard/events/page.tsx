@@ -43,7 +43,7 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
   const tabs = [
     { href: '/dashboard/events', label: 'Bookings', icon: 'ticket' },
     { href: '/dashboard/events?tab=events', label: 'Events list', icon: 'calendar-days' },
-    ...(canEdit ? [{ href: '/dashboard/events/menu', label: 'Weekly dinner menu', icon: 'utensils' }] : []),
+    ...(canEdit ? [{ href: '/dashboard/events/menu', label: 'Weekly menu', icon: 'utensils' }] : []),
     ...(canEdit ? [{ href: '/dashboard/events?tab=settings', label: 'Payment accounts & bots', icon: 'settings' }] : []),
   ];
   const current = tab === 'bookings' ? '/dashboard/events' : `/dashboard/events?tab=${tab}`;
@@ -77,8 +77,8 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
 
 async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
   const bookings = await q<any>(`
-    SELECT b.*, e.title, e.slug, e.start_time, e.options
-    FROM event_bookings b JOIN events e ON e.id=b.event_id
+    SELECT b.*, e.title, e.slug, e.start_time, e.options, ax.title addon_title
+    FROM event_bookings b JOIN events e ON e.id=b.event_id LEFT JOIN events ax ON ax.id=b.addon_event_id
     WHERE b.event_date BETWEEN $1 AND $2 AND ($3::text IS NULL OR b.status=$3)
       AND NOT (b.status='awaiting_payment' AND b.hold_expires_at < now())
     ORDER BY b.event_date, e.start_time, b.created_at`, [from, to, sp.status || null]);
@@ -142,6 +142,11 @@ async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
                         <p className="font-semibold text-slate-900">{b.full_name}{b.is_hotel_guest && <span className="ms-2 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800">Hotel guest {b.stay_reference}</span>}</p>
                         <p className="text-xs text-slate-600">{tr(b.title, 'en')}{opt ? ` · ${opt}` : ''}{b.dinner ? ' · + dinner' : ''} · <Link className="font-mono underline" href={`/${b.language || 'en'}/tickets/${b.ticket_code}`}>{b.ticket_code}</Link></p>
                         <p className="text-xs text-slate-500">{b.phone || b.email}</p>
+                        {b.addon_title && <p className="text-xs font-semibold text-sky-800">+ {tr(b.addon_title, 'en')} the same day</p>}
+                        {Array.isArray(b.attendees) && b.attendees.length > 0 && (
+                          <details className="text-xs text-slate-600"><summary className="cursor-pointer">+ {b.attendees.length} more: names & phones</summary>
+                            <ul className="mt-1 space-y-0.5">{b.attendees.map((a: any, i: number) => <li key={i}>{i + 2}. {a.name} · <a className="underline" href={`tel:${a.phone}`} dir="ltr">{a.phone}</a></li>)}</ul></details>
+                        )}
                       </div>
                       <div className="text-end">
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>
