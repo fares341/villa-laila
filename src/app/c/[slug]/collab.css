@@ -9,14 +9,14 @@
 .cb-bg { position: fixed; inset: -10%; z-index: 0; background: radial-gradient(60% 45% at 50% 0%, color-mix(in srgb, var(--acc) 55%, transparent), transparent 70%), #120E0C; background-size: cover; background-position: center; filter: blur(38px) saturate(1.2) brightness(.42); transform: scale(1.1); }
 .cb-bg[style] { background-blend-mode: normal; }
 .cb > *:not(.cb-bg) { position: relative; z-index: 1; }
+
 .cb-lang { position: absolute !important; top: max(14px, env(safe-area-inset-top)); inset-inline-end: 16px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 13px; text-decoration: none; background: rgba(0,0,0,.25); backdrop-filter: blur(6px); }
 
 .cb-hero { min-height: 72dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; padding: 72px 22px 32px; max-width: 560px; margin: 0 auto; }
 .cb-logos { display: flex; align-items: center; justify-content: center; gap: 18px; animation: cb-rise .7s cubic-bezier(.2,.8,.2,1) both; }
 .cb-logo { width: 96px; height: 96px; display: grid; place-items: center; border-radius: 26px; background: #FBF7F1; box-shadow: 0 18px 40px -16px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.18); overflow: hidden; }
 .cb-logo img { width: 100%; height: 100%; object-fit: contain; padding: 10px; }
-.cb-logo.theirs { border-radius: 50%; }
-.cb-logo.theirs img { object-fit: cover; padding: 0; }
+
 .cb-logo.theirs b { font-size: 28px; color: #2F2925; text-transform: uppercase; }
 .cb-x { font-size: 34px; font-weight: 200; color: var(--gold); line-height: 1; }
 .cb-names { margin: 6px 0 0; font-size: 13px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); }
@@ -117,3 +117,6 @@
 @keyframes cb-draw { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .cb * { animation: none !important; transition: none !important; } .cb-tick svg { stroke-dashoffset: 0; } }
 .cb-info b bdi { white-space: nowrap; }
+
+.cb-lang.cb-back { inset-inline-end: auto; inset-inline-start: 16px; }
+.cb-foot-ev { display: inline-block; margin-bottom: 10px; padding: 9px 16px; border: 1px solid var(--line); border-radius: 999px; color: inherit; text-decoration: none; font-size: 14px; }

@@ -6,7 +6,7 @@ import { addDays, todayLocal } from '@/lib/dates';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs, ClaudeBottomBar } from '@/components/claude-shell';
 import { ClaudeHome } from '@/components/claude-home';
 import { listPublicEvents } from '@/services/events';
-import { toEventCard } from '@/services/event-view';
+import { toEventCard, withCollabs } from '@/services/event-view';
 import { visitorPriceView } from '@/services/visitor-currency';
 import { listTours, listFilms, roomPhotosByCode, listSlides } from '@/services/site-content';
 
@@ -19,7 +19,7 @@ export default async function Home({ params }: { params: Promise<{ lang: string 
 
   const initialRates = await homeRoomPrices(addDays(todayLocal(), 1)).catch(() => getDefaultRates().rooms);
 
-  const events = (await listPublicEvents()).map((e) => toEventCard(e, lang, view));
+  const events = await withCollabs((await listPublicEvents()).map((e) => toEventCard(e, lang, view)), lang, 6);
   // Website content from the dashboard (Website). Nothing set yet → the built-in defaults.
   const [tours, allFilms, roomPhotos, slides] = await Promise.all([listTours(), listFilms(true), roomPhotosByCode(), listSlides()]);
   const live = allFilms.filter((f) => f.active);

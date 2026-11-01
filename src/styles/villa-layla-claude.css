@@ -1353,6 +1353,8 @@
 .ev-body h3 { font-size: 20px; color: var(--color-primary-dark); }
 .ev-body h3 a { color: inherit; }
 .ev-body .row .btn { min-height: 42px; }
+.ev-price-txt { min-width: 0; flex: 1; }
+.ev-price-txt b { font-size: 15px !important; line-height: 1.35; font-weight: 700; display: block; }
 
 /* ---- event detail ---- */
 .evd-hero { position: relative; min-height: clamp(260px, 38vw, 440px); display: flex; align-items: flex-end; color: #fff; background: var(--color-primary-dark); isolation: isolate; overflow: hidden; }

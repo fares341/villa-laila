@@ -4,7 +4,7 @@ import { isSiteLang } from '@/i18n/site';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs, ClaudeBottomBar } from '@/components/claude-shell';
 import { EventsSection } from '@/components/events-section';
 import { listPublicEvents } from '@/services/events';
-import { toEventCard } from '@/services/event-view';
+import { toEventCard, withCollabs } from '@/services/event-view';
 import { visitorPriceView } from '@/services/visitor-currency';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +20,7 @@ export default async function EventsPage({ params }: { params: Promise<{ lang: s
   if (!isSiteLang(lang)) notFound();
   const ar = lang === 'ar';
   const view = await visitorPriceView();
-  const events = (await listPublicEvents()).map((e) => toEventCard(e, lang, view));
+  const events = await withCollabs((await listPublicEvents()).map((e) => toEventCard(e, lang, view)), lang);
   const wa = `https://wa.me/201040551515?text=${encodeURIComponent(ar ? 'عايز أعرف الفعاليات الجاية في فيلا ليلى' : 'What events are coming up at Villa Layla?')}`;
   return (
     <div className="vl-page min-h-screen flex flex-col bg-[#FBF7F1] text-[#2F2925]">

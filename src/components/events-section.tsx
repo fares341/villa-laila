@@ -12,6 +12,9 @@ export type EventCard = {
   soon: boolean;            // runs today or tomorrow
   soldOut?: boolean;        // every upcoming date (next 2 weeks) is full
   left?: number | null;     // places left on the next open date (null = unlimited)
+  /** Collab events: own page (/c/<slug>), partner name, and sign-up instead of tickets. */
+  href?: string;
+  partner?: string;
 };
 
 const ic = {
@@ -54,9 +57,11 @@ export function EventsSection({ lang, events, heading = 'h2', limit }: { lang: s
         </div>
 
         <div className="ev-grid">
-          {shown.map((e) => (
-            <article key={e.slug} className="ev-card">
-              <a href={`/${lang}/events/${e.slug}`} className="ev-media" aria-label={e.title}>
+          {shown.map((e) => {
+            const href = e.href ?? `/${lang}/events/${e.slug}`;
+            return (
+            <article key={href} className="ev-card">
+              <a href={href} className="ev-media" aria-label={e.title}>
                 {e.image && <img src={e.image} alt="" loading="lazy" />}
                 {e.soldOut
                   ? <span className="ev-when sold">{isAr ? 'نفدت التذاكر' : 'Sold out'}</span>
@@ -67,25 +72,26 @@ export function EventsSection({ lang, events, heading = 'h2', limit }: { lang: s
                   <span>{ic.cal}{e.schedule}</span>
                   <span>{ic.clock}<span dir="ltr">{e.time}</span></span>
                 </div>
-                <h3><a href={`/${lang}/events/${e.slug}`}>{e.title}</a></h3>
+                <h3><a href={href}>{e.title}</a></h3>
                 <p className="desc">{e.summary}</p>
                 <div className="row">
-                  <div className="price">
-                    <small>{isAr ? 'للشخص' : 'Per person'}</small>
+                  <div className={e.partner && e.price.length > 14 ? 'price ev-price-txt' : 'price'}>
+                    <small>{e.partner ? (isAr ? 'الدخول' : 'Entry') : isAr ? 'للشخص' : 'Per person'}</small>
                     <b className="num" dir="ltr">{e.price}</b>
                   </div>
                   {e.soldOut ? (
                     <span className="btn btn-line btn-sm" aria-disabled="true">{isAr ? 'نفدت التذاكر' : 'Sold out'}</span>
                   ) : (
-                    <a className="btn btn-primary btn-sm" href={`/${lang}/events/${e.slug}`}>
+                    <a className="btn btn-primary btn-sm" href={e.partner ? `${href}#join` : href}>
                       {ic.ticket}
-                      {isAr ? 'احجز تذكرة' : 'Get tickets'}
+                      {e.partner ? (isAr ? 'سجّل حضورك' : 'Sign up') : isAr ? 'احجز تذكرة' : 'Get tickets'}
                     </a>
                   )}
                 </div>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
         {heading === 'h2' && (
           <p className="ev-all"><a className="btn btn-line" href={`/${lang}/events`}>{isAr ? `كل الفعاليات (${events.length})` : `All events (${events.length})`}</a></p>

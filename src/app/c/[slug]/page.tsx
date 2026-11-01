@@ -62,6 +62,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
     <div className="cb" dir={ar ? 'rtl' : 'ltr'} lang={lang} style={{ ['--acc' as string]: c.accent }}>
       <div className="cb-bg" aria-hidden style={c.photos[0] ? { backgroundImage: `url(${c.photos[0]})` } : undefined} />
       <a className="cb-lang" href={`?lang=${ar ? 'en' : 'ar'}`}>{ar ? 'English' : 'عربي'}</a>
+      <a className="cb-lang cb-back" href={`/${lang}/events`}><span aria-hidden>{ar ? '→' : '←'}</span> {L('All events', 'كل الفعاليات')}</a>
 
       <header className="cb-hero">
         <div className="cb-logos">
@@ -129,6 +130,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
 
       <footer className="cb-foot">
         <img src="/assets/logo-240.webp" alt="" />
+        <a className="cb-foot-ev" href={`/${lang}/events`}>{L('More events at Villa Layla', 'فعاليات تانية في فيلا ليلى')}</a>
         <p>Villa Layla · {L('20 Safiya Zaghloul St, El Sayeda Zeinab, Cairo', '20 شارع صفية زغلول، السيدة زينب، القاهرة')}</p>
         <a href="https://wa.me/201040551515" target="_blank" rel="noopener noreferrer">WhatsApp +20 104 055 1515</a>
       </footer>

@@ -4,6 +4,7 @@ import { addDays, todayLocal } from '@/lib/dates';
 import { scheduleLabel, timeLabel, dateLabel } from '@/lib/event-dates';
 import type { EventCard } from '@/components/events-section';
 import { tr, type PublicEvent } from './events';
+import { listCollabs } from './collabs';
 
 export function priceLabel(cents: number, currency: string, lang: string) {
   const v = (cents / 100).toLocaleString(lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US', { maximumFractionDigits: 2 });
@@ -33,4 +34,47 @@ export function toEventCard(e: PublicEvent, lang: string, view?: PriceView): Eve
     soldOut: !!e.soldOut,
     left: e.seatsLeftNext ?? null,
   };
+}
+
+/** Upcoming collab events as cards that look exactly like the villa's own events (they open the collab page). */
+export async function collabCards(lang: string): Promise<{ card: EventCard; date: string }[]> {
+  const today = todayLocal();
+  const ar = lang === 'ar';
+  const t = (x: { ar?: string; en?: string } | undefined) => (ar ? x?.ar || x?.en : x?.en || x?.ar) || '';
+  const plain = (s: string) => s.split(/\n+/).map((l) => l.replace(/^\s*(#+|-|\*)\s*/, '').replace(/\*\*|__|\*|_/g, '').trim()).filter(Boolean).map((l) => (/[.!?؟:،,]$/.test(l) ? l : l + '.')).join(' ');
+  return (await listCollabs())
+    .filter((c) => c.active && c.event_date && c.event_date >= today)
+    .sort((a, b) => a.event_date!.localeCompare(b.event_date!))
+    .map((c) => {
+      const left = c.capacity == null ? null : Math.max(0, c.capacity - c.people);
+      const d = c.event_date!;
+      return {
+        date: d,
+        card: {
+          slug: `c-${c.slug}`,
+          href: `/c/${c.slug}?lang=${lang}`,
+          partner: c.partner_name,
+          title: t(c.title),
+          summary: plain(t(c.description)).slice(0, 180),
+          image: c.photos[0] ?? c.partner_logo,
+          price: t(c.price_note) || (ar ? 'مجانًا' : 'Free'),
+          schedule: `Villa Layla × ${c.partner_name}`,
+          time: [c.start_time, c.end_time].filter(Boolean).map((x) => timeLabel(x!, lang)).join(' – '),
+          next: whenLabel(d, lang),
+          soon: d === today || d === addDays(today, 1),
+          soldOut: left === 0,
+          left,
+        },
+      };
+    });
+}
+
+/** Puts the collab cards in the middle of the villa's events (within the first `limit` cards when the list is cut). */
+export async function withCollabs(events: EventCard[], lang: string, limit?: number): Promise<EventCard[]> {
+  const collabs = await collabCards(lang).catch(() => []);
+  if (!collabs.length) return events;
+  const out = [...events];
+  const room = limit ? Math.min(out.length, Math.max(0, limit - collabs.length)) : out.length;
+  out.splice(Math.ceil(room / 2), 0, ...collabs.map((c) => c.card));
+  return out;
 }
