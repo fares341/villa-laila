@@ -30,7 +30,7 @@ const card = () => ({
 });
 const cardSet = () => { const c = card(); return !!(c.number && c.expiry && c.cvc); };
 
-/** Put a booking in the queue (reception confirmed it, or its deposit was paid). Safe to call twice. */
+/** Put a booking in the queue (made on the website, reception confirmed it, or its deposit was paid). Safe to call twice: a booking already copied is never copied again. */
 export async function queueDirectBooking(reservationId: string, why: string) {
   if (pushMode() === 'off') return;
   await q(`INSERT INTO direct_book_pushes(reservation_id,status,message) VALUES($1,'queued',$2)

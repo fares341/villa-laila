@@ -177,7 +177,9 @@ export async function notifyNewRoomBooking(reservationId: string) {
     ...(r.deposit_cents != null ? [`العربون أونلاين: ${(Number(r.deposit_cents) / 100).toLocaleString('en-US')} · الباقي يتحصل في الفندق: ${((Number(r.total_cents) - Number(r.deposit_cents)) / 100).toLocaleString('en-US')} ${r.currency}`] : []),
     '',
     '١) أكّد الحجز من الداش بورد (Reservations).',
-    '٢) اقفل نفس السرير/الأوضة في الشانل مانجر (Little Hotelier) وعلّم «Done in the channel manager».',
+    (await import('./direct-book-push')).pushMode() === 'on'
+      ? '٢) الحجز بيتسجل لوحده على direct-book (Little Hotelier) خلال دقيقة. لو اتلغى هنا، الغيه هناك كمان.'
+      : '٢) اقفل نفس السرير/الأوضة في الشانل مانجر (Little Hotelier) وعلّم «Done in the channel manager».',
   ].join('\n'));
 }
 

@@ -61,6 +61,9 @@ export async function submitBooking(formData: FormData) {
     // Owner's Telegram: confirm it and block the beds in the channel manager.
     // (Paid by Paymob: reception is told once the payment comes in, see the Paymob webhook.)
     if (v.payMethod !== 'paymob') import('@/services/admin-bot').then((m) => m.notifyNewRoomBooking(res.id)).catch((e) => console.error('[admin bot room]', e));
+    // Paid at the villa: copied into direct-book (Little Hotelier) right away, so the beds close on every channel
+    // within a minute (owner, Nov 2026). Paid by Paymob: copied once the deposit comes in (Paymob webhook).
+    if (v.payMethod !== 'paymob') import('@/services/direct-book-push').then((m) => m.queueDirectBooking(res.id, 'new website booking')).catch((e) => console.error('[direct push]', e));
   } catch (e) {
     if (e instanceof BookingError && e.code === 'POLICY_BLOCKED') return back('blocked_' + (((e.detail as any)?.key as string) ?? 'x'));
     if (e instanceof BookingError) return back(e.code.toLowerCase());

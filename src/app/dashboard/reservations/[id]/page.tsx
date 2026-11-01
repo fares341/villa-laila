@@ -290,14 +290,17 @@ async function DirectBookBox({ id }: { id: string }) {
   const { directBookPushAction } = await import('../../actions');
   const p = (await q<any>(`SELECT status, confirmation, message, attempts, updated_at, steps FROM direct_book_pushes WHERE reservation_id=$1`, [id]).catch(() => []))[0];
   const mode = pushMode();
-  const tone = p?.status === 'booked' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : p?.status === 'failed' ? 'border-red-200 bg-red-50 text-red-900' : 'border-cocoa-200 bg-white text-cocoa-900';
+  const rs = (await q<any>(`SELECT status FROM reservations WHERE id=$1`, [id]).catch(() => []))[0]?.status;
+  const cancelledThere = p?.status === 'booked' && ['cancelled', 'no_show'].includes(rs);
+  const tone = cancelledThere ? 'border-amber-300 bg-amber-50 text-amber-900' : p?.status === 'booked' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : p?.status === 'failed' ? 'border-red-200 bg-red-50 text-red-900' : 'border-cocoa-200 bg-white text-cocoa-900';
   const label: Record<string, string> = { queued: 'Waiting to be copied', running: 'Being copied now', booked: 'Booked in direct-book', failed: 'Could not copy', dry_ok: 'Test run OK (nothing booked)', skipped: 'Skipped' };
   return (
     <section className={`mb-5 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm ${tone}`}>
       <b>direct-book / Little Hotelier:</b>
       {mode === 'off' ? <span>copying is off (set DIRECT_BOOK_PUSH=dry or on in the server .env)</span>
         : p ? <span>{label[p.status] ?? p.status}{p.confirmation ? ` · reference ${p.confirmation}` : ''}{p.message ? ` · ${p.message}` : ''}{p.attempts ? ` · tries ${p.attempts}` : ''}</span>
-        : <span>not sent yet (sent automatically when you confirm the booking){mode === 'dry' ? ' · test mode' : ''}</span>}
+        : <span>not sent yet (website bookings are sent automatically within a minute){mode === 'dry' ? ' · test mode' : ''}</span>}
+      {cancelledThere && <b className="basis-full">This booking is {rs === 'no_show' ? 'a no-show' : 'cancelled'} here but still booked in direct-book{p.confirmation ? ` (reference ${p.confirmation})` : ''}: cancel it in Little Hotelier too so the beds open again.</b>}
       {mode !== 'off' && p?.status !== 'booked' && (
         <form action={directBookPushAction} className="ms-auto"><input type="hidden" name="id" value={id} />
           <button className="rounded-lg border border-cocoa-200 bg-white px-3 py-1.5 text-xs font-semibold text-cocoa-800">{p ? 'Try again now' : 'Copy to direct-book now'}</button></form>
