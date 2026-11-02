@@ -365,15 +365,38 @@ export async function pushOne(page: any, reservationId: string, log: (m: string)
     await page.waitForFunction(() => /confirm|thank you|reference|booking number/i.test(document.body?.innerText || ''), null, { timeout: 60000 }).catch(() => {});
     await page.waitForTimeout(2500);
     const text: string = await page.evaluate(() => document.body.innerText);
-    const ref = text.match(/(?:booking|confirmation|reservation)\s*(?:number|reference|no\.?|#|code)?\s*[:#]?\s*([A-Z0-9-]{5,})/i)?.[1] ?? null;
-    steps.push({ step: 'done', ok: !!ref, note: ref ? `reference ${ref}` : 'no reference found on the page', shot: await shot('done') });
-    if (!ref && !/thank you|confirmed/i.test(text)) return finish('failed', 'pressed the final button but no confirmation appeared (see screenshots)');
-    // The beds are now closed in Little Hotelier: the dashboard alert for this booking is done.
+    const bbeMatch = text.match(/\b(BBE\d+)\b/i) || text.match(/#([A-Z0-9]{8,})/i);
+    const genericMatch = text.match(/(?:booking|confirmation|reservation)\s*(?:number|reference|no\.?|#|code)\s*[:#]?\s*([A-Z0-9]{5,})/i);
+    let ref = bbeMatch?.[1] ?? null;
+    if (!ref && genericMatch?.[1] && !/email|e-mail/i.test(genericMatch[1])) {
+      ref = genericMatch[1];
+    }
+    steps.push({ step: 'done', ok: !!ref, note: ref ? `reference ${ref}` : 'confirmed on page', shot: await shot('done') });
+    if (!ref && !/thank you|confirmed/i.test(text)) {
+      const res = await finish('failed', 'pressed the final button but no confirmation appeared (see screenshots)');
+      const { notifyDirectBookResult } = await import('./admin-bot');
+      await notifyDirectBookResult(reservationId, false, 'لم تظهر صفحة التأكيد').catch(() => {});
+      return res;
+    }
+    // The beds are now closed in Little Hotelier: confirm reservation and mark channel manager done
+    await q(`UPDATE reservations SET status='confirmed', cm_done_at=COALESCE(cm_done_at, now()), cm_done_by=COALESCE(cm_done_by, 'direct-book'), updated_at=now() WHERE id=$1 AND status='pending'`, [reservationId]).catch(() => {});
     await q(`UPDATE reservations SET cm_done_at=COALESCE(cm_done_at, now()), cm_done_by=COALESCE(cm_done_by, 'direct-book') WHERE id=$1`, [reservationId]);
-    return finish('booked', ref ? `booked on direct-book, reference ${ref}` : 'booked on direct-book (reference not read)', ref);
+    const res = await finish('booked', ref ? `booked on direct-book, reference ${ref}` : 'booked on direct-book', ref);
+    try {
+      const { notifyDirectBookResult } = await import('./admin-bot');
+      await notifyDirectBookResult(reservationId, true, ref || 'مؤكد في الحساب');
+    } catch (e: any) {
+      console.error('[direct-book telegram notify]', e?.message);
+    }
+    return res;
   } catch (e) {
     steps.push({ step: 'error', ok: false, note: (e as Error).message.slice(0, 300), shot: await shot('error') });
-    return finish('failed', (e as Error).message.slice(0, 300));
+    const res = await finish('failed', (e as Error).message.slice(0, 300));
+    try {
+      const { notifyDirectBookResult } = await import('./admin-bot');
+      await notifyDirectBookResult(reservationId, false, (e as Error).message.slice(0, 150));
+    } catch {}
+    return res;
   }
 }
 

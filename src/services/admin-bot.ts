@@ -176,14 +176,46 @@ export async function notifyNewRoomBooking(reservationId: string) {
     `الإجمالي: ${(Number(r.total_cents) / 100).toLocaleString('en-US')} ${r.currency}`,
     ...(r.deposit_cents != null ? [`العربون أونلاين: ${(Number(r.deposit_cents) / 100).toLocaleString('en-US')} · الباقي يتحصل في الفندق: ${((Number(r.total_cents) - Number(r.deposit_cents)) / 100).toLocaleString('en-US')} ${r.currency}`] : []),
     '',
-    '١) أكّد الحجز من الداش بورد (Reservations).',
-    (await import('./direct-book-push')).pushMode() === 'on'
-      ? '٢) الحجز بيتسجل لوحده على direct-book (Little Hotelier) خلال دقيقة. لو اتلغى هنا، الغيه هناك كمان.'
-      : '٢) اقفل نفس السرير/الأوضة في الشانل مانجر (Little Hotelier) وعلّم «Done in the channel manager».',
-  ].join('\n'));
+    ...( (await import('./direct-book-push')).pushMode() === 'on'
+      ? ['⚡ جاري حجز وتأكيد الغرفة تلقائياً على Little Hotelier (Direct-Book)... هيوصلك إشعار فوري برقم التأكيد خلال ثوانٍ.']
+      : [
+          '١) أكّد الحجز من الداش بورد (Reservations).',
+          '٢) اقفل نفس السرير/الأوضة في الشانل مانجر (Little Hotelier) وعلّم «Done in the channel manager».'
+        ]
+    ),  ].join('\n'));
 }
 
 /** A website room booking was paid by Paymob: it now waits for reception to confirm it. */
+
+/** A website room booking was successfully booked or failed on Little Hotelier direct-book */
+export async function notifyDirectBookResult(reservationId: string, success: boolean, refOrError: string) {
+  const r = (await q<any>(`SELECT r.reference, r.check_in::text ci, r.check_out::text co, r.guests_count, g.full_name, t.name->>'ar' t_ar, t.name->>'en' t_en
+    FROM reservations r JOIN guests g ON g.id=r.guest_id LEFT JOIN room_types t ON t.id=r.room_type_id WHERE r.id=$1`, [reservationId]))[0];
+  if (!r) return;
+  if (success) {
+    const confirmationText = refOrError && !/email/i.test(refOrError) ? `#${refOrError}` : 'مؤكد في الحساب';
+    await toAll([
+      `✅ تم حجز وتأكيد الغرفة تلقائياً على Little Hotelier (Direct-Book)!`,
+      `• كود الموقع: ${r.reference}`,
+      `• رقم التأكيد في Little Hotelier: ${confirmationText}`,
+      `• النزيل: ${r.full_name} (${r.guests_count} فرد)`,
+      `• الغرفة: ${r.t_ar || r.t_en || '—'}`,
+      `• الفترة: من ${r.ci} لـ ${r.co}`,
+      `🔒 السراير اتقفلت رسمياً في Little Hotelier وكل القنوات.`
+    ].join('
+'));
+  } else {
+    await toAll([
+      `⚠️ تنبيه: تعذر الحجز التلقائي على Little Hotelier!`,
+      `• كود الموقع: ${r.reference}`,
+      `• النزيل: ${r.full_name}`,
+      `• السبب: ${refOrError}`,
+      `يرجى مراجعة الحجز أو حجزه يدوياً في الشانل مانجر.`
+    ].join('
+'));
+  }
+}
+
 export async function notifyRoomPaid(reservationId: string, amountCents: number) {
   const r = (await q<any>(`SELECT r.reference, r.currency FROM reservations r WHERE r.id=$1`, [reservationId]))[0];
   if (!r) return;
