@@ -338,6 +338,24 @@ export async function pushOne(page: any, reservationId: string, log: (m: string)
 
     // 5. Book: find the real visible button on the payment form and click it with Playwright trusted click
     log('Locating and clicking visible Book button...');
+    const domEls = await page.evaluate(() => {
+      const all = Array.from(document.querySelectorAll('*'));
+      return all
+        .filter(el => (el.innerText || '').trim().toLowerCase() === 'book')
+        .map(el => {
+          const r = el.getBoundingClientRect();
+          return {
+            tag: el.tagName,
+            classes: el.className,
+            w: r.width,
+            h: r.height,
+            top: r.top,
+            left: r.left,
+            html: el.outerHTML.slice(0, 150)
+          };
+        });
+    });
+    log('Elements with text Book: ' + JSON.stringify(domEls));
     const allBtns = page.locator('button');
     const n = await allBtns.count();
     let clicked = false;
