@@ -202,8 +202,7 @@ export async function notifyDirectBookResult(reservationId: string, success: boo
       `• الغرفة: ${r.t_ar || r.t_en || '—'}`,
       `• الفترة: من ${r.ci} لـ ${r.co}`,
       `🔒 السراير اتقفلت رسمياً في Little Hotelier وكل القنوات.`
-    ].join('
-'));
+    ].join('\n'));
   } else {
     await toAll([
       `⚠️ تنبيه: تعذر الحجز التلقائي على Little Hotelier!`,
@@ -211,8 +210,7 @@ export async function notifyDirectBookResult(reservationId: string, success: boo
       `• النزيل: ${r.full_name}`,
       `• السبب: ${refOrError}`,
       `يرجى مراجعة الحجز أو حجزه يدوياً في الشانل مانجر.`
-    ].join('
-'));
+    ].join('\n'));
   }
 }
 
