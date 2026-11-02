@@ -61,9 +61,12 @@ a.cbx-brand:hover { transform: translateY(-2px); }
 @keyframes cbx-draw { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .cbx-tick svg { animation: none; stroke-dashoffset: 0; } }
 
-/* "More at Villa Layla": a swipeable row of cards on phones instead of a long stack */
-@media (max-width: 640px) {
-  #more .ev-grid { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; margin-inline: -16px; padding: 4px 16px 10px; scrollbar-width: none; }
-  #more .ev-grid::-webkit-scrollbar { display: none; }
-  #more .ev-card { flex: 0 0 82%; scroll-snap-align: start; }
-}
+/* "More at Villa Layla": a slider that moves by itself (card-slider.tsx), on every screen size */
+.ev-slider { display: flex !important; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; padding: 4px 2px 12px; scrollbar-width: none; }
+.ev-slider::-webkit-scrollbar { display: none; }
+.ev-slider > .ev-card { flex: 0 0 calc((100% - 32px) / 3); scroll-snap-align: start; }
+@media (max-width: 1000px) { .ev-slider > .ev-card { flex-basis: calc((100% - 16px) / 2); } }
+@media (max-width: 640px) { .ev-slider { margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; } .ev-slider > .ev-card { flex-basis: 84%; } }
+.cs-ctrl { display: flex; justify-content: center; gap: 10px; margin: 6px 0 4px; }
+.cs-ctrl button { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; border: 1.5px solid var(--color-border); background: #fff; color: var(--color-primary-dark); cursor: pointer; transition: border-color .2s, background .2s; }
+.cs-ctrl button:hover { border-color: var(--color-primary); background: var(--color-ivory); }

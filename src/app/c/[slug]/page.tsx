@@ -105,7 +105,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
             </div>
             <h1>{title}</h1>
             {!over && (left === 0 || (left != null && left <= 15) || going >= 10) && (
-              <p className="cbx-left">{left === 0 ? L('Fully booked', 'العدد اكتمل') : left != null && left <= 15 ? L(`Only ${left} places left`, `باقي ${left} أماكن بس`) : L(`${going} people already coming`, `${going} مسجلين لحد دلوقتي`)}</p>
+              <p className="cbx-left">{left === 0 ? L('Sold out', 'التذاكر خلصت') : left != null && left <= 15 ? L(`Only ${left} places left`, `باقي ${left} أماكن بس`) : L(`${going} people already have a ticket`, `${going} حاجزين تذكرة لحد دلوقتي`)}</p>
             )}
           </div>
           <a className="cbx-lang" href={`?lang=${ar ? 'en' : 'ar'}`}>{ar ? 'English' : 'عربي'}</a>
@@ -162,7 +162,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
 
           <div className="evd-side">
             <aside className="evd-book" id="join" aria-labelledby="joinH">
-              <h2 id="joinH">{L('Save your spot', 'سجّل حضورك')}</h2>
+              <h2 id="joinH">{L('Get your ticket', 'احجز تذكرتك')}</h2>
               {over ? (
                 <div className="evd-off">
                   <p><b>{L('This event has taken place', 'الإيفنت ده خلص')}</b> · {L('Thank you to everyone who came! Follow us for the next one.', 'شكرًا لكل اللي حضروا! تابعنا عشان تعرف الجاي.')}</p>
@@ -170,7 +170,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
                 </div>
               ) : left === 0 ? (
                 <div className="evd-off">
-                  <p><b>{L('Fully booked', 'العدد اكتمل')}</b> · {L('Message us on WhatsApp to join the waiting list.', 'كلمنا على واتساب عشان نضيفك على قايمة الانتظار.')}</p>
+                  <p><b>{L('Sold out', 'التذاكر خلصت')}</b> · {L('Message us on WhatsApp to join the waiting list.', 'كلمنا على واتساب عشان نضيفك على قايمة الانتظار.')}</p>
                   <a className="btn btn-wa" href={wa} target="_blank" rel="noopener noreferrer">WhatsApp</a>
                 </div>
               ) : (
@@ -179,7 +179,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
             </aside>
           </div>
         </div>
-        <EventsSection lang={lang} events={more} limit={6} id="more" head={{
+        <EventsSection lang={lang} events={more} limit={10} id="more" slider head={{
           kicker: L('More at Villa Layla', 'كمان في فيلا ليلى'),
           title: sameDay ? L('Make a day of it.', 'خليها يوم كامل.') : L('Other events at the villa.', 'فعاليات تانية في الفيلا.'),
           intro: sameDay

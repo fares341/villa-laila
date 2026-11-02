@@ -187,12 +187,12 @@ export async function emailCollabRsvp(r: any, c: Collab, updated: boolean, base 
     ...(r.note ? [['Note', r.note] as [string, string]] : []),
   ];
   const total = `${going} people signed up${c.capacity ? ` of ${c.capacity}` : ''}`;
-  const subject = `${updated ? 'Sign-up changed' : 'New sign-up'}: ${r.full_name} (${r.people}) · ${title}`;
-  const text = [`${updated ? 'A sign-up was changed' : 'New sign-up'} for ${title} — Villa Layla & ${c.partner_name}${c.event_date ? ` (${c.event_date})` : ''}`, '',
+  const subject = `${updated ? 'Ticket changed' : 'New ticket'}: ${r.full_name} (${r.people}) · ${title}`;
+  const text = [`${updated ? 'A ticket was changed' : 'New ticket'} for ${title} — Villa Layla & ${c.partner_name}${c.event_date ? ` (${c.event_date})` : ''}`, '',
     ...rows.map(([k, v]) => `${k}: ${v}`), '', total, base ? `Page: ${base}/c/${c.slug}` : ''].join('\n');
   const html = `<div style="font-family:Arial,sans-serif;max-width:520px;color:#2F2925">
 <p style="margin:0 0 4px;color:#9a7a55;font-size:12px;letter-spacing:.08em;text-transform:uppercase">Villa Layla &amp; ${esc(c.partner_name)}</p>
-<h2 style="margin:0 0 14px;font-size:20px">${updated ? 'Sign-up changed' : 'New sign-up'} · ${esc(title)}</h2>
+<h2 style="margin:0 0 14px;font-size:20px">${updated ? 'Ticket changed' : 'New ticket'} · ${esc(title)}</h2>
 <table style="border-collapse:collapse;width:100%;font-size:15px">${rows.map(([k, v]) => `<tr><td style="padding:8px 10px;border:1px solid #eadfce;color:#7a6a5c;width:150px">${esc(k)}</td><td style="padding:8px 10px;border:1px solid #eadfce;font-weight:bold">${esc(v)}</td></tr>`).join('')}</table>
 <p style="margin:14px 0 0;font-size:14px">${esc(total)}${c.event_date ? ` · ${esc(c.event_date)}` : ''}</p>
 ${base ? `<p style="margin:6px 0 0;font-size:13px"><a href="${esc(base)}/c/${esc(c.slug)}">${esc(base)}/c/${esc(c.slug)}</a></p>` : ''}</div>`;

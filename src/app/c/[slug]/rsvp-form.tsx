@@ -39,8 +39,8 @@ export function RsvpForm({ slug, ar, askEmail, maxPeople, title, partner, calend
     return (
       <div className="cbx-done">
         <div className="cbx-tick" aria-hidden><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></div>
-        <h3>{done.updated ? L(`Updated, ${done.name}!`, `اتعدّل يا ${done.name}!`) : L(`You’re on the list, ${done.name}!`, `اسمك اتسجل يا ${done.name}!`)}</h3>
-        <p>{L(`${done.people} ${done.people === 1 ? 'person' : 'people'} · see you there. We’ll message you on WhatsApp before the event.`, `${done.people} ${done.people === 1 ? 'فرد' : 'أفراد'} · مستنيينك. هنبعتلك على واتساب قبل الإيفنت.`)}</p>
+        <h3>{done.updated ? L(`Ticket updated, ${done.name}!`, `تذكرتك اتعدلت يا ${done.name}!`) : L(`Your ticket is booked, ${done.name}!`, `تذكرتك اتحجزت يا ${done.name}!`)}</h3>
+        <p>{L(`${done.people} ${done.people === 1 ? 'ticket' : 'tickets'} · see you there. We’ll message you on WhatsApp before the event.`, `${done.people} ${done.people === 1 ? 'تذكرة' : 'تذاكر'} · مستنيينك. هنبعتلك على واتساب قبل الإيفنت.`)}</p>
         <div className="cbx-done-acts">
           {calendarUrl && <a className="btn btn-line" href={calendarUrl} target="_blank" rel="noopener noreferrer">{L('Add to calendar', 'ضيفه للتقويم')}</a>}
           <a className="btn btn-wa" href={`https://wa.me/?text=${encodeURIComponent(share)}`} target="_blank" rel="noopener noreferrer">{L('Send to a friend', 'ابعته لصاحبك')}</a>
@@ -51,13 +51,13 @@ export function RsvpForm({ slug, ar, askEmail, maxPeople, title, partner, calend
 
   return (
     <form className="evb" onSubmit={submit}>
-      <p className="evb-fine cbx-sub">{L('It takes 20 seconds. No payment now.', 'هتاخد ٢٠ ثانية. مفيش دفع دلوقتي.')}</p>
+      <p className="evb-fine cbx-sub">{L('Free ticket · takes 20 seconds, no payment now.', 'تذكرة مجانية · هتاخد ٢٠ ثانية ومفيش دفع دلوقتي.')}</p>
       <input name="website" tabIndex={-1} autoComplete="off" aria-hidden className="cbx-hp" />
       <div className="evb-field"><label htmlFor="cb-name">{L('Full name', 'الاسم')}</label><input id="cb-name" name="fullName" required minLength={2} maxLength={80} autoComplete="name" /></div>
       <div className="evb-field"><label htmlFor="cb-phone">{L('Mobile / WhatsApp', 'رقم الموبايل / واتساب')}</label><input id="cb-phone" name="phone" type="tel" required minLength={7} maxLength={30} autoComplete="tel" dir="ltr" placeholder="+20 1xx xxx xxxx" /></div>
       {askEmail && <div className="evb-field"><label htmlFor="cb-email">{L('Email', 'البريد الإلكتروني')}</label><input id="cb-email" name="email" type="email" required autoComplete="email" dir="ltr" /></div>}
       <div className="evb-qty">
-        <span>{L('How many people?', 'عددكم كام؟')}</span>
+        <span>{L('How many tickets?', 'عدد التذاكر')}</span>
         <div className="evb-stepper">
           <button type="button" onClick={() => setPeople((p) => Math.max(1, p - 1))} disabled={people <= 1} aria-label={L('Fewer', 'أقل')}>−</button>
           <output aria-live="polite" className="num">{people}</output>
@@ -67,7 +67,7 @@ export function RsvpForm({ slug, ar, askEmail, maxPeople, title, partner, calend
       <div className="evb-field"><label htmlFor="cb-ig">{L('Instagram (optional)', 'إنستجرام (اختياري)')}</label><input id="cb-ig" name="instagram" maxLength={60} dir="ltr" placeholder="@" /></div>
       <div className="evb-field"><label htmlFor="cb-note">{L('Anything we should know? (optional)', 'حاجة عايزنا نعرفها؟ (اختياري)')}</label><textarea id="cb-note" name="note" rows={2} maxLength={300} /></div>
       {err && <p className="form-msg evb-err" role="alert">{err}</p>}
-      <button type="submit" className={`btn btn-book evb-submit ${busy ? 'loading' : ''}`} disabled={busy} aria-busy={busy}>{busy ? L('Saving…', 'بنسجل…') : L('Confirm I’m coming', 'أكّد حضوري')}</button>
+      <button type="submit" className={`btn btn-book evb-submit ${busy ? 'loading' : ''}`} disabled={busy} aria-busy={busy}>{busy ? L('Booking…', 'بنحجز…') : L('Book my ticket', 'احجز تذكرتي')}</button>
     </form>
   );
 }

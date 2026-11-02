@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { CardSlider } from './card-slider';
+
 export type EventCard = {
   slug: string;
   title: string;
@@ -12,7 +14,7 @@ export type EventCard = {
   soon: boolean;            // runs today or tomorrow
   soldOut?: boolean;        // every upcoming date (next 2 weeks) is full
   left?: number | null;     // places left on the next open date (null = unlimited)
-  /** Collab events: own page (/c/<slug>), partner name, and sign-up instead of tickets. */
+  /** Collab events: own page (/c/<slug>) with its free ticket form, and the partner's name. */
   href?: string;
   partner?: string;
   /** Highlighted card (e.g. "Same day" on a collab page): its own badge text and a gold outline. */
@@ -39,7 +41,7 @@ const ic = {
 };
 
 /** "Events at Villa Layla" — sits right under the services section on the home page. */
-export function EventsSection({ lang, events, heading = 'h2', limit, head, id = 'events' }: { lang: string; events: EventCard[]; heading?: 'h1' | 'h2'; limit?: number; head?: { kicker: string; title: string; intro?: string }; id?: string }) {
+export function EventsSection({ lang, events, heading = 'h2', limit, head, id = 'events', slider = false }: { lang: string; events: EventCard[]; heading?: 'h1' | 'h2'; limit?: number; head?: { kicker: string; title: string; intro?: string }; id?: string; slider?: boolean }) {
   if (!events.length) return null;
   const isAr = lang === 'ar';
   const H = heading;
@@ -59,7 +61,7 @@ export function EventsSection({ lang, events, heading = 'h2', limit, head, id = 
           </div>
         </div>
 
-        <div className="ev-grid">
+        <div className={`ev-grid${slider ? ' ev-slider' : ''}`} id={`${id}-grid`}>
           {shown.map((e) => {
             const href = e.href ?? `/${lang}/events/${e.slug}`;
             return (
@@ -87,7 +89,7 @@ export function EventsSection({ lang, events, heading = 'h2', limit, head, id = 
                   ) : (
                     <a className="btn btn-primary btn-sm" href={e.partner ? `${href}#join` : href}>
                       {ic.ticket}
-                      {e.partner ? (isAr ? 'سجّل حضورك' : 'Sign up') : isAr ? 'احجز تذكرة' : 'Get tickets'}
+                      {e.partner ? (isAr ? 'احجز تذكرتك' : 'Get your ticket') : isAr ? 'احجز تذكرة' : 'Get tickets'}
                     </a>
                   )}
                 </div>
@@ -96,6 +98,7 @@ export function EventsSection({ lang, events, heading = 'h2', limit, head, id = 
             );
           })}
         </div>
+        {slider && <CardSlider gridId={`${id}-grid`} ar={isAr} />}
         {heading === 'h2' && (
           <p className="ev-all"><a className="btn btn-line" href={`/${lang}/events`}>{isAr ? `كل الفعاليات (${events.length})` : `All events (${events.length})`}</a></p>
         )}
