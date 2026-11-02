@@ -334,50 +334,62 @@ export async function pushOne(page: any, reservationId: string, log: (m: string)
     const fields = await fieldsOf(page);
     steps.push({ step: 'review', ok: true, note: `card fields filled: ${filled.join(', ') || 'none'} · page fields: ${fields.join(' | ').slice(0, 900)}`, shot: await shot('review') });
     
-    // Find final visible booking button
-    let confirmBtn = page.getByRole('button', { name: /^book$/i }).filter({ hasNotText: /Amira|Spacious|Bed|USD|Select|Proceed to payment/i }).first();
-    if (!(await confirmBtn.count()) || !(await confirmBtn.isVisible())) {
-      confirmBtn = page.locator('button').filter({ hasText: /^book$/i }).filter({ hasNotText: /Amira|Spacious|Bed|USD|Select|Proceed to payment/i }).first();
-    }
-    if (!(await confirmBtn.count())) {
-      confirmBtn = page.locator('button').filter({ hasText: /(confirm|complete|book now|place booking|pay|book)/i }).filter({ hasNotText: /Amira|Spacious|Bed|USD|Select|Proceed to payment/i }).last();
-    }
-    if (!(await confirmBtn.count())) return finish('failed', 'no final button found on the review step (see screenshots)');
     if (mode === 'dry') return finish('dry_ok', `test run reached the last step (${filled.length ? 'card filled' : 'card not filled'}); nothing was booked`);
 
-    // 5. Book: click the visible Book button
-    log('Clicking final Book button...');
-    await page.evaluate(() => {
-      const btns = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[];
-      for (const b of btns) {
-        const txt = (b.innerText || '').trim();
-        if (/^book$/i.test(txt) && b.offsetParent !== null) {
-          b.scrollIntoView();
-          b.click();
-          return;
-        }
+    // 5. Book: find the real visible button on the payment form and click it with Playwright trusted click
+    log('Locating and clicking visible Book button...');
+    const allBtns = page.locator('button');
+    const n = await allBtns.count();
+    let clicked = false;
+    for (let i = 0; i < n; i++) {
+      const b = allBtns.nth(i);
+      const isVis = await b.isVisible().catch(() => false);
+      if (!isVis) continue;
+      const txt = (await b.innerText().catch(() => '')).trim();
+      if (/^book$/i.test(txt)) {
+        await b.scrollIntoViewIfNeeded().catch(() => {});
+        log(`Clicking visible Book button (button index ${i})...`);
+        await b.click({ timeout: 10000 });
+        clicked = true;
+        break;
       }
-    });
-    // Also trigger via Playwright locator if still on page
-    if (await confirmBtn.isVisible().catch(() => false)) {
-      await confirmBtn.click({ force: true }).catch(() => {});
     }
-    await page.waitForFunction(() => /confirm|thank you|reference|booking number/i.test(document.body?.innerText || ''), null, { timeout: 60000 }).catch(() => {});
+    if (!clicked) {
+      // Fallback
+      const fb = page.locator('button:visible').filter({ hasText: /^book$/i }).last();
+      if (await fb.count()) {
+        await fb.click({ timeout: 10000 });
+        clicked = true;
+        log('Clicked fallback visible Book button');
+      }
+    }
+    if (!clicked) return finish('failed', 'no visible Book button found on the review step (see screenshots)');
+
+    // Wait for the confirmation screen
+    log('Waiting for confirmation screen...');
+    try {
+      await page.waitForFunction(() => {
+        const t = document.body?.innerText || '';
+        return /thank you/i.test(t) || /reservation has been confirmed/i.test(t) || /\bBBE\d+\b/i.test(t);
+      }, null, { timeout: 35000 });
+    } catch {
+      log('Confirmation wait timed out');
+    }
+
     await page.waitForTimeout(2500);
     const text: string = await page.evaluate(() => document.body.innerText);
     const bbeMatch = text.match(/\b(BBE\d+)\b/i) || text.match(/#([A-Z0-9]{8,})/i);
-    const genericMatch = text.match(/(?:booking|confirmation|reservation)\s*(?:number|reference|no\.?|#|code)\s*[:#]?\s*([A-Z0-9]{5,})/i);
-    let ref = bbeMatch?.[1] ?? null;
-    if (!ref && genericMatch?.[1] && !/email|e-mail/i.test(genericMatch[1])) {
-      ref = genericMatch[1];
-    }
-    steps.push({ step: 'done', ok: !!ref, note: ref ? `reference ${ref}` : 'confirmed on page', shot: await shot('done') });
-    if (!ref && !/thank you|confirmed/i.test(text)) {
+    const ref = bbeMatch?.[1] ?? null;
+    const okPage = /thank you/i.test(text) || /reservation has been confirmed/i.test(text) || !!ref;
+
+    steps.push({ step: 'done', ok: okPage, note: ref ? `reference ${ref}` : okPage ? 'confirmed' : 'no confirmation', shot: await shot('done') });
+    if (!okPage) {
       const res = await finish('failed', 'pressed the final button but no confirmation appeared (see screenshots)');
       const { notifyDirectBookResult } = await import('./admin-bot');
       await notifyDirectBookResult(reservationId, false, 'لم تظهر صفحة التأكيد').catch(() => {});
       return res;
     }
+
     // The beds are now closed in Little Hotelier: confirm reservation and mark channel manager done
     await q(`UPDATE reservations SET status='confirmed', cm_done_at=COALESCE(cm_done_at, now()), cm_done_by=COALESCE(cm_done_by, 'direct-book'), updated_at=now() WHERE id=$1 AND status='pending'`, [reservationId]).catch(() => {});
     await q(`UPDATE reservations SET cm_done_at=COALESCE(cm_done_at, now()), cm_done_by=COALESCE(cm_done_by, 'direct-book') WHERE id=$1`, [reservationId]);
