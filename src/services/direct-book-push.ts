@@ -59,14 +59,64 @@ async function fill(page: any, label: RegExp, value: string | null | undefined) 
 async function choose(page: any, label: RegExp, text: string | null | undefined) {
   if (!text) return true;
   try {
+    // 1. Check for vue-select component (.ibe-v-select)
+    const selectContainer = page.locator('.ibe-v-select, .v-select')
+      .filter({ has: page.locator('label, span, div').filter({ hasText: label }) })
+      .first();
+
+    if (await selectContainer.count() && await selectContainer.isVisible()) {
+      const searchInput = selectContainer.locator('input.vs__search, input[role="combobox"], input').first();
+      if (await searchInput.count()) {
+        await searchInput.click({ force: true });
+        await page.waitForTimeout(300);
+        await searchInput.fill('');
+        await searchInput.type(text, { delay: 30 });
+        await page.waitForTimeout(400);
+
+        const opt = page.locator('.vs__dropdown-option, [role="option"]')
+          .filter({ hasText: new RegExp('^\\s*' + text.replace(/[.*+?^${}()|[\\]/g, '\\$&') + '\\s*$', 'i') })
+          .first();
+
+        if (await opt.count()) {
+          await opt.scrollIntoViewIfNeeded().catch(() => {});
+          await opt.click({ force: true });
+          await page.waitForTimeout(300);
+          return true;
+        }
+
+        const partialOpt = page.locator('.vs__dropdown-option, [role="option"]')
+          .filter({ hasText: new RegExp(text.replace(/[.*+?^${}()|[\\]/g, '\\$&'), 'i') })
+          .first();
+        if (await partialOpt.count()) {
+          await partialOpt.scrollIntoViewIfNeeded().catch(() => {});
+          await partialOpt.click({ force: true });
+          await page.waitForTimeout(300);
+          return true;
+        }
+
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(300);
+        return true;
+      }
+    }
+
+    // 2. Generic fallback
     let el = page.getByLabel(label).first();
     if (!(await el.count())) el = page.getByPlaceholder(label).first();
+    if (!(await el.count())) el = page.locator('label, span, div').filter({ hasText: label }).first().locator('xpath=following::*[contains(@class, "select") or self::input or @role="combobox"][1]');
     if (!(await el.count())) return false;
     await el.click();
-    await el.fill(text);
-    await page.waitForTimeout(500);
-    const opt = page.getByRole('option', { name: new RegExp('^' + text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).first();
-    if (await opt.count()) await opt.click(); else await el.press('Enter');
+    await page.waitForTimeout(400);
+
+    const opt = page.locator('li, [role="option"]').filter({ hasText: new RegExp('^\\s*' + text.replace(/[.*+?^${}()|[\\]/g, '\\$&') + '\\s*$', 'i') }).first();
+    if (await opt.count()) {
+      await opt.scrollIntoViewIfNeeded().catch(() => {});
+      await opt.click({ force: true });
+      return true;
+    }
+    await page.keyboard.type(text, { delay: 30 });
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Enter');
     return true;
   } catch { return false; }
 }
@@ -75,21 +125,40 @@ async function choose(page: any, label: RegExp, text: string | null | undefined)
 async function fillCard(page: any) {
   const c = card();
   const frames = [page.mainFrame(), ...page.frames()];
+  const [expMonth, expYear] = (c.expiry || '').split(/[\/\s-]+/);
+  // Auto-masking inputs add the slash automatically, so send digits only (e.g. 0429)
+  const cleanExpiry = (c.expiry || '').replace(/\D/g, '');
+
   const want: [RegExp, string, string][] = [
     [/card ?number|cc-number|cardnumber|número/i, c.number, 'number'],
     [/name on card|card ?holder|cc-name|holder/i, c.name, 'name'],
-    [/expir|exp-date|mm ?\/ ?yy|cc-exp/i, c.expiry, 'expiry'],
+    [/expir|exp-date|mm ?\/ ?yy|cc-exp/i, cleanExpiry, 'expiry'],
+    [/exp.*month|cc-month|\bmm\b/i, expMonth, 'month'],
+    [/exp.*year|cc-year|\b(yy|yyyy)\b/i, expYear, 'year'],
     [/cvc|cvv|security code|cc-csc/i, c.cvc, 'cvc'],
   ];
   const done: string[] = [];
   for (const [re, val, key] of want) {
     if (!val) continue;
+    if (key === 'month' && done.includes('expiry')) continue;
+    if (key === 'year' && done.includes('expiry')) continue;
     for (const f of frames) {
       try {
-        const inputs = await f.$$('input');
+        const inputs = await f.$$('input, select');
         for (const i of inputs) {
           const attrs = await i.evaluate((n: any) => [n.name, n.id, n.placeholder, n.autocomplete, n.getAttribute('aria-label'), n.getAttribute('data-elements-stable-field-name')].filter(Boolean).join(' '));
-          if (re.test(attrs) && await i.isVisible()) { await i.fill(''); await i.type(val, { delay: 40 }); done.push(key); break; }
+          if (re.test(attrs) && await i.isVisible()) {
+            const tagName = await i.evaluate((n: any) => n.tagName.toLowerCase());
+            if (tagName === 'select') {
+              await i.selectOption({ label: val }).catch(() => i.selectOption({ value: val })).catch(() => {});
+            } else {
+              await i.click().catch(() => {});
+              await i.fill('').catch(() => {});
+              await i.type(val, { delay: 40 });
+            }
+            done.push(key);
+            break;
+          }
         }
         if (done.includes(key)) break;
       } catch { /* frame gone */ }
@@ -142,19 +211,37 @@ export async function pushOne(page: any, reservationId: string, log: (m: string)
     await page.waitForFunction(() => /Cost for|are unavailable|Booking summary/.test(document.body?.innerText || ''), null, { timeout: 30000 }).catch(() => {});
     const reject = page.getByRole('button', { name: /reject all/i }).first();
     if (await reject.count()) await reject.click().catch(() => {});
-    const cardEl = page.locator('section, article, li, div').filter({ has: page.getByRole('heading', { name: new RegExp('^' + name.replace(/[-]/g, '.') + '$', 'i') }) }).filter({ has: page.getByRole('combobox') }).last();
-    if (!(await cardEl.count())) { steps.push({ step: 'room', ok: false, note: `"${name}" not found or not bookable for these dates`, shot: await shot('room') }); return finish('failed', `"${name}" is not bookable on direct-book for ${String(r.check_in).slice(0, 10)} → ${String(r.check_out).slice(0, 10)}`); }
-    const sel = cardEl.getByRole('combobox').first();
-    await sel.click();
-    await page.waitForTimeout(400);
-    const opts = page.getByRole('option');
-    const n = await opts.count();
-    let picked = false;
-    for (let i = 0; i < n; i++) {
-      const t = (await opts.nth(i).innerText()).trim();
-      if (new RegExp(`^${qty}\\b`).test(t)) { await opts.nth(i).click(); picked = true; break; }
+    // Match heading for the room
+    const h = page.getByRole('heading', { name: new RegExp(name.replace(/[-]/g, '.'), 'i') }).first();
+    if (!(await h.count()) || !(await h.isVisible())) {
+      steps.push({ step: 'room', ok: false, note: `"${name}" heading not found or not visible for these dates`, shot: await shot('room') });
+      return finish('failed', `"${name}" is not bookable on direct-book for ${String(r.check_in).slice(0, 10)} → ${String(r.check_out).slice(0, 10)}`);
     }
-    if (!picked) { steps.push({ step: 'quantity', ok: false, note: `no option for ${qty}`, shot: await shot('quantity') }); return finish('failed', `direct-book offers no "${qty}" for ${name}`); }
+
+    const sel = h.locator('xpath=following::*[contains(@role, "combobox")][1]');
+    const selectBtn = h.locator('xpath=following::button[contains(., "Select")][1]');
+
+    if (await sel.count() && await sel.isVisible()) {
+      await sel.click();
+      await page.waitForTimeout(400);
+      const opts = page.getByRole('option');
+      const n = await opts.count();
+      let picked = false;
+      for (let i = 0; i < n; i++) {
+        const t = (await opts.nth(i).innerText()).trim();
+        if (new RegExp(`^${qty}\\b`).test(t)) { await opts.nth(i).click(); picked = true; break; }
+      }
+      if (!picked) {
+        steps.push({ step: 'quantity', ok: false, note: `no option for ${qty}`, shot: await shot('quantity') });
+        return finish('failed', `direct-book offers no "${qty}" for ${name}`);
+      }
+    } else if (await selectBtn.count() && await selectBtn.isVisible()) {
+      await selectBtn.click();
+      await page.waitForTimeout(800);
+    } else {
+      steps.push({ step: 'room', ok: false, note: `neither combobox nor select button found for ${name}`, shot: await shot('room') });
+      return finish('failed', `direct-book offers neither combobox nor select button for ${name}`);
+    }
     await page.waitForTimeout(1200);
     steps.push({ step: 'room', ok: true, note: `${name} × ${qty}`, shot: await shot('room') });
     await page.getByRole('button', { name: /^book$/i }).last().click();
@@ -162,17 +249,24 @@ export async function pushOne(page: any, reservationId: string, log: (m: string)
     await page.waitForTimeout(2500);
 
     // 2. Your details.
+    const guestCountry = addr.country ? COUNTRY(addr.country) : null;
     const got = {
-      first: await fill(page, /^first name/i, first), last: await fill(page, /^last name/i, last),
-      email: await fill(page, /^e-?mail$/i, r.email), confirm: await fill(page, /confirm e-?mail/i, r.email),
-      phone: await fill(page, /^phone/i, r.phone), address: await fill(page, /^address$/i, addr.line1 || 'Not given'),
-      address2: await fill(page, /additional line/i, addr.line2), city: await fill(page, /^city/i, addr.city || 'Not given'),
-      state: await fill(page, /^state/i, addr.state), postcode: await fill(page, /^post ?code/i, addr.postcode || '00000'),
-      country: await choose(page, /country|select a country/i, addr.country ? COUNTRY(addr.country) : null),
-      arrival: r.arrival_time ? await choose(page, /arrival time|select time/i, r.arrival_time) : true,
-      requests: await fill(page, /personal requests/i, [r.guest_notes, `Villa Layla website booking ${r.reference}`].filter(Boolean).join(' · ')),
+      first: await fill(page, /^first name/i, first),
+      last: await fill(page, /^last name/i, last),
+      email: await fill(page, /^e-?mail$/i, r.email),
+      confirm: await fill(page, /confirm e-?mail/i, r.email),
+      phone: await fill(page, /^phone/i, r.phone || '+201000000000'),
+      address: await fill(page, /^address$/i, addr.line1 || 'Main Street'),
+      address2: await fill(page, /additional line/i, addr.line2),
+      city: await fill(page, /^city/i, addr.city || 'Cairo'),
+      state: await fill(page, /^state/i, addr.state),
+      postcode: await fill(page, /^post ?code/i, addr.postcode || '11511'),
+      country: await choose(page, /country/i, guestCountry || 'Egypt'),
+      arrival: r.arrival_time ? await choose(page, /arrival/i, r.arrival_time) : true,
+      requests: await fill(page, /personal requests/i, [r.guest_notes, r.arrival_time ? `Expected arrival: ${r.arrival_time}` : null, `Villa Layla website booking ${r.reference}`].filter(Boolean).join(' · ')),
     };
-    const missing = Object.entries(got).filter(([, v]) => !v).map(([k]) => k);
+    // arrival, address2, state are optional and must never block booking
+    const missing = Object.entries(got).filter(([k, v]) => !v && k !== 'arrival' && k !== 'address2' && k !== 'state').map(([k]) => k);
     steps.push({ step: 'details', ok: !missing.length, note: missing.length ? `could not fill: ${missing.join(', ')}` : 'all filled', shot: await shot('details') });
     await page.getByRole('button', { name: /^continue$/i }).first().click();
     await page.waitForTimeout(2500);
@@ -180,21 +274,81 @@ export async function pushOne(page: any, reservationId: string, log: (m: string)
     if (invalid) { steps.push({ step: 'details-check', ok: false, note: `${invalid} field(s) refused by the engine`, shot: await shot('refused') }); return finish('failed', `direct-book refused ${invalid} field(s) in "Your details" (see screenshots)`); }
 
     // 3. Extras: none.
-    const skip = page.getByRole('button', { name: /^(skip|continue)$/i }).first();
-    if (await skip.count()) { await skip.click().catch(() => {}); await page.waitForTimeout(2500); }
+    const skipRes = await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[];
+      for (const b of buttons) {
+        const aria = (b.getAttribute('aria-label') || '').trim();
+        const txt = (b.innerText || '').trim();
+        if (/skip extras/i.test(aria) || /skip extras/i.test(txt) || /^skip$/i.test(txt)) {
+          b.click();
+          return { method: 'click', aria, txt, id: b.id };
+        }
+      }
+      return { method: 'none' };
+    });
+    log(`[skip action]: ${JSON.stringify(skipRes)}`);
+    await page.waitForTimeout(2500);
     steps.push({ step: 'extras', ok: true, shot: await shot('extras') });
 
-    // 4. Review: the hotel's card (not charged) and the terms.
-    const filled = cardSet() ? await fillCard(page) : [];
+    // 4. Review: check terms checkbox first, then click "Proceed to payment"
     for (const box of await page.getByRole('checkbox').all()) { try { if (!(await box.isChecked())) await box.check({ force: true }); } catch { /* optional */ } }
+    await page.evaluate(() => {
+      const cbs = Array.from(document.querySelectorAll('input[type="checkbox"], [role="checkbox"]')) as HTMLElement[];
+      for (const cb of cbs) {
+        if (cb instanceof HTMLInputElement && !cb.checked) {
+          cb.click();
+        } else if (cb.getAttribute('aria-checked') !== 'true') {
+          cb.click();
+        }
+      }
+    });
+    await page.waitForTimeout(1000);
+
+    // In direct-book, clicking "Proceed to payment" (enabled after terms checkbox) opens the card form
+    const proceedBtn = page.getByRole('button', { name: /proceed to payment|continue to payment/i }).first();
+    if (await proceedBtn.count()) {
+      log('Clicking Proceed to payment button...');
+      await proceedBtn.scrollIntoViewIfNeeded().catch(() => {});
+      await proceedBtn.click({ force: true }).catch(() => {});
+      await page.waitForTimeout(5000);
+    } else {
+      await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[];
+        for (const b of btns) {
+          if (/proceed to payment/i.test(b.innerText || '')) {
+            b.click();
+            return;
+          }
+        }
+      });
+      await page.waitForTimeout(5000);
+    }
+
+    // Now payment modal / fields / iframes are loaded: fill hotel card
+    const filled = cardSet() ? await fillCard(page) : [];
+    log(`Card fields filled: ${filled.join(', ') || 'none'}`);
+
+    // If there are any additional checkboxes on the payment form
+    for (const box of await page.getByRole('checkbox').all()) { try { if (!(await box.isChecked())) await box.check({ force: true }); } catch { /* optional */ } }
+
     const fields = await fieldsOf(page);
     steps.push({ step: 'review', ok: true, note: `card fields filled: ${filled.join(', ') || 'none'} · page fields: ${fields.join(' | ').slice(0, 900)}`, shot: await shot('review') });
-    const confirmBtn = page.getByRole('button', { name: /(confirm|complete|book now|place booking|pay)/i }).last();
+    
+    // Find final booking button
+    let confirmBtn = page.getByRole('button', { name: /(confirm|complete|book now|place booking|pay|book)/i }).filter({ hasNotText: /Amira|Spacious|Bed|USD|Select|Proceed to payment/i }).last();
+    if (!(await confirmBtn.count()) || !(await confirmBtn.isVisible())) {
+      confirmBtn = page.locator('button').filter({ hasText: /(confirm|complete|book now|place booking|pay|book)/i }).filter({ hasNotText: /Amira|Spacious|Bed|USD|Select|Proceed to payment/i }).last();
+    }
     if (!(await confirmBtn.count())) return finish('failed', 'no final button found on the review step (see screenshots)');
     if (mode === 'dry') return finish('dry_ok', `test run reached the last step (${filled.length ? 'card filled' : 'card not filled'}); nothing was booked`);
 
     // 5. Book.
-    await confirmBtn.click();
+    for (let i = 0; i < 10; i++) {
+      if (await confirmBtn.isEnabled().catch(() => true)) break;
+      await page.waitForTimeout(1000);
+    }
+    await confirmBtn.scrollIntoViewIfNeeded().catch(() => {});
+    await confirmBtn.click({ force: true });
     await page.waitForFunction(() => /confirm|thank you|reference|booking number/i.test(document.body?.innerText || ''), null, { timeout: 60000 }).catch(() => {});
     await page.waitForTimeout(2500);
     const text: string = await page.evaluate(() => document.body.innerText);

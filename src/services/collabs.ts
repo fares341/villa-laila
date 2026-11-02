@@ -221,7 +221,7 @@ export const csvOf = (rows: any[], c?: Collab) => {
 /** E-mails one sign-up to the addresses chosen for that collab (ours and the partner's). */
 export async function emailCollabRsvp(r: any, c: Collab, updated: boolean, base = '') {
   const { sendMail, mailEnabled } = await import('@/lib/mailer');
-  const to = c.notify_emails ?? [];
+  const to = Array.from(new Set([...(c.notify_emails ?? []), 'bookings@villalaylahostel.com']));
   if (!to.length) return;
   if (!mailEnabled()) { console.warn('[collab mail] SMTP_* not set in .env, sign-up not e-mailed'); return; }
   const title = c.title.en || c.title.ar || 'Collab event';
