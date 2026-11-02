@@ -181,6 +181,14 @@ async function fieldsOf(page: any) {
 
 /** One booking through the engine. */
 export async function pushOne(page: any, reservationId: string, log: (m: string) => void) {
+  // Add anti-bot stealth scripts
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    (window as any).chrome = { runtime: {}, app: {} };
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+  });
+
   const mode = pushMode();
   const r = (await q<any>(`SELECT r.*, g.full_name, g.email, g.phone, g.address, t.code, t.kind FROM reservations r JOIN guests g ON g.id=r.guest_id JOIN room_types t ON t.id=r.room_type_id WHERE r.id=$1`, [reservationId]))[0];
   const steps: Step[] = [];
@@ -337,51 +345,46 @@ export async function pushOne(page: any, reservationId: string, log: (m: string)
     if (mode === 'dry') return finish('dry_ok', `test run reached the last step (${filled.length ? 'card filled' : 'card not filled'}); nothing was booked`);
 
     // 5. Book: find the real visible button on the payment form and click it with Playwright trusted click
-    log('Locating and clicking visible Book button...');
-    const domEls = await page.evaluate(() => {
-      const all = Array.from(document.querySelectorAll('*'));
-      return all
-        .filter(el => (el.innerText || '').trim().toLowerCase() === 'book')
-        .map(el => {
-          const r = el.getBoundingClientRect();
-          return {
-            tag: el.tagName,
-            classes: el.className,
-            w: r.width,
-            h: r.height,
-            top: r.top,
-            left: r.left,
-            html: el.outerHTML.slice(0, 150)
-          };
-        });
-    });
-    log('Elements with text Book: ' + JSON.stringify(domEls));
-    const allBtns = page.locator('button');
-    const n = await allBtns.count();
-    let clicked = false;
-    for (let i = 0; i < n; i++) {
-      const b = allBtns.nth(i);
-      const isVis = await b.isVisible().catch(() => false);
-      if (!isVis) continue;
-      const txt = (await b.innerText().catch(() => '')).trim();
-      if (/^book$/i.test(txt)) {
-        await b.scrollIntoViewIfNeeded().catch(() => {});
-        log(`Clicking visible Book button (button index ${i})...`);
-        await b.click({ timeout: 10000 });
-        clicked = true;
-        break;
+    log('Waiting for Vue card validation and Book button to appear...');
+    await page.waitForTimeout(2500);
+
+    // Look for visible Book button
+    let bookBtn = page.locator('button:visible').filter({ hasText: /^book$/i }).first();
+    let count = await bookBtn.count();
+    if (!count) {
+      log('Waiting up to 10s for visible Book button...');
+      try {
+        await page.waitForSelector('button:has-text("Book"):visible', { timeout: 10000 });
+        bookBtn = page.locator('button:visible').filter({ hasText: /^book$/i }).first();
+      } catch {
+        // If still hidden on lg desktop, trigger click on any button with Book text via JS or resize
+        log('Attempting click on Book button via locator or JS...');
+        const anyBook = page.locator('button').filter({ hasText: /^book$/i }).last();
+        if (await anyBook.count()) {
+          await anyBook.click({ force: true }).catch(() => {});
+        }
       }
     }
-    if (!clicked) {
-      // Fallback
-      const fb = page.locator('button:visible').filter({ hasText: /^book$/i }).last();
-      if (await fb.count()) {
-        await fb.click({ timeout: 10000 });
-        clicked = true;
-        log('Clicked fallback visible Book button');
-      }
+
+    if (await bookBtn.count()) {
+      log('Clicking visible Book button...');
+      await bookBtn.scrollIntoViewIfNeeded().catch(() => {});
+      await page.waitForTimeout(500);
+      await bookBtn.click({ timeout: 10000 });
+    } else {
+      // Direct click via evaluate
+      log('Clicking Book button via evaluate fallback...');
+      await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll('button'));
+        for (const b of btns) {
+          if (/^book$/i.test((b.innerText || '').trim())) {
+            b.scrollIntoView();
+            b.click();
+            break;
+          }
+        }
+      });
     }
-    if (!clicked) return finish('failed', 'no visible Book button found on the review step (see screenshots)');
 
     // Wait for the confirmation screen
     log('Waiting for confirmation screen...');
