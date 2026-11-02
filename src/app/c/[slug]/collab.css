@@ -70,3 +70,12 @@ a.cbx-brand:hover { transform: translateY(-2px); }
 .cs-ctrl { display: flex; justify-content: center; gap: 10px; margin: 6px 0 4px; }
 .cs-ctrl button { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; border: 1.5px solid var(--color-border); background: #fff; color: var(--color-primary-dark); cursor: pointer; transition: border-color .2s, background .2s; }
 .cs-ctrl button:hover { border-color: var(--color-primary); background: var(--color-ivory); }
+
+/* Extra questions and price on the ticket form */
+.cbx-q { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 8px; }
+.cbx-q legend { padding: 0; margin-bottom: 8px; font-size: 12px; font-weight: 700; color: var(--color-primary); letter-spacing: .04em; text-transform: uppercase; }
+.cbx-q legend small { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--color-text-secondary); }
+.cbx-opt { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1.5px solid var(--color-border); border-radius: var(--r-sm); background: var(--color-ivory); font-weight: 600; cursor: pointer; }
+.cbx-opt:has(input:checked) { border-color: var(--color-primary); background: #fff; }
+.cbx-opt input { width: 18px; height: 18px; accent-color: var(--color-primary-dark); }
+.cbx-total { margin: 0; padding: 10px 14px; border-radius: var(--r-sm); background: var(--color-ivory); font-weight: 700; color: var(--color-primary-dark); display: flex; justify-content: space-between; }

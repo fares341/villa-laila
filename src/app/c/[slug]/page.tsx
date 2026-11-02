@@ -116,7 +116,12 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
             <dl className="evd-facts cbx-facts">
               {when && <div><dt>{L('Date', 'اليوم')}</dt><dd>{when}</dd></div>}
               {hoursList.length > 0 && <div><dt>{L('Time', 'الوقت')}</dt><dd className="cbx-time">{hoursEl}</dd></div>}
-              {t(c.price_note, ar) && <div><dt>{L('Entry', 'الدخول')}</dt><dd>{t(c.price_note, ar)}</dd></div>}
+              {(() => {
+                const v = c.price_mode === 'fixed' && c.price_cents ? `${ar ? `${(c.price_cents / 100).toLocaleString('en-US')} ج.م` : `EGP ${(c.price_cents / 100).toLocaleString('en-US')}`}${L(' per ticket', ' للتذكرة')}`
+                  : c.price_mode === 'pwyw' ? L('Pay what you want', 'ادفع اللي تحبه') : '';
+                const note = t(c.price_note, ar);
+                return v || note ? <div><dt>{L('Entry', 'الدخول')}</dt><dd>{[v, note].filter(Boolean).join(' · ')}</dd></div> : null;
+              })()}
               <div><dt>{L('Where', 'المكان')}</dt><dd className="evd-where">
                 <span>{place || L('Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab', 'فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب')}</span>
                 <a className="evd-map" href={MAP_URL} target="_blank" rel="noopener noreferrer" aria-label={L('Open in Google Maps', 'افتح المكان على خرائط جوجل')}>
@@ -174,7 +179,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
                   <a className="btn btn-wa" href={wa} target="_blank" rel="noopener noreferrer">WhatsApp</a>
                 </div>
               ) : (
-                <RsvpForm slug={c.slug} ar={ar} askEmail={c.ask_email} maxPeople={left == null ? 10 : Math.min(10, left)} title={title} partner={c.partner_name} calendarUrl={cal} />
+                <RsvpForm slug={c.slug} ar={ar} askEmail={c.ask_email} questions={c.questions ?? []} priceMode={c.price_mode ?? 'free'} priceCents={c.price_cents ?? null} maxPeople={left == null ? 10 : Math.min(10, left)} title={title} partner={c.partner_name} calendarUrl={cal} />
               )}
             </aside>
           </div>

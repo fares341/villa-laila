@@ -2,7 +2,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
-import { saveCollab, deleteCollab, setRsvp, type Upload } from '@/services/collabs';
+import { saveCollab, deleteCollab, setRsvp, cloneCollab, sendInvites, type Upload } from '@/services/collabs';
+import { siteBase } from '@/lib/base-url';
 
 const fileOf = async (v: FormDataEntryValue | null): Promise<Upload | null> => {
   if (!v || typeof v === 'string' || !(v as File).size) return null;
@@ -36,6 +37,11 @@ export async function collabSaveAction(f: FormData) {
       priceAr: S(f, 'priceAr'), priceEn: S(f, 'priceEn'), capacity: S(f, 'capacity') ? Number(S(f, 'capacity')) : null,
       accent: S(f, 'accent'), askEmail: f.get('askEmail') === 'on', notifyEmails: S(f, 'notifyEmails'),
       logo: await fileOf(f.get('logo')), newPhotos: photos, keepPhotos: f.getAll('keepPhoto').map(String), meals,
+      priceMode: S(f, 'priceMode'), price: S(f, 'price'),
+      questions: Array.from({ length: 8 }, (_, i) => i).filter((i) => f.get(`q${i}_present`) != null && f.get(`q${i}_remove`) !== 'on').map((i) => ({
+        id: S(f, `q${i}_id`), labelAr: S(f, `q${i}_labelAr`), labelEn: S(f, `q${i}_labelEn`), type: S(f, `q${i}_type`),
+        optionsAr: String(f.get(`q${i}_optionsAr`) ?? ''), optionsEn: String(f.get(`q${i}_optionsEn`) ?? ''), required: f.get(`q${i}_required`) === 'on',
+      })),
     }, u.email);
   } catch (e) { go(back, 'err', (e as Error).message || 'Could not save'); }
   revalidatePath('/dashboard/collabs');
@@ -56,4 +62,26 @@ export async function collabRsvpAction(f: FormData) {
   const cid = await setRsvp(S(f, 'id'), op, u.email);
   revalidatePath(`/dashboard/collabs/${cid}`);
   redirect(`/dashboard/collabs/${cid}#list`);
+}
+
+export async function collabCloneAction(f: FormData) {
+  const u = await requireUser('events.manage');
+  let nid = '';
+  try { nid = await cloneCollab(S(f, 'id'), S(f, 'date') || null, u.email); }
+  catch (e) { go(`/dashboard/collabs/${S(f, 'id')}`, 'err', (e as Error).message || 'Could not copy'); }
+  revalidatePath('/dashboard/collabs');
+  go(`/dashboard/collabs/${nid}`, 'ok', 'Copy made (hidden). Check it, then tick «Page is live» and save.');
+}
+
+export async function collabInviteAction(f: FormData) {
+  const u = await requireUser('events.manage');
+  const id = S(f, 'id');
+  const back = `/dashboard/collabs/${id}/invite`;
+  const extra = S(f, 'extra').split(/[\s,;]+/).filter(Boolean);
+  let r = { sent: 0, failed: 0, skipped: 0 };
+  try {
+    r = await sendInvites(id, [...f.getAll('to').map(String), ...extra], { subject: S(f, 'subject'), message: String(f.get('message') ?? ''), lang: S(f, 'lang') === 'en' ? 'en' : 'ar' }, await siteBase().catch(() => ''), u.email);
+  } catch (e) { go(back, 'err', (e as Error).message || 'Could not send'); }
+  revalidatePath(back);
+  go(back, r.failed ? 'err' : 'ok', `Sent ${r.sent}${r.failed ? `, failed ${r.failed}` : ''}${r.skipped ? `, skipped ${r.skipped} (asked for no invitations)` : ''}.`);
 }

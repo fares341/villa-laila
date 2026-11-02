@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     const { rsvp, collab, updated } = await addRsvp({
       slug: String(b.slug || ''), fullName: String(b.fullName || ''), phone: String(b.phone || ''), email: b.email ? String(b.email) : null,
       people: Number(b.people || 1), instagram: b.instagram ? String(b.instagram) : null, note: b.note ? String(b.note) : null,
+      answers: b.answers && typeof b.answers === 'object' ? b.answers : {}, offer: b.offer,
     });
     siteBase().catch(() => '').then((base) => emailCollabRsvp(rsvp, collab, updated, base)).catch((e) => console.error('[collab mail]', e));
     import('@/services/admin-bot').then((m) => m.notifyCollabRsvp(rsvp, collab, updated)).catch((e) => console.error('[collab notify]', e));

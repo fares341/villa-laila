@@ -7,11 +7,11 @@ import { Icon } from '@/components/icons';
 import { CopyButton } from '@/components/copy-button';
 import { ConfirmButton } from '@/components/ConfirmButton';
 import { RichTextarea } from '@/components/rich-textarea';
-import { getCollab, listRsvps, type Collab } from '@/services/collabs';
+import { getCollab, listRsvps, answerText, ticketMoney, type Collab, type CollabQuestion } from '@/services/collabs';
 import { siteBase } from '@/lib/base-url';
 import { weeklyMenu, WEEKDAYS, BREAKFAST_SLOTS } from '@/services/weekly-menu';
 import { MealSlot, type MenuChoice } from './meal-slot';
-import { collabSaveAction, collabDeleteAction, collabRsvpAction } from '../actions';
+import { collabSaveAction, collabDeleteAction, collabRsvpAction, collabCloneAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +28,8 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
   const going = rsvps.filter((r) => r.status === 'going');
   const people = going.reduce((s, r) => s + Number(r.people), 0);
   const link = isNew ? '' : `${await siteBase().catch(() => '')}/c/${c.slug}`;
+  const blankQ = { id: '', label: {}, type: 'text', options: [], required: false } as unknown as CollabQuestion;
+  const qs: CollabQuestion[] = [...(c.questions ?? []), blankQ, blankQ].slice(0, 8);
   const meals = [...(c.meals ?? []), { title: {}, points: {}, img: null }, { title: {}, points: {}, img: null }].slice(0, 8);
   // The villa's weekly menu (dinner and breakfast), to pick a meal from instead of uploading one.
   const choices: MenuChoice[] = [];
@@ -46,13 +48,14 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
       <PageHeader title={isNew ? 'New collab event' : `${c.title?.en || c.title?.ar} & ${c.partner_name}`} sub="Our logo & the partner’s logo, the description, photos, the meals, then the sign-up form. Share the link on Instagram stories.">
         <Link href="/dashboard/collabs" className={BtnGhost}><Icon name="chevron-left" size={16} /> Collab events</Link>
         {!isNew && <a href={`/c/${c.slug}`} target="_blank" rel="noopener" className={BtnGhost}><Icon name="external-link" size={16} /> Open the page</a>}
+        {!isNew && canEdit && <Link href={`/dashboard/collabs/${c.id}/invite`} className={Btn}><Icon name="message-square" size={16} /> Invite people</Link>}
       </PageHeader>
       <Flash sp={sp} />
       {!isNew && (
         <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-cocoa-200 bg-white px-4 py-3 text-sm">
           <b>Link for stories:</b> <code className="rounded bg-cocoa-50 px-2 py-1" dir="ltr">{link}</code>
           <CopyButton text={link} label="Copy link" done="Copied" className={BtnGhost} />
-          <span className="ms-auto"><b className="text-lg tabular-nums">{people}</b> people signed up{c.capacity ? ` of ${c.capacity}` : ''}</span>
+          <span className="ms-auto"><b className="text-lg tabular-nums">{people}</b> tickets booked{c.capacity ? ` of ${c.capacity}` : ''}</span>
         </div>
       )}
 
@@ -102,6 +105,30 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
                 {meals.map((m, i) => <MealSlot key={i} i={i} m={m as any} choices={choices} />)}
               </div>
             </Card>
+            <Card title="Extra questions on the ticket form (optional)">
+              <p className="mb-3 text-xs text-slate-500">Asked after name, phone{c.ask_email ? ', e-mail' : ''} and tickets. Type: a written answer, one choice, or several choices (checkboxes). Choices one per line; Arabic and English lines in the same order. Leave the question empty to skip it.</p>
+              <div className="space-y-4">
+                {qs.map((qn, i) => (
+                  <fieldset key={i} className="rounded-xl border border-cocoa-200 p-3">
+                    <legend className="px-1 text-sm font-semibold text-cocoa-800">Question {i + 1}</legend>
+                    <input type="hidden" name={`q${i}_present`} value="1" /><input type="hidden" name={`q${i}_id`} value={qn.id} />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <input name={`q${i}_labelAr`} dir="rtl" defaultValue={qn.label.ar ?? ''} placeholder="السؤال بالعربي" className={Input} aria-label="Question (Arabic)" />
+                      <input name={`q${i}_labelEn`} defaultValue={qn.label.en ?? ''} placeholder="Question in English" className={Input} aria-label="Question (English)" />
+                      <select name={`q${i}_type`} defaultValue={qn.type} className={Input} aria-label="Answer type">
+                        <option value="text">Written answer</option>
+                        <option value="choice">One choice</option>
+                        <option value="multi">Several choices (checkboxes)</option>
+                      </select>
+                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" name={`q${i}_required`} defaultChecked={qn.required} /> Must be answered</label>
+                      <textarea name={`q${i}_optionsAr`} dir="rtl" rows={3} defaultValue={qn.options.map((o) => o.ar ?? '').join('\n')} placeholder={'الاختيارات (لو مش إجابة مكتوبة)\nسطر لكل اختيار'} className={Input} aria-label="Choices (Arabic)" />
+                      <textarea name={`q${i}_optionsEn`} rows={3} defaultValue={qn.options.map((o) => o.en ?? '').join('\n')} placeholder={'Choices (if not a written answer)\none per line'} className={Input} aria-label="Choices (English)" />
+                      {qn.id && <label className="flex items-center gap-2 text-sm text-red-700"><input type="checkbox" name={`q${i}_remove`} /> Remove this question</label>}
+                    </div>
+                  </fieldset>
+                ))}
+              </div>
+            </Card>
           </div>
           <div className="space-y-5">
             <Card title="When & where">
@@ -117,7 +144,16 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
                 <div><Lbl htmlFor="c-pre">Price / entry note (English, optional)</Lbl><input id="c-pre" name="priceEn" defaultValue={c.price_note?.en ?? ''} placeholder="e.g. Free entry · dinner EGP 300" className={Input} /></div>
               </div>
             </Card>
-            <Card title="Sign-up form">
+            <Card title="Ticket price">
+              <div className="grid gap-2 text-sm">
+                <label className="flex items-center gap-2"><input type="radio" name="priceMode" value="free" defaultChecked={(c.price_mode ?? 'free') === 'free'} /> Free</label>
+                <label className="flex items-center gap-2"><input type="radio" name="priceMode" value="pwyw" defaultChecked={c.price_mode === 'pwyw'} /> Pay what you want (the guest writes the amount)</label>
+                <label className="flex items-center gap-2"><input type="radio" name="priceMode" value="fixed" defaultChecked={c.price_mode === 'fixed'} /> Fixed price</label>
+                <div><Lbl htmlFor="c-pr">Price per ticket, EGP (fixed price; for pay what you want it is the suggested amount)</Lbl><input id="c-pr" name="price" type="number" min={0} step="any" defaultValue={c.price_cents ? c.price_cents / 100 : ''} className={Input} dir="ltr" /></div>
+                <p className="text-xs text-slate-500">Paid at the villa (no online payment on this page).</p>
+              </div>
+            </Card>
+            <Card title="Ticket form">
               <div className="grid gap-3 text-sm">
                 <div><Lbl htmlFor="c-cap">Places (people), empty = no limit</Lbl><input id="c-cap" name="capacity" type="number" min={1} defaultValue={c.capacity ?? ''} className={Input} /></div>
                 <label className="flex items-center gap-2"><input type="checkbox" name="askEmail" defaultChecked={!!c.ask_email} /> Ask for e-mail too</label>
@@ -141,19 +177,23 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
       )}
 
       {!isNew && (
-        <Card title={`Who is coming · ${people} people`} className="mt-6" id="list">
+        <Card title={`Tickets · ${people} booked`} className="mt-6" id="list">
           <div className="mb-3 flex flex-wrap gap-2">
             <a href={`/api/dashboard/collab-csv?id=${c.id}`} className={BtnGhost}><Icon name="download" size={16} /> Download the list (Excel / CSV)</a>
           </div>
           {rsvps.length === 0 ? <Empty>Nobody signed up yet. Share the link on your stories.</Empty> : (
             <div className="overflow-x-auto"><table className="w-full text-sm">
-              <thead className="text-left text-slate-600"><tr><th className="py-2">Name</th><th>Phone</th><th>People</th><th>Note</th><th>Signed up</th><th /></tr></thead>
+              <thead className="text-left text-slate-600"><tr><th className="py-2">Name</th><th>Phone</th><th>Tickets</th>{c.price_mode !== 'free' && <th>To pay</th>}<th>Answers / note</th><th>Booked</th><th /></tr></thead>
               <tbody>{rsvps.map((r) => (
                 <tr key={r.id} className={`border-t border-slate-100 ${r.status !== 'going' ? 'opacity-50' : ''}`}>
                   <td className="py-2"><b>{r.full_name}</b>{r.instagram && <div className="text-xs text-slate-500">@{r.instagram}</div>}{r.email && <div className="text-xs text-slate-500">{r.email}</div>}</td>
                   <td><a className="underline" href={`https://wa.me/${String(r.phone).replace(/\D/g, '')}`} target="_blank" rel="noopener" dir="ltr">{r.phone}</a></td>
                   <td className="tabular-nums">{r.people}</td>
-                  <td className="max-w-xs text-xs text-slate-600">{r.note}</td>
+                  {c.price_mode !== 'free' && <td className="text-xs">{ticketMoney(r, c as Collab)}</td>}
+                  <td className="max-w-xs text-xs text-slate-600">
+                    {(c.questions ?? []).filter((qn) => answerText(r, qn)).map((qn) => <div key={qn.id}><b>{qn.label.en || qn.label.ar}:</b> {answerText(r, qn)}</div>)}
+                    {r.note && <div>{r.note}</div>}
+                  </td>
                   <td className="text-xs text-slate-500">{dt(r.created_at)}</td>
                   <td className="whitespace-nowrap py-2 text-right">
                     {r.checked_in_at ? <Pill tone="green">Arrived</Pill> : null}
@@ -167,6 +207,17 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
               ))}</tbody>
             </table></div>
           )}
+        </Card>
+      )}
+
+      {!isNew && canEdit && (
+        <Card title="Make a copy for another date" className="mt-6">
+          <form action={collabCloneAction} className="flex flex-wrap items-end gap-3 text-sm">
+            <input type="hidden" name="id" value={c.id} />
+            <div><Lbl htmlFor="cl-d">New date</Lbl><input id="cl-d" name="date" type="date" required className={Input} /></div>
+            <button className={Btn}><Icon name="plus" size={16} /> Copy this event</button>
+            <p className="basis-full text-xs text-slate-500">Everything is copied (partner, text, photos, meals, questions, price, e-mails) except the tickets. The copy is saved hidden, so you can check it and then tick «Page is live».</p>
+          </form>
         </Card>
       )}
 
