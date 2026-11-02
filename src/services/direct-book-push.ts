@@ -200,6 +200,22 @@ export async function pushOne(page: any, reservationId: string, log: (m: string)
       [reservationId, status, message.slice(0, 500), confirmation, JSON.stringify(steps)]);
     await audit('direct-book', 'direct_book.' + status, 'reservation', reservationId, { message: message.slice(0, 200), confirmation });
     log(`push ${r?.reference ?? reservationId}: ${status} · ${message}`);
+
+    if (status === 'booked' && confirmation && !/total|email/i.test(confirmation)) {
+      try {
+        const { notifyDirectBookResult } = await import('./admin-bot');
+        await notifyDirectBookResult(reservationId, true, confirmation);
+      } catch (e: any) {
+        log('Telegram notify error: ' + e?.message);
+      }
+    } else if (status === 'failed') {
+      try {
+        const { notifyDirectBookResult } = await import('./admin-bot');
+        await notifyDirectBookResult(reservationId, false, message);
+      } catch (e: any) {
+        log('Telegram notify fail error: ' + e?.message);
+      }
+    }
     return status;
   };
   if (!r) return finish('skipped', 'booking not found');

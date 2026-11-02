@@ -29,7 +29,8 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
-      - ./uploads:/app/data/uploads   # event videos (kept across rebuilds)
+      - ./uploads:/app/data/uploads
+      - ./src:/app/src   # event videos (kept across rebuilds)
     environment:
       DATABASE_URL: postgres://villa:${POSTGRES_PASSWORD}@db:5432/villa
     depends_on:
@@ -43,7 +44,8 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
-      - ./uploads:/app/data/uploads   # event videos (kept across rebuilds)
+      - ./uploads:/app/data/uploads
+      - ./src:/app/src   # event videos (kept across rebuilds)
     environment:
       DATABASE_URL: postgres://villa:${POSTGRES_PASSWORD}@db:5432/villa
     depends_on:
@@ -57,7 +59,8 @@ services:
     environment:
       DATABASE_URL: postgres://villa:${POSTGRES_PASSWORD}@db:5432/villa
     volumes:
-      - ./uploads:/app/data/uploads   # keeps the Little Hotelier sign-in session and discovery reports
+      - ./uploads:/app/data/uploads
+      - ./src:/app/src   # keeps the Little Hotelier sign-in session and discovery reports
     shm_size: 512m
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -70,7 +73,8 @@ services:
     environment:
       DATABASE_URL: postgres://villa:${POSTGRES_PASSWORD}@db:5432/villa
     volumes:
-      - ./uploads:/app/data/uploads   # screenshots of each booking copied into direct-book
+      - ./uploads:/app/data/uploads
+      - ./src:/app/src   # screenshots of each booking copied into direct-book
     shm_size: 512m
     depends_on:
       migrate: { condition: service_completed_successfully }
