@@ -334,21 +334,34 @@ export async function pushOne(page: any, reservationId: string, log: (m: string)
     const fields = await fieldsOf(page);
     steps.push({ step: 'review', ok: true, note: `card fields filled: ${filled.join(', ') || 'none'} · page fields: ${fields.join(' | ').slice(0, 900)}`, shot: await shot('review') });
     
-    // Find final booking button
-    let confirmBtn = page.getByRole('button', { name: /(confirm|complete|book now|place booking|pay|book)/i }).filter({ hasNotText: /Amira|Spacious|Bed|USD|Select|Proceed to payment/i }).last();
+    // Find final visible booking button
+    let confirmBtn = page.getByRole('button', { name: /^book$/i }).filter({ hasNotText: /Amira|Spacious|Bed|USD|Select|Proceed to payment/i }).first();
     if (!(await confirmBtn.count()) || !(await confirmBtn.isVisible())) {
+      confirmBtn = page.locator('button').filter({ hasText: /^book$/i }).filter({ hasNotText: /Amira|Spacious|Bed|USD|Select|Proceed to payment/i }).first();
+    }
+    if (!(await confirmBtn.count())) {
       confirmBtn = page.locator('button').filter({ hasText: /(confirm|complete|book now|place booking|pay|book)/i }).filter({ hasNotText: /Amira|Spacious|Bed|USD|Select|Proceed to payment/i }).last();
     }
     if (!(await confirmBtn.count())) return finish('failed', 'no final button found on the review step (see screenshots)');
     if (mode === 'dry') return finish('dry_ok', `test run reached the last step (${filled.length ? 'card filled' : 'card not filled'}); nothing was booked`);
 
-    // 5. Book.
-    for (let i = 0; i < 10; i++) {
-      if (await confirmBtn.isEnabled().catch(() => true)) break;
-      await page.waitForTimeout(1000);
+    // 5. Book: click the visible Book button
+    log('Clicking final Book button...');
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[];
+      for (const b of btns) {
+        const txt = (b.innerText || '').trim();
+        if (/^book$/i.test(txt) && b.offsetParent !== null) {
+          b.scrollIntoView();
+          b.click();
+          return;
+        }
+      }
+    });
+    // Also trigger via Playwright locator if still on page
+    if (await confirmBtn.isVisible().catch(() => false)) {
+      await confirmBtn.click({ force: true }).catch(() => {});
     }
-    await confirmBtn.scrollIntoViewIfNeeded().catch(() => {});
-    await confirmBtn.click({ force: true });
     await page.waitForFunction(() => /confirm|thank you|reference|booking number/i.test(document.body?.innerText || ''), null, { timeout: 60000 }).catch(() => {});
     await page.waitForTimeout(2500);
     const text: string = await page.evaluate(() => document.body.innerText);
