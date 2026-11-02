@@ -9,7 +9,7 @@ import { ConfirmButton } from '@/components/ConfirmButton';
 import { RichTextarea } from '@/components/rich-textarea';
 import { getCollab, listRsvps, type Collab } from '@/services/collabs';
 import { siteBase } from '@/lib/base-url';
-import { weeklyMenu, WEEKDAYS } from '@/services/weekly-menu';
+import { weeklyMenu, WEEKDAYS, BREAKFAST_SLOTS } from '@/services/weekly-menu';
 import { MealSlot, type MenuChoice } from './meal-slot';
 import { collabSaveAction, collabDeleteAction, collabRsvpAction } from '../actions';
 
@@ -33,7 +33,7 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
   const choices: MenuChoice[] = [];
   for (const meal of ['dinner', 'breakfast'] as const) {
     const wk = await weeklyMenu(meal);
-    for (const d of WEEKDAYS) {
+    for (const d of meal === 'breakfast' ? BREAKFAST_SLOTS : WEEKDAYS) {
       const m = wk[d.d];
       if (!m || !(m.title.en || m.title.ar)) continue;
       choices.push({ key: `${meal}:${d.d}`, group: meal === 'dinner' ? 'Dinner menu' : 'Breakfast menu', label: `${d.en} · ${m.title.en || m.title.ar}`,

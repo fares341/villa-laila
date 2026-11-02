@@ -17,6 +17,18 @@ export const WEEKDAYS: { d: number; en: string; ar: string }[] = [
   { d: 2, en: 'Tuesday', ar: 'الثلاثاء' }, { d: 3, en: 'Wednesday', ar: 'الأربعاء' }, { d: 4, en: 'Thursday', ar: 'الخميس' }, { d: 5, en: 'Friday', ar: 'الجمعة' },
 ];
 
+/**
+ * Breakfast is not a weekly menu: the villa serves the same two breakfasts every day (owner, Nov 2026).
+ * They are kept in the breakfast rows 0 and 1 (other breakfast rows from the old weekly version are not shown).
+ */
+export const BREAKFAST_SLOTS: { d: number; en: string; ar: string }[] = [
+  { d: 0, en: 'Breakfast 1', ar: 'الفطار الأول' }, { d: 1, en: 'Breakfast 2', ar: 'الفطار التاني' },
+];
+export async function breakfastPair(): Promise<DayMenu[]> {
+  const m = await weeklyMenu('breakfast');
+  return BREAKFAST_SLOTS.map((s) => m[s.d]).filter((x): x is DayMenu => !!x && !!(x.title.ar || x.title.en || x.img));
+}
+
 /** Weekday of a YYYY-MM-DD date (calendar day, no time zone shift). */
 export const weekdayOf = (date: string) => new Date(date + 'T12:00:00Z').getUTCDay();
 

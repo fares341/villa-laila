@@ -14,7 +14,8 @@ import { showPrice } from '@/lib/display-currency';
 import { visitorPriceView } from '@/services/visitor-currency';
 import { scheduleLabel, timeLabel, dateLabel } from '@/lib/event-dates';
 import { EventBooker } from './event-booker';
-import { weeklyMenu } from '@/services/weekly-menu';
+import { weeklyMenu, breakfastPair } from '@/services/weekly-menu';
+import { BreakfastPair } from './breakfast-pair';
 import { EventAbout } from './event-about';
 
 export const dynamic = 'force-dynamic';
@@ -70,7 +71,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   // The weekly menu: for the dinner add-on, and for a dinner event that shows its food photos.
   // Which weekly menu: set on the event, else dinner when it has the dinner add-on or meal photos.
   const menuKind = ev.menu_kind ?? (ev.dinner_cents || meals.length ? 'dinner' : /breakfast|فطار|فطور/i.test(`${ev.slug} ${tr(ev.title, 'en')}`) ? 'breakfast' : 'none');
-  const menu = menuKind === 'none' ? {} : await weeklyMenu(menuKind);
+  // Breakfast: the same two meals every day, shown side by side (no week view).
+  const breakfasts = menuKind === 'breakfast' ? await breakfastPair() : [];
+  const menu = menuKind === 'none' || menuKind === 'breakfast' ? {} : await weeklyMenu(menuKind);
   // Other events that can be added the same day (only the dates they happen on, with seats left).
   const addonRows = (ev.addon_event_ids ?? []).length ? (await listPublicEvents()).filter((x) => (ev.addon_event_ids ?? []).includes(x.id)) : [];
   const addons = await Promise.all(addonRows.map(async (a) => {
@@ -136,7 +139,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           </div>
 
           <div className="evd-side">
-          {ev.dinner_cents
+          {breakfasts.length > 0 && !ev.dinner_cents
+            ? <BreakfastPair ar={isAr} meals={breakfasts} />
+            : ev.dinner_cents
             ? <WeekMenuCard ar={isAr} menu={menu} dates={dates} initialDate={initialDate} today={todayLocal()} priceLabel={showPrice(ev.dinner_cents, ev.currency, view, lang)} />
             : hasMenu && dates.length
               ? <WeekMenuCard ar={isAr} menu={menu} dates={dates} initialDate={initialDate} today={todayLocal()} fallback={false} />
