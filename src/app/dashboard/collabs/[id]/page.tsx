@@ -11,6 +11,7 @@ import { getCollab, listRsvps, answerText, ticketMoney, type Collab, type Collab
 import { siteBase } from '@/lib/base-url';
 import { weeklyMenu, WEEKDAYS, BREAKFAST_SLOTS } from '@/services/weekly-menu';
 import { MealSlot, type MenuChoice } from './meal-slot';
+import { QuestionsEditor } from './questions-editor';
 import { collabSaveAction, collabDeleteAction, collabRsvpAction, collabCloneAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -28,8 +29,6 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
   const going = rsvps.filter((r) => r.status === 'going');
   const people = going.reduce((s, r) => s + Number(r.people), 0);
   const link = isNew ? '' : `${await siteBase().catch(() => '')}/c/${c.slug}`;
-  const blankQ = { id: '', label: {}, type: 'text', options: [], required: false } as unknown as CollabQuestion;
-  const qs: CollabQuestion[] = [...(c.questions ?? []), blankQ, blankQ].slice(0, 8);
   const meals = [...(c.meals ?? []), { title: {}, points: {}, img: null }, { title: {}, points: {}, img: null }].slice(0, 8);
   // The villa's weekly menu (dinner and breakfast), to pick a meal from instead of uploading one.
   const choices: MenuChoice[] = [];
@@ -106,28 +105,8 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
               </div>
             </Card>
             <Card title="Extra questions on the ticket form (optional)">
-              <p className="mb-3 text-xs text-slate-500">Asked after name, phone{c.ask_email ? ', e-mail' : ''} and tickets. Type: a written answer, one choice, or several choices (checkboxes). Choices one per line; Arabic and English lines in the same order. Leave the question empty to skip it.</p>
-              <div className="space-y-4">
-                {qs.map((qn, i) => (
-                  <fieldset key={i} className="rounded-xl border border-cocoa-200 p-3">
-                    <legend className="px-1 text-sm font-semibold text-cocoa-800">Question {i + 1}</legend>
-                    <input type="hidden" name={`q${i}_present`} value="1" /><input type="hidden" name={`q${i}_id`} value={qn.id} />
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <input name={`q${i}_labelAr`} dir="rtl" defaultValue={qn.label.ar ?? ''} placeholder="السؤال بالعربي" className={Input} aria-label="Question (Arabic)" />
-                      <input name={`q${i}_labelEn`} defaultValue={qn.label.en ?? ''} placeholder="Question in English" className={Input} aria-label="Question (English)" />
-                      <select name={`q${i}_type`} defaultValue={qn.type} className={Input} aria-label="Answer type">
-                        <option value="text">Written answer</option>
-                        <option value="choice">One choice</option>
-                        <option value="multi">Several choices (checkboxes)</option>
-                      </select>
-                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" name={`q${i}_required`} defaultChecked={qn.required} /> Must be answered</label>
-                      <textarea name={`q${i}_optionsAr`} dir="rtl" rows={3} defaultValue={qn.options.map((o) => o.ar ?? '').join('\n')} placeholder={'الاختيارات (لو مش إجابة مكتوبة)\nسطر لكل اختيار'} className={Input} aria-label="Choices (Arabic)" />
-                      <textarea name={`q${i}_optionsEn`} rows={3} defaultValue={qn.options.map((o) => o.en ?? '').join('\n')} placeholder={'Choices (if not a written answer)\none per line'} className={Input} aria-label="Choices (English)" />
-                      {qn.id && <label className="flex items-center gap-2 text-sm text-red-700"><input type="checkbox" name={`q${i}_remove`} /> Remove this question</label>}
-                    </div>
-                  </fieldset>
-                ))}
-              </div>
+              <p className="mb-3 text-xs text-slate-500">Asked after name, phone{c.ask_email ? ', e-mail' : ''} and tickets. Type: a written answer, one choice, or several choices (checkboxes). Choices one per line; Arabic and English lines in the same order. «Add a question» for one more; an empty question is skipped.</p>
+              <QuestionsEditor initial={c.questions ?? []} />
             </Card>
           </div>
           <div className="space-y-5">

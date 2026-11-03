@@ -1874,6 +1874,14 @@ html.vl-mt body { top: 0 !important; position: static !important; }
 
 /* The two breakfasts side by side (event page): whole photos, same height, name and points under each */
 .bfp { padding: 14px; }
+/* Each breakfast in its own gold picture frame (photo on top, name and points under it), like the meal of the day. */
+.bfp-item { padding: 8px 8px 12px; border: 1px solid var(--color-gold); border-radius: 18px; background: linear-gradient(160deg, #FFFCF5 0%, #F7ECD8 100%);
+  box-shadow: inset 0 0 0 4px #FFFCF5, inset 0 0 0 5px rgba(210,154,69,.45), 0 14px 28px -18px rgba(92,62,24,.55); }
+.bfp-item figcaption { padding-top: 4px !important; }
+.bfp-item h3::before { content: ""; display: block; width: 64px; height: 10px; margin: 0 auto 6px; background:
+  linear-gradient(var(--color-gold), var(--color-gold)) left 50% / 24px 1px no-repeat,
+  linear-gradient(var(--color-gold), var(--color-gold)) right 50% / 24px 1px no-repeat,
+  radial-gradient(circle, var(--color-gold) 0 3px, transparent 3.5px) center / 10px 10px no-repeat; }
 .bfp-k { margin: 2px 0 12px; text-align: center; }
 .bfp-grid { display: grid; gap: 12px; }
 .bfp-grid.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
