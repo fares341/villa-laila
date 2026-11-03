@@ -9,6 +9,8 @@ import { eventSave } from '../../../pms-actions';
 import { EventMediaManager } from '@/components/event-media-manager';
 import { RichTextarea } from '@/components/rich-textarea';
 
+import { MapPicker } from './map-picker';
+
 export const dynamic = 'force-dynamic';
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -112,12 +114,7 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
             )}
           </Card>
           <Card title="Address & map">
-            <div className="grid gap-2 text-sm">
-              <div><Lbl htmlFor="e-ada">Address (Arabic)</Lbl><input id="e-ada" name="addressAr" dir="rtl" defaultValue={e.address?.ar ?? ''} placeholder="فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب" className={Input} /></div>
-              <div><Lbl htmlFor="e-ade">Address (English)</Lbl><input id="e-ade" name="addressEn" defaultValue={e.address?.en ?? ''} placeholder="Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab" className={Input} /></div>
-              <div><Lbl htmlFor="e-map">Google Maps link</Lbl><input id="e-map" name="mapUrl" dir="ltr" defaultValue={e.map_url ?? ''} placeholder="https://maps.app.goo.gl/…" className={Input} /></div>
-              <p className="text-xs text-slate-500">Shown under «Where» on the event page with a map. Leave empty for the villa’s address and map.</p>
-            </div>
+            <MapPicker addressAr={e.address?.ar ?? ''} addressEn={e.address?.en ?? ''} mapUrl={e.map_url ?? ''} />
           </Card>
           <Card title="Meal shown on the page">
             <select name="menuKind" defaultValue={e.menu_kind ?? ''} className={Input}>

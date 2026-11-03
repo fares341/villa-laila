@@ -103,7 +103,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const guestNote = guestPriceText(ev, lang, view);
   // Address and map: the event's own, else the villa's.
   const address = (isAr ? ev.address?.ar || ev.address?.en : ev.address?.en || ev.address?.ar) || (isAr ? 'فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب' : 'Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab');
-  const mapUrl = ev.map_url || MAP_URL;
+  const mapUrl = ev.map_url || (ev.address?.en || ev.address?.ar ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.address?.en || ev.address?.ar || '')}` : MAP_URL);
   const coords = ev.map_url?.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) ?? ev.map_url?.match(/[?&](?:q|query|ll)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
   const mapQuery = coords ? `${coords[1]},${coords[2]}` : ev.address?.en || ev.address?.ar || 'Villa Layla Hostel, 20 Safiya Zaghloul St, El Sayeda Zeinab, Cairo';
   const wa = `https://wa.me/201040551515?text=${encodeURIComponent((isAr ? 'أريد حجز: ' : 'I’d like to book: ') + tr(ev.title, 'en') + ' — Villa Layla')}`;
