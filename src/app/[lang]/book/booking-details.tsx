@@ -112,6 +112,7 @@ export function BookingDetails(p: {
           </div>
           <div className="evb-field wide"><label htmlFor="no">{L('Any personal requests?', 'أي طلبات خاصة؟')}</label><textarea id="no" name="notes" rows={3} maxLength={500} /></div>
           <p className="evb-fine wide">{L('For security purposes, please do not enter your credit card details on this page.', 'لأمانك، متكتبش بيانات الكارت في الصفحة دي.')}</p>
+          <p className="evb-fine wide" style={{ fontWeight: 600, color: 'var(--color-primary-dark)' }}>{L('✉️ Please note: Your reservation is officially confirmed once you receive a confirmation email from us.', '✉️ تنبيه: حجزك هيكون مؤكداً نهائياً بمجرد استلامك إيميل التأكيد منا.')}</p>
         </div>
         <div className="bk-nav">
           <button type="button" className="btn btn-primary" onClick={next}>{L('Continue to payment', 'متابعة للدفع')}</button>
@@ -140,6 +141,7 @@ export function BookingDetails(p: {
           ) : (
             <div><small>{L('Total for your stay', 'إجمالي الإقامة')}</small><b className="num" dir="ltr">{p.total}</b>{p.totalEgp && <small className="bk-egp">{L(`Charged in Egyptian pounds: ${p.totalEgp}`, `بيتدفع بالجنيه المصري: ${p.totalEgp}`)}</small>}</div>
           )}
+          <p className="evb-fine" style={{ margin: '8px 0', fontWeight: 600, color: 'var(--color-primary-dark)' }}>{L('✉️ Your booking is officially confirmed once you receive a confirmation email from us.', '✉️ حجزك هيكون مؤكداً نهائياً بمجرد استلامك إيميل التأكيد منا.')}</p>
           <Submit
             label={method === 'paymob' ? (p.deposit ? L('Pay deposit', 'ادفع العربون') : L('Pay now', 'ادفع الآن')) : method === 'instapay' ? L('Book & pay with InstaPay', 'احجز وادفع بـ InstaPay') : L('Send booking request', 'أرسل طلب الحجز')}
             busy={L('Booking…', 'جارٍ الحجز…')}

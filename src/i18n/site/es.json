@@ -83,7 +83,7 @@
       "selected": "Seleccionado",
       "idGovernorate": "Gobernación de tu documento de identidad (solo huéspedes egipcios)"
     },
-    "note": "Esto envía una SOLICITUD de reserva. Tu reserva solo queda confirmada cuando recepción la confirme.",
+    "note": "Esto envía una solicitud de reserva. Tu reserva estará confirmada oficialmente una vez que recibas un correo electrónico de confirmación de nuestra parte.",
     "errors": {
       "invalid_dates": "Revisa tus fechas.",
       "past_date": "La fecha de llegada ya pasó.",
@@ -101,12 +101,12 @@
   "booked": {
     "title": "Solicitud recibida",
     "lead": "¡Gracias! Tu solicitud de reserva está registrada.",
-    "warning": "TODAVÍA NO está confirmada. Recepción la revisará y te contactará. Las camas quedan retenidas para ti hasta {until}.",
+    "warning": "Tu solicitud está en revisión y NO está confirmada aún. Quedará confirmada oficialmente una vez que recibas un correo electrónico de confirmación de nuestra parte. Las camas están reservadas temporalmente hasta el {until}.",
     "reference": "Tu referencia",
     "next": "Qué ocurre ahora",
-    "step1": "Recepción revisa tu solicitud.",
-    "step2": "Recibes las instrucciones de pago y la confirmación final.",
-    "step3": "Solo entonces tu reserva queda confirmada.",
+    "step1": "Nuestro equipo revisa tu solicitud de reserva.",
+    "step2": "Te enviamos un correo electrónico oficial de confirmación.",
+    "step3": "Solo después de recibir el correo de confirmación de nuestra parte tu reserva queda confirmada oficialmente.",
     "review": "Tu solicitud necesita una revisión adicional de nuestro equipo.",
     "home": "Volver al inicio"
   },

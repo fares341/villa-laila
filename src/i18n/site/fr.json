@@ -83,7 +83,7 @@
       "selected": "Sélectionné",
       "idGovernorate": "Gouvernorat de votre carte d'identité (clients égyptiens uniquement)"
     },
-    "note": "Ceci envoie une DEMANDE de réservation. Votre réservation n’est confirmée que lorsque la réception la confirme.",
+    "note": "Ceci envoie une demande de réservation. Votre réservation ne sera officiellement confirmée qu'une fois que vous aurez reçu un e-mail de confirmation de notre part.",
     "errors": {
       "invalid_dates": "Vérifiez vos dates.",
       "past_date": "La date d’arrivée est passée.",
@@ -101,12 +101,12 @@
   "booked": {
     "title": "Demande reçue",
     "lead": "Merci ! Votre demande de réservation est enregistrée.",
-    "warning": "Elle n’est PAS encore confirmée. La réception l’examinera et vous contactera. Les lits sont retenus pour vous jusqu’au {until}.",
+    "warning": "Votre demande est en cours d'examen et n'est PAS encore confirmée. Elle ne sera officiellement confirmée qu'après réception d'un e-mail de confirmation de notre part. Les lits sont retenus pour vous jusqu'au {until}.",
     "reference": "Votre référence",
     "next": "La suite",
-    "step1": "La réception examine votre demande.",
-    "step2": "Vous recevez les instructions de paiement et la confirmation finale.",
-    "step3": "C’est seulement ensuite que votre réservation est confirmée.",
+    "step1": "Notre équipe examine votre demande de réservation.",
+    "step2": "Nous vous envoyons un e-mail de confirmation officiel.",
+    "step3": "C’est seulement après avoir reçu l'e-mail de confirmation de notre part que votre réservation est officiellement confirmée.",
     "review": "Votre demande nécessite une vérification supplémentaire de notre équipe.",
     "home": "Retour à l’accueil"
   },

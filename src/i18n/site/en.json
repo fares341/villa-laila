@@ -83,7 +83,7 @@
       "selected": "Selected",
       "idGovernorate": "Governorate on your national ID (Egyptian guests only)"
     },
-    "note": "This sends a booking REQUEST. Your booking is only confirmed once reception confirms it.",
+    "note": "This sends a booking request. Your booking is officially confirmed once you receive a confirmation email from us.",
     "errors": {
       "invalid_dates": "Please check your dates.",
       "past_date": "The arrival date is in the past.",
@@ -101,12 +101,12 @@
   "booked": {
     "title": "Request received",
     "lead": "Thank you! Your booking request is in.",
-    "warning": "It is NOT confirmed yet. Reception will review it and contact you. Beds are held for you until {until}.",
+    "warning": "Your booking is under review and NOT confirmed yet. It will be officially confirmed once you receive a confirmation email from us. Beds are held for you until {until}.",
     "reference": "Your reference",
     "next": "What happens next",
-    "step1": "Reception reviews your request.",
-    "step2": "You receive payment instructions and the final confirmation.",
-    "step3": "Only after that is your booking confirmed.",
+    "step1": "Our team reviews your booking request.",
+    "step2": "We send you an official confirmation email.",
+    "step3": "Only after receiving the confirmation email is your booking confirmed.",
     "review": "Your request needs an extra check by our team.",
     "home": "Back to home"
   },
