@@ -20,6 +20,8 @@ export type EventCard = {
   /** Highlighted card (e.g. "Same day" on a collab page): its own badge text and a gold outline. */
   badge?: string;
   hl?: boolean;
+  /** What villa guests pay ("Free", "Pay what you want", "30% off · EGP 140"); shown under the visitor price. */
+  guest?: string | null;
 };
 
 const ic = {
@@ -81,8 +83,9 @@ export function EventsSection({ lang, events, heading = 'h2', limit, head, id = 
                 <p className="desc">{e.summary}</p>
                 <div className="row">
                   <div className={e.partner && e.price.length > 14 ? 'price ev-price-txt' : 'price'}>
-                    <small>{e.partner ? (isAr ? 'الدخول' : 'Entry') : isAr ? 'للشخص' : 'Per person'}</small>
+                    <small>{e.partner ? (isAr ? 'الدخول' : 'Entry') : e.guest ? (isAr ? 'للزوار من بره' : 'Visitors') : isAr ? 'للشخص' : 'Per person'}</small>
                     <b className="num" dir="ltr">{e.price}</b>
+                    {e.guest && <small className="ev-guest">{isAr ? 'نزلاء الفيلا: ' : 'Villa guests: '}<b>{e.guest}</b></small>}
                   </div>
                   {e.soldOut ? (
                     <span className="btn btn-line btn-sm" aria-disabled="true">{isAr ? 'نفدت التذاكر' : 'Sold out'}</span>

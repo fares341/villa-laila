@@ -4,7 +4,8 @@ import { WeekMenuCard } from './week-menu';
 import type { Metadata } from 'next';
 import { isSiteLang } from '@/i18n/site';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs } from '@/components/claude-shell';
-import { getPublicEvent, seatsLeft, tr, eventMedia, listPublicEvents, guestModeOf } from '@/services/events';
+import { getPublicEvent, seatsLeft, tr, eventMedia, listPublicEvents, guestModeOf, guestUnitCents } from '@/services/events';
+import { guestPriceText } from '@/services/event-view';
 import { getWallets } from '@/services/wallets';
 import { toEmbed } from '@/content/videos';
 import { MealGallery } from './meal-gallery';
@@ -16,6 +17,7 @@ import { scheduleLabel, timeLabel, dateLabel } from '@/lib/event-dates';
 import { EventBooker } from './event-booker';
 import { weeklyMenu, breakfastPair } from '@/services/weekly-menu';
 import { BreakfastPair } from './breakfast-pair';
+import { StoryStrip, type Story } from './story-strip';
 import { EventAbout } from './event-about';
 
 export const dynamic = 'force-dynamic';
@@ -61,6 +63,12 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const heroVideo = hero.find((m) => m.mime?.startsWith('video/'))?.src ?? null;
   const heroPhotos = hero.filter((m) => !m.mime?.startsWith('video/')).map((m) => m.src);
   const videos = media.filter((m) => m.kind === 'video').map((m) => ({ ...m, embed: m.external ? toEmbed(m.src) : null }));
+  // Stories (9:16): the event's story photos and videos; a YouTube / Instagram link plays inside the story frame.
+  const stories: Story[] = [
+    ...media.filter((m) => m.kind === 'gallery').map((m) => ({ id: m.id, type: 'photo' as const, src: m.src })),
+    ...videos.flatMap((v): Story[] => !v.external || v.embed?.kind === 'mp4' ? [{ id: v.id, type: 'video', src: v.embed?.src ?? v.src }]
+      : v.embed ? [{ id: v.id, type: 'embed', src: v.embed.src }] : []),
+  ];
   const dates = ev.dates.slice(0, 14).map((d) => {
     const when = whenLabel(d, lang);
     const weekday = dateLabel(d, lang, { weekday: 'long' });
@@ -83,7 +91,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const addons = await Promise.all(addonRows.map(async (a) => {
     const l = await seatsLeft(a);
     return {
-      id: a.id, title: tr(a.title, lang), priceCents: Number(a.price_cents), guestMode: guestModeOf(a), guestPriceCents: a.guest_price_cents == null ? null : Number(a.guest_price_cents),
+      id: a.id, title: tr(a.title, lang), priceCents: Number(a.price_cents), guestMode: guestModeOf(a), guestPriceCents: guestUnitCents(a) ?? (a.guest_price_cents == null ? null : Number(a.guest_price_cents)),
       time: `${timeLabel(a.start_time, lang)} – ${timeLabel(a.end_time, lang)}`,
       left: Object.fromEntries(a.dates.slice(0, 30).map((d) => [d, a.capacity == null ? null : l[d] ?? 0])),
     };
@@ -92,6 +100,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const errMsg = sp.error ? L(ERR[sp.error] ?? ERR[sp.error.split(':')[0]] ?? ERR.generic) : null;
   const schedule = scheduleLabel(ev, lang, (d) => dateLabel(d, lang, { weekday: 'long', day: 'numeric', month: 'long' }));
   const time = `${timeLabel(ev.start_time, lang)} – ${timeLabel(ev.end_time, lang)}`;
+  // Price for villa guests (free / pay what you want / a % off / a fixed price), shown in the price box.
+  const guestNote = guestPriceText(ev, lang, view);
+  // Address and map: the event's own, else the villa's.
+  const address = (isAr ? ev.address?.ar || ev.address?.en : ev.address?.en || ev.address?.ar) || (isAr ? 'فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب' : 'Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab');
+  const mapUrl = ev.map_url || MAP_URL;
+  const coords = ev.map_url?.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) ?? ev.map_url?.match(/[?&](?:q|query|ll)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+  const mapQuery = coords ? `${coords[1]},${coords[2]}` : ev.address?.en || ev.address?.ar || 'Villa Layla Hostel, 20 Safiya Zaghloul St, El Sayeda Zeinab, Cairo';
   const wa = `https://wa.me/201040551515?text=${encodeURIComponent((isAr ? 'أريد حجز: ' : 'I’d like to book: ') + tr(ev.title, 'en') + ' — Villa Layla')}`;
 
   return (
@@ -113,31 +128,27 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <dl className="evd-facts">
               <div><dt>{isAr ? 'المواعيد' : 'When'}</dt><dd>{schedule}</dd></div>
               <div><dt>{isAr ? 'الوقت' : 'Time'}</dt><dd dir="ltr">{time}</dd></div>
-              <div><dt>{isAr ? 'السعر' : 'Price'}</dt><dd dir="ltr">{showPrice(ev.price_cents, ev.currency, view, lang)} <small>{isAr ? '/ للشخص' : '/ person'}</small></dd></div>
+              <div className="evd-price"><dt>{isAr ? 'السعر' : 'Price'}</dt><dd>
+                <span className="evd-pr-row"><b dir="ltr">{showPrice(ev.price_cents, ev.currency, view, lang)}</b> <small>{guestNote ? (isAr ? '/ للزوار من بره' : '/ visitors') : isAr ? '/ للشخص' : '/ person'}</small></span>
+                {guestNote && <span className="evd-pr-row evd-pr-guest"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 10.5 12 3l9 7.5V21H3z" /><path d="M9 21v-6h6v6" /></svg>{isAr ? 'نزلاء فيلا ليلى: ' : 'Villa Layla guests: '}<b>{guestNote}</b></span>}
+              </dd></div>
               <div><dt>{isAr ? 'المكان' : 'Where'}</dt><dd className="evd-where">
-                <span>{isAr ? 'فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب' : 'Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab'}</span>
-                <a className="evd-map" href={MAP_URL} target="_blank" rel="noopener noreferrer" aria-label={isAr ? 'افتح المكان على خرائط جوجل' : 'Open in Google Maps'} title={isAr ? 'افتح على خرائط جوجل' : 'Open in Google Maps'}>
+                <span>{address}</span>
+                <a className="evd-map" href={mapUrl} target="_blank" rel="noopener noreferrer" aria-label={isAr ? 'افتح المكان على خرائط جوجل' : 'Open in Google Maps'} title={isAr ? 'افتح على خرائط جوجل' : 'Open in Google Maps'}>
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z" /><circle cx="12" cy="10" r="2.6" /></svg>
                   <span>{isAr ? 'الخريطة' : 'Map'}</span>
                 </a>
               </dd></div>
             </dl>
+            {/* The place on a map (from the event's map link when it has coordinates, else its written address). */}
+            <div className="evd-mapbox"><iframe src={`https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&output=embed`} title={isAr ? 'الخريطة' : 'Map'} loading="lazy" referrerPolicy="no-referrer-when-downgrade" /></div>
 
             <EventAbout isAr={isAr} text={tr(ev.description, lang) ?? ''} includes={ev.includes.map((x) => tr(x, lang)).filter(Boolean) as string[]} note={tr(ev.note, lang) ?? ''} />
 
-            {videos.length > 0 && (
+            {stories.length > 0 && (
               <>
-                <h2>{isAr ? 'شاهد الأجواء' : 'See what it’s like'}</h2>
-                <div className="evd-videos">
-                  {videos.map((v) => (
-                    <div key={v.id} className={`evd-video ${v.orientation}`}>
-                      {!v.external || v.embed?.kind === 'mp4'
-                        ? <video src={v.embed?.src ?? v.src} controls playsInline preload="metadata" />
-                        : v.embed ? <iframe src={v.embed.src} title={tr(ev.title, lang)} loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
-                          : <a className="btn btn-line" href={v.src} target="_blank" rel="noopener noreferrer">{isAr ? 'شاهد الفيديو' : 'Watch the video'}</a>}
-                    </div>
-                  ))}
-                </div>
+                <h2>{isAr ? 'ستوري الإيفنت' : 'Stories'}</h2>
+                <StoryStrip stories={stories} ar={isAr} title={tr(ev.title, lang) ?? ''} />
               </>
             )}
           </div>
@@ -177,7 +188,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 initialDate={initialDate}
                 options={ev.options.map((o) => ({ key: o.key, label: isAr ? o.ar : o.en }))}
                 priceCents={ev.price_cents}
-                guestPriceCents={ev.guest_price_cents}
+                guestPriceCents={guestUnitCents(ev) ?? ev.guest_price_cents}
+                guestPct={ev.guest_discount_pct ?? null}
                 depositCents={ev.deposit_cents ?? null}
                 dinnerCents={ev.dinner_cents ?? null}
                 menu={ev.dinner_cents ? dinnerMenu : menu}

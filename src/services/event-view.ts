@@ -3,7 +3,7 @@ import type { PriceView } from './visitor-currency';
 import { addDays, todayLocal } from '@/lib/dates';
 import { scheduleLabel, timeLabel, dateLabel } from '@/lib/event-dates';
 import type { EventCard } from '@/components/events-section';
-import { tr, type PublicEvent } from './events';
+import { tr, guestModeOf, guestUnitCents, type PublicEvent, type EventRow } from './events';
 import { listCollabs } from './collabs';
 
 export function priceLabel(cents: number, currency: string, lang: string) {
@@ -17,6 +17,18 @@ export function whenLabel(date: string, lang: string) {
   if (date === today) return lang === 'ar' ? 'اليوم' : 'Today';
   if (date === addDays(today, 1)) return lang === 'ar' ? 'غدًا' : 'Tomorrow';
   return dateLabel(date, lang);
+}
+
+/** "Free", "Pay what you want", "30% off · EGP 140" or "EGP 150": what villa guests pay. null = no guest price. */
+export function guestPriceText(e: Pick<EventRow, 'guest_mode' | 'guest_price_cents' | 'price_cents' | 'currency'> & { guest_discount_pct?: number | null }, lang: string, view?: PriceView): string | null {
+  const ar = lang === 'ar';
+  const m = guestModeOf(e);
+  if (m === 'none') return null;
+  if (m === 'free') return ar ? 'مجانًا' : 'Free';
+  if (m === 'pwyw') return ar ? 'ادفع اللي تحبه' : 'Pay what you want';
+  const c = guestUnitCents(e) ?? 0;
+  const money = view ? showPrice(c, e.currency, view, lang) : priceLabel(c, e.currency, lang);
+  return m === 'percent' ? (ar ? `خصم ${e.guest_discount_pct}% · ${money}` : `${e.guest_discount_pct}% off · ${money}`) : money;
 }
 
 export function toEventCard(e: PublicEvent, lang: string, view?: PriceView): EventCard {
@@ -33,6 +45,7 @@ export function toEventCard(e: PublicEvent, lang: string, view?: PriceView): Eve
     soon: !!e.nextDate && (e.nextDate === today || e.nextDate === addDays(today, 1)),
     soldOut: !!e.soldOut,
     left: e.seatsLeftNext ?? null,
+    guest: guestPriceText(e, lang, view),
   };
 }
 

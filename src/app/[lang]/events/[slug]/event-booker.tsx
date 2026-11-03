@@ -49,9 +49,9 @@ export function EventBooker(props: {
   /** The visitor's currency (Egypt EGP, Europe EUR, else USD) and today's rates: prices are shown in it, paid in EGP. */
   view?: PriceView;
   /** Villa guests: pay what they want, a fixed price, or no villa-guest option. */
-  guestMode?: 'pwyw' | 'fixed' | 'none';
+  guestMode?: 'pwyw' | 'fixed' | 'free' | 'percent' | 'none'; guestPct?: number | null;
   /** Other events the guest can add on the same day (only those happening on the chosen date are shown). */
-  addons?: { id: string; title: string; priceCents: number; guestMode: 'pwyw' | 'fixed' | 'none'; guestPriceCents: number | null; time: string; left: Record<string, number | null> }[];
+  addons?: { id: string; title: string; priceCents: number; guestMode: 'pwyw' | 'fixed' | 'free' | 'percent' | 'none'; guestPriceCents: number | null; time: string; left: Record<string, number | null> }[];
 }) {
   const { lang, slug, dates, options, priceCents, depositCents = null, dinnerCents = null, menu = {}, currency, methods, view, guestMode = 'pwyw', addons = [] } = props;
   const show = (c: number) => (view ? showPrice(c, currency, view, lang) : fmt(c, currency, lang === 'ar'));
@@ -176,13 +176,13 @@ export function EventBooker(props: {
   const left = dates.find((d) => d.date === date)?.left ?? null;
   const maxQty = Math.max(1, Math.min(20, left ?? 20));
   // Villa guests: pay what you want (0 now) or the event's guest price (at the villa); the dinner keeps its price.
-  const guestFixed = guestMode === 'fixed' && props.guestPriceCents != null;
+  const guestFixed = ['fixed', 'free', 'percent'].includes(guestMode) && props.guestPriceCents != null;
   const pwywMode = hotelGuest && guestMode === 'pwyw';
   const unit = hotelGuest ? (guestFixed ? Number(props.guestPriceCents) : 0) : priceCents;
   // Same-day add-on events happening on the chosen date (with seats left).
   const dayAddons = addons.filter((a) => date in a.left && a.left[date] !== 0);
   const addon = dayAddons.find((a) => a.id === addonId) ?? null;
-  const addonEach = !addon ? 0 : hotelGuest && addon.guestMode === 'pwyw' ? 0 : hotelGuest && addon.guestMode === 'fixed' && addon.guestPriceCents != null ? addon.guestPriceCents : addon.priceCents;
+  const addonEach = !addon ? 0 : hotelGuest && addon.guestMode === 'pwyw' ? 0 : hotelGuest && addon.guestMode !== 'none' && addon.guestPriceCents != null ? addon.guestPriceCents : addon.priceCents;
   const dinnerEach = dinner && dinnerCents != null && dinnerCents > 0 ? dinnerCents : 0;
   const n = Math.min(qty, maxQty);
   // Hostel guest: the amount they want to pay for all the tickets (whole pounds; Arabic digits accepted).
@@ -294,7 +294,11 @@ export function EventBooker(props: {
         {guestMode !== 'none' && (
         <label className="evb-check">
           <input type="checkbox" name="hotelGuest" checked={hotelGuest} onChange={(e) => setHotelGuest(e.target.checked)} />
-          <span>{guestMode === 'fixed'
+          <span>{guestMode === 'free'
+            ? (ar ? 'أنا نازل في فيلا ليلى · مجاني للنزلاء' : 'I’m staying at Villa Layla · free for guests')
+            : guestMode === 'percent'
+            ? (ar ? `أنا نازل في فيلا ليلى · خصم ${props.guestPct}% للنزلاء: ${show(Number(props.guestPriceCents))} للفرد` : `I’m staying at Villa Layla · ${props.guestPct}% off for guests: ${show(Number(props.guestPriceCents))} per person`)
+            : guestMode === 'fixed'
             ? (ar ? `أنا نازل في فيلا ليلى · سعر النزلاء ${show(Number(props.guestPriceCents))} للفرد` : `I’m staying at Villa Layla · guest price ${show(Number(props.guestPriceCents))} per person`)
             : (ar ? 'أنا نازل في فيلا ليلى · ادفع اللي تحبه' : 'I’m staying at Villa Layla · pay what you want')}</span>
         </label>
@@ -328,7 +332,7 @@ export function EventBooker(props: {
           <label key={a.id} className={`evb-addon ${addonId === a.id ? 'on' : ''}`}>
             <input type="checkbox" name="addon" value={a.id} checked={addonId === a.id} onChange={(e) => setAddonId(e.target.checked ? a.id : '')} />
             <span className="evb-addon-t"><b>{ar ? `أضف ${a.title} نفس اليوم` : `Add ${a.title} the same day`}</b><small>{a.time}</small></span>
-            <span className="evb-addon-p num" dir="ltr">{hotelGuest && a.guestMode === 'pwyw' ? (ar ? 'ادفع اللي تحبه' : 'pay what you want') : `+${show(hotelGuest && a.guestMode === 'fixed' && a.guestPriceCents != null ? a.guestPriceCents : a.priceCents)}`}</span>
+            <span className="evb-addon-p num" dir="ltr">{hotelGuest && a.guestMode === 'pwyw' ? (ar ? 'ادفع اللي تحبه' : 'pay what you want') : `+${show(hotelGuest && a.guestMode !== 'none' && a.guestPriceCents != null ? a.guestPriceCents : a.priceCents)}`}</span>
           </label>
         ))}
         {mealOpen && <MealModal ar={ar} meal={dayMeal} day={dayName} priceLabel={dinnerCents ? show(dinnerCents) : null} onClose={closeMeal} />}

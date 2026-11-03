@@ -55,7 +55,7 @@ export function bookingText(b: any, head = 'حجز فعالية'): string {
     `الموبايل: ${b.phone || '—'}`,
     `الإيميل: ${b.email}`,
     ...(Array.isArray(b.attendees) && b.attendees.length ? ['باقي الأفراد:', ...b.attendees.map((a: any, i: number) => `${i + 2}. ${a.name} · ${a.phone}`)] : []),
-    `الإجمالي: ${b.is_hotel_guest && b.ev_guest_mode === 'fixed' ? `نزيل بسعر النزلاء: ${money(b.total_cents, b.currency)}` : b.is_hotel_guest ? `نزيل · ادفع اللي تحبه${b.pwyw_offer_cents != null ? `: قال هيدفع ${money(b.pwyw_offer_cents, b.currency)} للتذاكر` : ''} (يتسجل على البي او اس)${Number(b.total_cents) ? ` + ${money(b.total_cents, b.currency)} عشاء` : ''}${b.pwyw_offer_cents != null ? ` = ${money(Number(b.pwyw_offer_cents) + Number(b.total_cents), b.currency)}` : ''}` : money(b.total_cents, b.currency)} · ${b.pay_method === 'cash' ? 'كاش في المكان' : b.pay_method === 'paymob' ? 'بطاقة (Paymob)' : walletLabel(b.pay_method, true)}`,
+    `الإجمالي: ${b.is_hotel_guest && ['fixed', 'free', 'percent'].includes(b.ev_guest_mode) ? `نزيل بسعر النزلاء: ${money(b.total_cents, b.currency)}` : b.is_hotel_guest ? `نزيل · ادفع اللي تحبه${b.pwyw_offer_cents != null ? `: قال هيدفع ${money(b.pwyw_offer_cents, b.currency)} للتذاكر` : ''} (يتسجل على البي او اس)${Number(b.total_cents) ? ` + ${money(b.total_cents, b.currency)} عشاء` : ''}${b.pwyw_offer_cents != null ? ` = ${money(Number(b.pwyw_offer_cents) + Number(b.total_cents), b.currency)}` : ''}` : money(b.total_cents, b.currency)} · ${b.pay_method === 'cash' ? 'كاش في المكان' : b.pay_method === 'paymob' ? 'بطاقة (Paymob)' : walletLabel(b.pay_method, true)}`,
     `الحالة: ${STATUS_AR[b.status] ?? b.status}${b.confirmed_at && b.status !== 'cancelled' ? ' · متأكد' : ''}${b.attendance_confirmed_at ? ' · أكد الحضور' : ''}`,
     b.cancel_reason ? `سبب الإلغاء: ${b.cancel_reason}` : '',
   ].filter(Boolean).join('\n');
@@ -81,7 +81,7 @@ export async function bookingWhatsAppLink(bookingId: string): Promise<string> {
   const dinnerTotal = b.dinner ? Number(b.dinner_cents) * Number(b.quantity) : 0;
   const offer = guest && b.pwyw_offer_cents != null ? Number(b.pwyw_offer_cents) : null;
   const dep = b.deposit_cents != null && Number(b.deposit_cents) < Number(b.total_cents) ? Number(b.deposit_cents) : null;
-  const pwywG = guest && b.ev_guest_mode !== 'fixed';
+  const pwywG = guest && !['fixed', 'free', 'percent'].includes(b.ev_guest_mode);
   const people = (l: 'ar' | 'en') => (Array.isArray(b.attendees) && b.attendees.length
     ? [l === 'ar' ? '• باقي الأفراد:' : '• The others:', ...b.attendees.map((a: any, i: number) => `   ${i + 2}. ${a.name} · ${a.phone}`)] : []);
   const lines = ar ? [

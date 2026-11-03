@@ -76,16 +76,20 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
         <div className="space-y-5">
           <Card title="Price, cost & capacity">
             <div className="grid grid-cols-2 gap-3">
-              <div><Lbl htmlFor="e-p">Ticket price (EGP)</Lbl><input id="e-p" name="price" type="number" min={0} step="0.01" required defaultValue={v(e.price_cents)} className={Input} /></div>
+              <div><Lbl htmlFor="e-p">Visitor price (not staying at the villa), EGP</Lbl><input id="e-p" name="price" type="number" min={0} step="0.01" required defaultValue={v(e.price_cents)} className={Input} /></div>
               <div><Lbl htmlFor="e-c">Cost per attendee (EGP)</Lbl><input id="e-c" name="cost" type="number" min={0} step="0.01" defaultValue={v(e.cost_per_attendee_cents)} className={Input} /></div>
               <div><Lbl htmlFor="e-cap">Capacity per date</Lbl><input id="e-cap" name="capacity" type="number" min={1} placeholder="Unlimited" defaultValue={e.capacity ?? ''} className={Input} /></div>
             </div>
             <fieldset className="mt-4 rounded-xl border border-cocoa-200 p-3">
-              <legend className="px-1 text-sm font-semibold text-cocoa-800">Villa guests</legend>
+              <legend className="px-1 text-sm font-semibold text-cocoa-800">Villa guests (staying at the hostel)</legend>
+              <p className="mb-2 text-xs text-slate-500">Shown in the price on the event page and card, next to the visitor price.</p>
               <div className="space-y-2 text-sm">
                 <label className="flex items-start gap-2"><input type="radio" name="guestMode" value="pwyw" defaultChecked={(e.guest_mode ?? 'pwyw') === 'pwyw'} className="mt-1" /> <span><b>Pay what you want</b> · the booking form shows «I’m staying at Villa Layla» and they write what they’ll pay, at the villa</span></label>
                 <label className="flex items-start gap-2"><input type="radio" name="guestMode" value="fixed" defaultChecked={e.guest_mode === 'fixed'} className="mt-1" /> <span><b>A fixed price</b> for villa guests, paid at the villa:</span></label>
                 <div className="ps-6"><input name="guestPrice" type="number" min={0} step="0.01" placeholder="Price per villa guest (EGP)" defaultValue={v(e.guest_price_cents)} className={Input} /></div>
+                <label className="flex items-start gap-2"><input type="radio" name="guestMode" value="free" defaultChecked={e.guest_mode === 'free'} className="mt-1" /> <span><b>Free</b> for villa guests</span></label>
+                <label className="flex items-start gap-2"><input type="radio" name="guestMode" value="percent" defaultChecked={e.guest_mode === 'percent'} className="mt-1" /> <span><b>A discount</b> off the visitor price, in %:</span></label>
+                <div className="ps-6"><input name="guestPct" type="number" min={1} max={100} step="1" placeholder="e.g. 30 (%)" defaultValue={e.guest_discount_pct ?? ''} className={Input} /></div>
                 <label className="flex items-start gap-2"><input type="radio" name="guestMode" value="none" defaultChecked={e.guest_mode === 'none'} className="mt-1" /> <span><b>No villa-guest option</b> · everyone books at the normal price</span></label>
               </div>
             </fieldset>
@@ -106,6 +110,14 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
                 ))}
               </div>
             )}
+          </Card>
+          <Card title="Address & map">
+            <div className="grid gap-2 text-sm">
+              <div><Lbl htmlFor="e-ada">Address (Arabic)</Lbl><input id="e-ada" name="addressAr" dir="rtl" defaultValue={e.address?.ar ?? ''} placeholder="فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب" className={Input} /></div>
+              <div><Lbl htmlFor="e-ade">Address (English)</Lbl><input id="e-ade" name="addressEn" defaultValue={e.address?.en ?? ''} placeholder="Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab" className={Input} /></div>
+              <div><Lbl htmlFor="e-map">Google Maps link</Lbl><input id="e-map" name="mapUrl" dir="ltr" defaultValue={e.map_url ?? ''} placeholder="https://maps.app.goo.gl/…" className={Input} /></div>
+              <p className="text-xs text-slate-500">Shown under «Where» on the event page with a map. Leave empty for the villa’s address and map.</p>
+            </div>
           </Card>
           <Card title="Meal shown on the page">
             <select name="menuKind" defaultValue={e.menu_kind ?? ''} className={Input}>

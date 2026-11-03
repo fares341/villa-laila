@@ -16,16 +16,33 @@ export type EventRow = Schedule & {
   id: string; slug: string; title: Loc; summary: Loc; description: Loc; includes: Loc[]; image: string | null;
   price_cents: number; guest_price_cents: number | null; deposit_cents?: number | null; dinner_cents?: number | null; currency: string;
   capacity: number | null; options: EventOption[]; pay_methods: PayMethod[]; note: Loc; active: boolean; sort_order: number;
-  /** Villa guests: pay what they want (pwyw), a fixed price (guest_price_cents), or no villa-guest option (none). */
+  /** Villa guests: pay what they want (pwyw), a fixed price (guest_price_cents), free, a % off (guest_discount_pct), or no villa-guest option (none). */
   guest_mode?: GuestMode;
+  guest_discount_pct?: number | null;
+  /** Written address and map link of this event (empty = the villa's own). */
+  address?: { ar?: string; en?: string } | null;
+  map_url?: string | null;
   /** Other events the guest can add on the same day. */
   addon_event_ids?: string[];
   /** Which weekly menu the page shows: dinner, breakfast, none; null = automatic. */
   menu_kind?: 'dinner' | 'breakfast' | 'none' | null;
 };
-export type GuestMode = 'pwyw' | 'fixed' | 'none';
-export const guestModeOf = (e: Pick<EventRow, 'guest_mode' | 'guest_price_cents'>): GuestMode =>
-  e.guest_mode === 'none' ? 'none' : e.guest_mode === 'fixed' && e.guest_price_cents != null ? 'fixed' : 'pwyw';
+export type GuestMode = 'pwyw' | 'fixed' | 'free' | 'percent' | 'none';
+export const guestModeOf = (e: Pick<EventRow, 'guest_mode' | 'guest_price_cents'> & { guest_discount_pct?: number | null }): GuestMode =>
+  e.guest_mode === 'none' ? 'none' : e.guest_mode === 'free' ? 'free'
+    : e.guest_mode === 'percent' && e.guest_discount_pct != null && e.guest_discount_pct > 0 ? 'percent'
+    : e.guest_mode === 'fixed' && e.guest_price_cents != null ? 'fixed' : 'pwyw';
+/**
+ * What one villa guest pays per ticket: free → 0, a % off → the visitor price less that %, fixed → the guest price.
+ * null = they write the amount themselves (pay what you want) or there is no guest option.
+ */
+export function guestUnitCents(e: Pick<EventRow, 'guest_mode' | 'guest_price_cents' | 'price_cents'> & { guest_discount_pct?: number | null }): number | null {
+  const m = guestModeOf(e);
+  if (m === 'free') return 0;
+  if (m === 'fixed') return Number(e.guest_price_cents);
+  if (m === 'percent') return Math.max(0, Math.round((Number(e.price_cents) * (100 - Math.min(100, Number(e.guest_discount_pct)))) / 100));
+  return null;
+}
 
 export type PublicEvent = EventRow & { dates: string[]; nextDate: string | null; methods: PayMethod[]; soldOut?: boolean; seatsLeftNext?: number | null };
 
@@ -97,7 +114,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEvent | null> 
 
 /** Every column except the image bytes. */
 export const EVENT_COLS = `id, slug, title, summary, description, includes, image, price_cents, guest_price_cents, deposit_cents, dinner_cents, currency, start_time, end_time, recurrence, weekdays,
-  once_date, ends_on, capacity, options, pay_methods, note, active, sort_order, cost_per_attendee_cents, kind, guest_mode, addon_event_ids, menu_kind, (image_bytes IS NOT NULL) has_upload`;
+  once_date, ends_on, capacity, options, pay_methods, note, active, sort_order, cost_per_attendee_cents, kind, guest_mode, guest_discount_pct, address, map_url, addon_event_ids, menu_kind, (image_bytes IS NOT NULL) has_upload`;
 
 const HELD = `(status IN ('paid','pending_verification','pay_on_site') OR (status='awaiting_payment' AND (hold_expires_at IS NULL OR hold_expires_at > now())))`;
 
@@ -164,7 +181,7 @@ export async function createEventBooking(input: EventBookingInput) {
     // No booking reference needed for now: the guest just ticks it and leaves name and phone; reception checks at the villa.
     if (input.isHotelGuest && mode !== 'none') {
       stayRef = (input.stayReference || '').trim().toUpperCase().slice(0, 20) || null;
-      unit = mode === 'fixed' ? Number(ev.guest_price_cents) : 0;
+      unit = guestUnitCents(ev) ?? 0;
       isGuest = true;
     }
     // What the guest says they will pay for the tickets (a note for reception; the money is taken on the POS).
@@ -184,7 +201,7 @@ export async function createEventBooking(input: EventBookingInput) {
       addon = (await c.query(`SELECT ${EVENT_COLS} FROM events WHERE id=$1 AND active`, [input.addonEventId])).rows[0] ?? null;
       if (!addon || !isBookableDate(addon, input.date)) throw new BookingError('INVALID_INPUT', 'addon_date');
       const am = guestModeOf(addon);
-      addonEach = isGuest && am === 'pwyw' ? 0 : isGuest && am === 'fixed' ? Number(addon.guest_price_cents) : Number(addon.price_cents);
+      addonEach = isGuest && am === 'pwyw' ? 0 : isGuest && am !== 'none' ? (guestUnitCents(addon) ?? Number(addon.price_cents)) : Number(addon.price_cents);
       await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['ev:' + addon.id + ':' + input.date]);
       if (addon.capacity != null && (await seatsTaken(c as unknown as Q, addon.id, input.date)) + qty > addon.capacity) throw new BookingError('NO_AVAILABILITY', 'addon');
     }
@@ -362,8 +379,14 @@ export async function moveEvent(id: string, dir: 'up' | 'down' | 'top' | 'bottom
 }
 
 /** Villa-guest pricing, same-day add-on events and the menu shown on the page. */
-export async function setEventExtras(eventId: string, v: { guestMode: string; addonEventIds: string[]; menuKind: string }, actor: string) {
-  const mode = ['pwyw', 'fixed', 'none'].includes(v.guestMode) ? v.guestMode : 'pwyw';
+export async function setEventExtras(eventId: string, v: { guestMode: string; addonEventIds: string[]; menuKind: string; guestPct?: string; addressAr?: string; addressEn?: string; mapUrl?: string }, actor: string) {
+  const mode = ['pwyw', 'fixed', 'free', 'percent', 'none'].includes(v.guestMode) ? v.guestMode : 'pwyw';
+  const pct = Math.round(Number(String(v.guestPct ?? '').replace(/[^\d.]/g, '')));
+  if (mode === 'percent' && !(pct >= 1 && pct <= 100)) throw new BookingError('INVALID_INPUT', 'Write the discount for villa guests (1–100 %)');
+  const map = String(v.mapUrl ?? '').trim();
+  if (map && !/^https?:\/\/\S+$/i.test(map)) throw new BookingError('INVALID_INPUT', 'The map link must start with https://');
+  await q(`UPDATE events SET guest_discount_pct=$2, address=$3, map_url=$4 WHERE id=$1`, [eventId, mode === 'percent' ? pct : null,
+    JSON.stringify({ ar: String(v.addressAr ?? '').trim().slice(0, 200), en: String(v.addressEn ?? '').trim().slice(0, 200) }), map ? map.slice(0, 500) : null]);
   if (mode === 'fixed') {
     const g = (await q<any>(`SELECT guest_price_cents FROM events WHERE id=$1`, [eventId]))[0];
     if (g?.guest_price_cents == null) throw new BookingError('INVALID_INPUT', 'Write the price villa guests pay');

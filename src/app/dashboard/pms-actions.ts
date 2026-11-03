@@ -267,6 +267,7 @@ export async function eventSave(fd: FormData) {
     const { setEventExtras } = await import('@/services/events');
     await setEventExtras(savedId, {
       guestMode: str(fd.get('guestMode')), addonEventIds: fd.getAll('addonEvents').map(String), menuKind: str(fd.get('menuKind')),
+      guestPct: str(fd.get('guestPct')), addressAr: str(fd.get('addressAr')), addressEn: str(fd.get('addressEn')), mapUrl: str(fd.get('mapUrl')),
     }, u.email);
   } catch (e) { go(back, 'err', msg(e)); }
   revalidatePath('/dashboard/events'); revalidatePath('/en'); revalidatePath('/ar');
