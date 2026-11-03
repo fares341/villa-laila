@@ -26,7 +26,17 @@ export const BREAKFAST_SLOTS: { d: number; en: string; ar: string }[] = [
 ];
 export async function breakfastPair(): Promise<DayMenu[]> {
   const m = await weeklyMenu('breakfast');
-  return BREAKFAST_SLOTS.map((s) => m[s.d]).filter((x): x is DayMenu => !!x && !!(x.title.ar || x.title.en || x.img));
+  const ok = (x: DayMenu | null | undefined): x is DayMenu => !!x && !!(x.title.ar || x.title.en || x.img);
+  const pair = BREAKFAST_SLOTS.map((s) => m[s.d]).filter(ok);
+  // Breakfasts saved per weekday in the old version: fill up to two from the other days (different meals only),
+  // so every breakfast event shows both breakfasts whatever day they were saved on.
+  const key = (x: DayMenu) => (x.title.en || x.title.ar || x.img || '').trim().toLowerCase();
+  for (const d of [2, 3, 4, 5, 6]) {
+    if (pair.length >= 2) break;
+    const x = m[d];
+    if (ok(x) && !pair.some((y) => key(y) === key(x))) pair.push(x);
+  }
+  return pair.slice(0, 2);
 }
 
 /** Weekday of a YYYY-MM-DD date (calendar day, no time zone shift). */
