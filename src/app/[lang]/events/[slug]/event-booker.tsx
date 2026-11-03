@@ -319,7 +319,7 @@ export function EventBooker(props: {
           <label className={`evb-addon ${dinner ? 'on' : ''}`}>
             <input type="checkbox" name="dinner" checked={dinner} onChange={(e) => toggleDinner(e.target.checked)} />
             <span className="evb-addon-t">
-              <b>{(dayMeal && (ar ? dayMeal.title.ar || dayMeal.title.en : dayMeal.title.en || dayMeal.title.ar)) || (ar ? 'أضف العشاء' : 'Add dinner')}</b>
+              <b>{dayMeal ? (ar ? `أضف عشاء اليوم: ${dayMeal.title.ar || dayMeal.title.en}` : `Add tonight’s dinner: ${dayMeal.title.en || dayMeal.title.ar}`) : (ar ? 'أضف العشاء' : 'Add dinner')}</b>
             </span>
             <span className="evb-addon-p num" dir="ltr">+{show(dinnerCents)}</span>
           </label>

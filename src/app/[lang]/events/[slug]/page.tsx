@@ -70,10 +70,14 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const initialDate = sp.date && dates.some((d) => d.date === sp.date && d.left !== 0) ? sp.date : dates.find((d) => d.left !== 0)?.date ?? '';
   // The weekly menu: for the dinner add-on, and for a dinner event that shows its food photos.
   // Which weekly menu: set on the event, else dinner when it has the dinner add-on or meal photos.
-  const menuKind = ev.menu_kind ?? (ev.dinner_cents || meals.length ? 'dinner' : /breakfast|فطار|فطور/i.test(`${ev.slug} ${tr(ev.title, 'en')}`) ? 'breakfast' : 'none');
+  const isDinnerEvent = /dinner|عشاء|dining/i.test(`${ev.slug} ${tr(ev.title, 'en')} ${tr(ev.title, 'ar')}`);
+  const isBreakfastEvent = /breakfast|فطار|فطور/i.test(`${ev.slug} ${tr(ev.title, 'en')} ${tr(ev.title, 'ar')}`);
+  const menuKind = ev.menu_kind ?? (ev.dinner_cents || meals.length || isDinnerEvent ? 'dinner' : isBreakfastEvent ? 'breakfast' : 'none');
   // Breakfast: the same two meals every day, shown side by side (no week view).
-  const breakfasts = menuKind === 'breakfast' ? await breakfastPair() : [];
-  const menu = menuKind === 'none' || menuKind === 'breakfast' ? {} : await weeklyMenu(menuKind);
+  const breakfasts = (menuKind === 'breakfast' || isBreakfastEvent) ? await breakfastPair() : [];
+  // For dinner (either event itself or dinner add-on): always load weeklyMenu('dinner')
+  const dinnerMenu = (ev.dinner_cents || menuKind === 'dinner' || isDinnerEvent) ? await weeklyMenu('dinner') : {};
+  const menu = menuKind === 'dinner' || isDinnerEvent ? dinnerMenu : (menuKind === 'none' || menuKind === 'breakfast' ? {} : await weeklyMenu(menuKind));
   // Other events that can be added the same day (only the dates they happen on, with seats left).
   const addonRows = (ev.addon_event_ids ?? []).length ? (await listPublicEvents()).filter((x) => (ev.addon_event_ids ?? []).includes(x.id)) : [];
   const addons = await Promise.all(addonRows.map(async (a) => {
@@ -142,9 +146,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           {breakfasts.length > 0 && !ev.dinner_cents
             ? <BreakfastPair ar={isAr} meals={breakfasts} />
             : ev.dinner_cents
-            ? <WeekMenuCard ar={isAr} menu={menu} dates={dates} initialDate={initialDate} today={todayLocal()} priceLabel={showPrice(ev.dinner_cents, ev.currency, view, lang)} />
-            : hasMenu && dates.length
-              ? <WeekMenuCard ar={isAr} menu={menu} dates={dates} initialDate={initialDate} today={todayLocal()} fallback={false} />
+            ? <WeekMenuCard ar={isAr} menu={dinnerMenu} dates={dates} initialDate={initialDate} today={todayLocal()} priceLabel={showPrice(ev.dinner_cents, ev.currency, view, lang)} />
+            : (hasMenu || Object.values(dinnerMenu).some(Boolean)) && dates.length
+              ? <WeekMenuCard ar={isAr} menu={dinnerMenu} dates={dates} initialDate={initialDate} today={todayLocal()} fallback={false} />
               : <MealGallery lang={lang} photos={meals.map((m) => ({ id: m.id, src: m.src, caption: m.caption }))} />}
           <aside className="evd-book" id="book" aria-labelledby="bookH">
             <h2 id="bookH">{isAr ? 'احجز تذكرتك' : 'Book your ticket'}</h2>
@@ -176,7 +180,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 guestPriceCents={ev.guest_price_cents}
                 depositCents={ev.deposit_cents ?? null}
                 dinnerCents={ev.dinner_cents ?? null}
-                menu={menu}
+                menu={ev.dinner_cents ? dinnerMenu : menu}
                 currency={ev.currency}
                 view={view}
                 guestMode={guestModeOf(ev)}

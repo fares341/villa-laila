@@ -84,9 +84,15 @@ function checkPhoto(photo: { bytes: Buffer; mime: string } | null | undefined) {
 /** Save the meal of one weekday. Dishes are one per line (Arabic and English lines are paired in order). */
 export async function saveDay(weekday: number, input: { titleAr: string; titleEn: string; dishesAr: string; dishesEn: string; descAr?: string; descEn?: string; photo?: { bytes: Buffer; mime: string } | null; imageUrl?: string | null }, actor: string, meal: Meal = 'dinner') {
   if (!(Number.isInteger(weekday) && weekday >= 0 && weekday <= 6)) throw new BookingError('INVALID_INPUT', 'day');
-  const title = { ar: clean(input.titleAr, 80), en: clean(input.titleEn, 80) };
+  const existing = (await q<any>(`SELECT title, dishes, description FROM weekly_menu WHERE meal=$1 AND weekday=$2`, [meal, weekday]))[0];
+  const titleAr = clean(input.titleAr, 80) || (existing?.title?.ar ?? '');
+  const titleEn = clean(input.titleEn, 80) || (existing?.title?.en ?? '');
+  const title = { ar: titleAr, en: titleEn };
   const ar = lines(input.dishesAr), en = lines(input.dishesEn);
-  const dishes = Array.from({ length: Math.max(ar.length, en.length) }, (_, i) => ({ ar: (ar[i] ?? '').slice(0, 80), en: (en[i] ?? '').slice(0, 80) }));
+  let dishes = Array.from({ length: Math.max(ar.length, en.length) }, (_, i) => ({ ar: (ar[i] ?? '').slice(0, 80), en: (en[i] ?? '').slice(0, 80) }));
+  if (!dishes.length && Array.isArray(existing?.dishes)) dishes = existing.dishes;
+  const descAr = points(input.descAr) || (existing?.description?.ar ?? '');
+  const descEn = points(input.descEn) || (existing?.description?.en ?? '');
   if (!title.ar && !title.en && !dishes.length) throw new BookingError('INVALID_INPUT', 'Write the meal name or its dishes');
   const photo = checkPhoto(input.photo);
   const url = input.imageUrl && /^(https?:\/\/|\/)/.test(input.imageUrl.trim()) ? input.imageUrl.trim().slice(0, 400) : null;
@@ -97,7 +103,7 @@ export async function saveDay(weekday: number, input: { titleAr: string; titleEn
              photo_mime=COALESCE(EXCLUDED.photo_mime, CASE WHEN EXCLUDED.image_url IS NOT NULL THEN NULL ELSE weekly_menu.photo_mime END),
              image_url=COALESCE(EXCLUDED.image_url, CASE WHEN EXCLUDED.photo IS NOT NULL THEN NULL ELSE weekly_menu.image_url END),
              updated_at=now()`,
-    [weekday, JSON.stringify(title), JSON.stringify(dishes), JSON.stringify({ ar: points(input.descAr), en: points(input.descEn) }), photo?.bytes ?? null, photo?.mime ?? null, url, meal]);
+    [weekday, JSON.stringify(title), JSON.stringify(dishes), JSON.stringify({ ar: descAr, en: descEn }), photo?.bytes ?? null, photo?.mime ?? null, url, meal]);
   await audit(actor, 'menu.save_day', 'weekly_menu', null, { weekday, title, meal });
 }
 
