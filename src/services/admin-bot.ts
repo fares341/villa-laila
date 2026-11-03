@@ -634,3 +634,8 @@ export async function notifyCollabRsvp(r: { full_name: string; phone: string; pe
     r.note ? `ملاحظة: ${r.note}` : '',
   ].filter(Boolean).join('\n'));
 }
+
+/** A new job / volunteer application from the website ("Join the team"). */
+export async function notifyApplicationText(text: string) {
+  await toAll(text);
+}

@@ -40,6 +40,7 @@ const NAV: [string, NavItem[]][] = [
   ]],
   ['Team & reports', [
     { href: '/dashboard/staff', label: 'Team', perm: 'staff.view', icon: 'user-plus', match: ['/dashboard/tasks'] },
+    { href: '/dashboard/applications', label: 'Job applications', perm: 'staff.view', icon: 'clipboard-list' },
     { href: '/dashboard/reports', label: 'Reports', perm: 'reports.view', icon: 'bar-chart', match: ['/dashboard/audit'] },
   ]],
   ['Website', [

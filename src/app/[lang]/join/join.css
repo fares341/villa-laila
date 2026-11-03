@@ -1,0 +1,24 @@
+/* "Join our team" page: hero, the two ways to join, and the application form (site look, evd-* / evb-*). */
+.jn-hero { min-height: clamp(300px, 40vw, 460px); }
+.jn-about { margin-top: 0; padding-top: 0; border-top: 0; }
+.jn-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 26px; }
+@media (max-width: 640px) { .jn-cards { grid-template-columns: 1fr; } }
+.jn-card { display: grid; gap: 8px; padding: 18px; border: 1.5px solid var(--color-border); border-radius: var(--r); background: #fff; color: var(--color-text-secondary); text-decoration: none; transition: border-color .2s, transform .2s, box-shadow .2s; }
+.jn-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.jn-card.on { border-color: var(--color-gold); box-shadow: 0 0 0 3px rgba(210,154,69,.18); }
+.jn-card b { font-size: 18px; color: var(--color-primary-dark); }
+.jn-card > span:last-child { font-size: 14.5px; line-height: 1.6; }
+.jn-ic { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: var(--color-ivory); color: var(--color-gold); }
+.jn-kind { display: grid; gap: 8px; }
+.cbx-q { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 8px; }
+.cbx-q legend { padding: 0; margin-bottom: 8px; font-size: 12px; font-weight: 700; color: var(--color-primary); letter-spacing: .04em; text-transform: uppercase; }
+.cbx-q legend small { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--color-text-secondary); }
+.cbx-opt { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1.5px solid var(--color-border); border-radius: var(--r-sm); background: var(--color-ivory); font-weight: 600; cursor: pointer; }
+.cbx-opt:has(input:checked), .cbx-opt.on { border-color: var(--color-primary); background: #fff; }
+.cbx-opt input { width: 18px; height: 18px; accent-color: var(--color-primary-dark); }
+.cbx-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.jn-done { text-align: center; display: grid; gap: 8px; }
+.jn-done h3 { font-size: 22px; color: var(--color-primary-dark); }
+.jn-done p { color: var(--color-text-secondary); }
+.cbx-tick { width: 68px; height: 68px; margin: 0 auto 6px; display: grid; place-items: center; border-radius: 50%; background: #117A3A; box-shadow: 0 0 0 9px rgba(17,122,58,.14); }
+.cbx-tick svg { width: 34px; height: 34px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }

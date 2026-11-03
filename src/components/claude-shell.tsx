@@ -90,6 +90,9 @@ export function ClaudeHeader({ lang }: { lang: string }) {
           >
             {isAr ? 'الفعاليات' : 'Events'}
           </a>
+          <a href={`/${lang}/join`}>
+            {isAr ? 'انضم لفريقنا' : 'Join us'}
+          </a>
           <a
             href={href('films')}
             onClick={(e) => {
@@ -343,6 +346,9 @@ export function ClaudeFooter({ lang }: { lang: string }) {
                   >
                     {isAr ? 'فعاليات الفيلا' : 'Events at the villa'}
                   </a>
+                </li>
+                <li>
+                  <a href={`/${lang}/join`}>{isAr ? 'اشتغل أو اتطوع معانا' : 'Work or volunteer with us'}</a>
                 </li>
                 <li>
                   <a href={wa(isAr ? 'حجز توصيل المطار' : 'Airport pickup')} target="_blank" rel="noopener noreferrer">
