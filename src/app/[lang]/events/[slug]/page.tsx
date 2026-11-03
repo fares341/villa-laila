@@ -63,9 +63,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const heroVideo = hero.find((m) => m.mime?.startsWith('video/'))?.src ?? null;
   const heroPhotos = hero.filter((m) => !m.mime?.startsWith('video/')).map((m) => m.src);
   const videos = media.filter((m) => m.kind === 'video').map((m) => ({ ...m, embed: m.external ? toEmbed(m.src) : null }));
-  // Stories (9:16): the event's story photos and videos; a YouTube / Instagram link plays inside the story frame.
+  // Stories (9:16): the event's videos; a YouTube / Instagram link plays inside the story frame. (Meal photos are not stories.)
   const stories: Story[] = [
-    ...media.filter((m) => m.kind === 'gallery').map((m) => ({ id: m.id, type: 'photo' as const, src: m.src })),
     ...videos.flatMap((v): Story[] => !v.external || v.embed?.kind === 'mp4' ? [{ id: v.id, type: 'video', src: v.embed?.src ?? v.src }]
       : v.embed ? [{ id: v.id, type: 'embed', src: v.embed.src }] : []),
   ];

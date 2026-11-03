@@ -59,8 +59,8 @@ export function EventMediaManager({ eventId, items: initial }: { eventId: string
   const meals = items.filter((i) => i.kind === 'meal');
   const hero = items.filter((i) => i.kind === 'hero');
   const heroInput = useRef<HTMLInputElement | null>(null);
-  // Stories: the event's photos (gallery) and videos, shown on the page in the 9:16 Instagram story shape.
-  const videos = items.filter((i) => i.kind === 'video' || i.kind === 'gallery');
+  // Stories: the event's videos, shown on the page in the 9:16 Instagram story shape (meal photos stay in their own place).
+  const videos = items.filter((i) => i.kind === 'video');
 
   if (!eventId) {
     return (
@@ -124,10 +124,10 @@ export function EventMediaManager({ eventId, items: initial }: { eventId: string
 
       {/* Stories (9:16) */}
       <div className="border-t border-cocoa-100 pt-4">
-        <p className="mb-1 flex items-center justify-between text-sm font-semibold text-cocoa-800"><span>Stories ({videos.length})</span><span className="text-xs font-normal text-slate-500">Photos and videos · any size</span></p>
-        <p className="mb-2 text-xs text-slate-500">Shown on the event page like Instagram stories: tall 9:16 (1080 × 1920 is best), one after the other, full screen on a phone. Upload them the way you post a story.</p>
-        <input ref={videoInput} type="file" accept="image/*,video/*" multiple className="sr-only" onChange={(e) => { void send(e.target.files, 'story'); e.target.value = ''; }} />
-        <button type="button" className={`${BTN} w-full justify-center py-3`} disabled={busy} onClick={() => videoInput.current?.click()}><Icon name="upload" size={18} /> Add story photos or videos</button>
+        <p className="mb-1 flex items-center justify-between text-sm font-semibold text-cocoa-800"><span>Story videos ({videos.length})</span><span className="text-xs font-normal text-slate-500">Any size · MP4, MOV, WebM</span></p>
+        <p className="mb-2 text-xs text-slate-500">The event’s videos, shown on the event page like Instagram stories: tall 9:16 (1080 × 1920 is best), one after the other, full screen on a phone. Meal photos go under «Meal photos» below.</p>
+        <input ref={videoInput} type="file" accept="video/*" multiple className="sr-only" onChange={(e) => { void send(e.target.files, 'story'); e.target.value = ''; }} />
+        <button type="button" className={`${BTN} w-full justify-center py-3`} disabled={busy} onClick={() => videoInput.current?.click()}><Icon name="upload" size={18} /> Upload story videos</button>
         <div className="mt-2 flex gap-2">
           <input value={link} onChange={(e) => setLink(e.target.value)} dir="ltr" placeholder="or paste a YouTube / Instagram link" aria-label="Video link"
             className="min-w-0 flex-1 rounded-lg border border-cocoa-200 bg-white px-3 py-2 text-sm" />
