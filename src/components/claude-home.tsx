@@ -1,6 +1,7 @@
 'use client';
 
 import { convertCents, formatPrice, FX_FALLBACK, type DisplayCurrency, type Fx } from '@/lib/display-currency';
+import { tx4 } from '@/i18n/tx4';
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -835,9 +836,9 @@ export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours
           </p>
 
           {/* Search Booking Bar */}
-          <form className="search" onSubmit={handleSearchSubmit}>
+          <form className="search" onSubmit={handleSearchSubmit} translate="no">
             <div className={`sf ${searchError ? 'invalid' : ''}`}>
-              <label htmlFor="arrive-input">{isAr ? 'تاريخ الوصول' : 'Check-in'}</label>
+              <label htmlFor="arrive-input">{tx4(lang, 'Check-in', 'تاريخ الوصول', 'Arrivée', 'Llegada')}</label>
               <input
                 id="arrive-input"
                 type="date"
@@ -850,7 +851,7 @@ export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours
               />
             </div>
             <div className={`sf ${searchError ? 'invalid' : ''}`}>
-              <label htmlFor="depart-input">{isAr ? 'تاريخ المغادرة' : 'Check-out'}</label>
+              <label htmlFor="depart-input">{tx4(lang, 'Check-out', 'تاريخ المغادرة', 'Départ', 'Salida')}</label>
               <input
                 id="depart-input"
                 type="date"
@@ -863,13 +864,13 @@ export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours
               />
             </div>
             <div className="sf">
-              <label htmlFor="guests-select">{isAr ? 'النزلاء' : 'Guests'}</label>
+              <label htmlFor="guests-select">{tx4(lang, 'Guests', 'النزلاء', 'Voyageurs', 'Huéspedes')}</label>
               <select id="guests-select" value={guests} onChange={(e) => setGuests(e.target.value)}>
-                <option value="1">{isAr ? 'ضيف واحد (1)' : '1 guest'}</option>
-                <option value="2">{isAr ? 'ضيفان (2)' : '2 guests'}</option>
-                <option value="3">{isAr ? '3 ضيوف' : '3 guests'}</option>
-                <option value="4">{isAr ? '4 ضيوف' : '4 guests'}</option>
-                <option value="5">{isAr ? '5+ ضيوف' : '5+ guests'}</option>
+                <option value="1">{tx4(lang, '1 guest', 'ضيف واحد (1)', '1 voyageur', '1 huésped')}</option>
+                <option value="2">{tx4(lang, '2 guests', 'ضيفان (2)', '2 voyageurs', '2 huéspedes')}</option>
+                <option value="3">{tx4(lang, '3 guests', '3 ضيوف', '3 voyageurs', '3 huéspedes')}</option>
+                <option value="4">{tx4(lang, '4 guests', '4 ضيوف', '4 voyageurs', '4 huéspedes')}</option>
+                <option value="5">{tx4(lang, '5+ guests', '5+ ضيوف', '5+ voyageurs', '5+ huéspedes')}</option>
               </select>
             </div>
             <button className={`btn btn-book ${searchLoading ? 'loading' : ''}`} type="submit">
@@ -877,7 +878,7 @@ export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours
                 <circle cx="11" cy="11" r="7" />
                 <path d="m20 20-3.5-3.5" />
               </svg>
-              {isAr ? 'تحقق من التوفر' : 'Check availability'}
+              {tx4(lang, 'Check availability', 'تحقق من التوفر', 'Voir les disponibilités', 'Ver disponibilidad')}
             </button>
             {searchError && (
               <p className="form-msg">
@@ -1330,7 +1331,7 @@ export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours
         <div className="wrap">
           <div className="sec-hd">
             <div>
-              <span className="kicker">{isAr ? 'بعدسة ضيوفنا' : 'Guest films'}</span>
+              <span className="kicker">{tx4(lang, 'Guest films', 'بعدسة ضيوفنا', 'Vidéos', 'Vídeos')}</span>
               <h2>{isAr ? 'لقطات وريلز من واقع الإقامة في الفيلا.' : 'Moments from life at the villa.'}</h2>
               <p>
                 {isAr
@@ -1411,7 +1412,7 @@ export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours
             </div>
             <div className="cta-acts">
               <button className="btn btn-book" onClick={scrollToBook}>
-                {isAr ? 'احجز غرفتك الآن' : 'Check availability'}
+                {tx4(lang, 'Check availability', 'احجز غرفتك الآن', 'Voir les disponibilités', 'Ver disponibilidad')}
               </button>
               <a
                 className="btn btn-outline-light"
@@ -1431,7 +1432,7 @@ export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours
         <div className="wrap">
           <div className="sec-hd">
             <div>
-              <span className="kicker">{isAr ? 'كيف تصل إلينا' : 'Find us'}</span>
+              <span className="kicker">{tx4(lang, 'Find us', 'كيف تصل إلينا', 'Accès', 'Cómo llegar')}</span>
               <h2>{isAr ? 'بالقرب من النيل والمتحف المصري.' : 'Near the Nile and the Egyptian Museum.'}</h2>
             </div>
           </div>
@@ -1458,11 +1459,11 @@ export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours
                 <dt>{isAr ? 'ميدان التحرير' : 'Tahrir Square'}</dt>
                 <dd>{isAr ? '١٤ دقيقة مشياً' : '14 min walk'}</dd>
                 <dt>{isAr ? 'المتحف المصري بالتحرير' : 'The Egyptian Museum'}</dt>
-                <dd>1.6 km</dd>
+                <dd><bdi>{isAr ? '1.6 كم' : '1.6 km'}</bdi></dd>
                 <dt>{isAr ? 'جامع أحمد بن طولون' : 'Ibn Tulun Mosque'}</dt>
-                <dd>1.9 km</dd>
+                <dd><bdi>{isAr ? '1.9 كم' : '1.9 km'}</bdi></dd>
                 <dt>{isAr ? 'مطار القاهرة الدولي' : 'Cairo International Airport'}</dt>
-                <dd>18 km</dd>
+                <dd><bdi>{isAr ? '18 كم' : '18 km'}</bdi></dd>
                 <dt>{isAr ? 'تسجيل الوصول / المغادرة' : 'Check-in / Check-out'}</dt>
                 <dd>15:00 / 11:00</dd>
               </dl>

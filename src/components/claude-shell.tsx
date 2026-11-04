@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { tx4 } from '@/i18n/tx4';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { Lang } from '@/i18n/bot';
@@ -51,7 +52,7 @@ export function ClaudeHeader({ lang }: { lang: string }) {
           <img className="logo-img" src="/assets/logo-240.webp" alt="Villa Layla" width={180} height={52} />
         </Link>
 
-        <nav className="nav" aria-label="Main">
+        <nav className="nav notranslate" translate="no" aria-label="Main">
           <a
             href={href('stay')}
             onClick={(e) => {
@@ -61,7 +62,7 @@ export function ClaudeHeader({ lang }: { lang: string }) {
               }
             }}
           >
-            {isAr ? 'الغرف' : 'Rooms'}
+            {tx4(lang, 'Rooms', 'الغرف', 'Chambres', 'Habitaciones')}
           </a>
           <a
             href={href('stay')}
@@ -72,7 +73,7 @@ export function ClaudeHeader({ lang }: { lang: string }) {
               }
             }}
           >
-            {isAr ? 'العنابر' : 'Dorms'}
+            {tx4(lang, 'Dorms', 'العنابر', 'Dortoirs', 'Dormitorios')}
           </a>
           <a
             href={href('tours')}
@@ -83,15 +84,15 @@ export function ClaudeHeader({ lang }: { lang: string }) {
               }
             }}
           >
-            {isAr ? 'الرحلات' : 'Tours'}
+            {tx4(lang, 'Tours', 'الرحلات', 'Excursions', 'Excursiones')}
           </a>
           <a
             href={`/${lang}/events`}
           >
-            {isAr ? 'الفعاليات' : 'Events'}
+            {tx4(lang, 'Events', 'الفعاليات', 'Événements', 'Eventos')}
           </a>
           <a href={`/${lang}/join`}>
-            {isAr ? 'انضم لفريقنا' : 'Join us'}
+            {tx4(lang, 'Join us', 'انضم لفريقنا', 'Rejoignez-nous', 'Únete')}
           </a>
           <a
             href={href('films')}
@@ -102,7 +103,7 @@ export function ClaudeHeader({ lang }: { lang: string }) {
               }
             }}
           >
-            {isAr ? 'ريلز ولقطات' : 'Guest films'}
+            {tx4(lang, 'Guest films', 'ريلز ولقطات', 'Vidéos', 'Vídeos')}
           </a>
           <a
             href={href('reviews')}
@@ -113,7 +114,7 @@ export function ClaudeHeader({ lang }: { lang: string }) {
               }
             }}
           >
-            {isAr ? 'الآراء' : 'Reviews'}
+            {tx4(lang, 'Reviews', 'الآراء', 'Avis', 'Opiniones')}
           </a>
           <a
             href={href('find')}
@@ -124,11 +125,11 @@ export function ClaudeHeader({ lang }: { lang: string }) {
               }
             }}
           >
-            {isAr ? 'موقعنا' : 'Find us'}
+            {tx4(lang, 'Find us', 'موقعنا', 'Accès', 'Cómo llegar')}
           </a>
         </nav>
 
-        <div className="hdr-end">
+        <div className="hdr-end notranslate" translate="no">
           <div className="lang-dropdown">
             <button
               className="lang-btn"
@@ -161,7 +162,7 @@ export function ClaudeHeader({ lang }: { lang: string }) {
           </div>
 
           <button className="btn btn-book book-hdr" onClick={scrollToBook}>
-            {isAr ? 'احجز مباشرة' : 'Book direct'}
+            {tx4(lang, 'Book direct', 'احجز مباشرة', 'Réserver en direct', 'Reservar directo')}
           </button>
         </div>
       </div>
@@ -242,7 +243,7 @@ export function ClaudeFooter({ lang }: { lang: string }) {
             </div>
             <div className="foot-ctas">
               <button className="btn btn-gold" onClick={scrollToBook}>
-                {isAr ? 'احجز مباشرة' : 'Book direct'}
+                {tx4(lang, 'Book direct', 'احجز مباشرة', 'Réserver en direct', 'Reservar directo')}
               </button>
               <a
                 className="btn btn-wa"
@@ -264,7 +265,7 @@ export function ClaudeFooter({ lang }: { lang: string }) {
 
           <div className="foot-g">
             <div>
-              <h4>{isAr ? 'الإقامة' : 'Stay'}</h4>
+              <h4 className="notranslate" translate="no">{tx4(lang, 'Stay', 'الإقامة', 'Séjour', 'Alojamiento')}</h4>
               <ul>
                 <li>
                   <a
@@ -276,7 +277,7 @@ export function ClaudeFooter({ lang }: { lang: string }) {
                       }
                     }}
                   >
-                    {isAr ? 'الغرف الخاصة' : 'Private rooms'}
+                    {tx4(lang, 'Private rooms', 'الغرف الخاصة', 'Chambres privées', 'Habitaciones privadas')}
                   </a>
                 </li>
                 <li>
@@ -289,7 +290,7 @@ export function ClaudeFooter({ lang }: { lang: string }) {
                       }
                     }}
                   >
-                    {isAr ? 'العنابر المشتركة' : 'Dorms'}
+                    {tx4(lang, 'Dorms', 'العنابر المشتركة', 'Dortoirs', 'Dormitorios')}
                   </a>
                 </li>
                 <li>
@@ -302,7 +303,7 @@ export function ClaudeFooter({ lang }: { lang: string }) {
                       }
                     }}
                   >
-                    {isAr ? 'عنابر السيدات' : 'Women-only dorms'}
+                    {tx4(lang, 'Women-only dorms', 'عنابر السيدات', 'Dortoirs femmes', 'Dormitorios solo mujeres')}
                   </a>
                 </li>
                 <li>
@@ -318,14 +319,14 @@ export function ClaudeFooter({ lang }: { lang: string }) {
                       }
                     }}
                   >
-                    {isAr ? 'ريلز ولقطات' : 'Guest films'}
+                    {tx4(lang, 'Guest films', 'ريلز ولقطات', 'Vidéos', 'Vídeos')}
                   </a>
                 </li>
               </ul>
             </div>
 
             <div>
-              <h4>{isAr ? 'استكشف' : 'Explore'}</h4>
+              <h4 className="notranslate" translate="no">{tx4(lang, 'Explore', 'استكشف', 'Découvrir', 'Explorar')}</h4>
               <ul>
                 <li>
                   <a
@@ -388,7 +389,7 @@ export function ClaudeFooter({ lang }: { lang: string }) {
             </div>
 
             <div className="wide">
-              <h4>{isAr ? 'التواصل' : 'Contact'}</h4>
+              <h4 className="notranslate" translate="no">{tx4(lang, 'Contact', 'التواصل', 'Contact', 'Contacto')}</h4>
               <ul>
                 <li className="ci">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -430,7 +431,7 @@ export function ClaudeFooter({ lang }: { lang: string }) {
             </div>
 
             <div className="wide">
-              <h4>{isAr ? 'المواعيد' : 'Hours'}</h4>
+              <h4 className="notranslate" translate="no">{tx4(lang, 'Hours', 'المواعيد', 'Horaires', 'Horarios')}</h4>
               <dl className="hrs">
                 <dt>{isAr ? 'مكتب الاستقبال' : 'Front desk'}</dt>
                 <dd>08:00–22:00</dd>
@@ -438,9 +439,9 @@ export function ClaudeFooter({ lang }: { lang: string }) {
                 <dd>24 / 7</dd>
                 <dt>{isAr ? 'الإفطار الصباحي' : 'Breakfast'}</dt>
                 <dd>08:00–11:00</dd>
-                <dt>{isAr ? 'تسجيل الوصول' : 'Check-in'}</dt>
+                <dt className="notranslate" translate="no">{tx4(lang, 'Check-in', 'تسجيل الوصول', 'Arrivée', 'Llegada')}</dt>
                 <dd>{isAr ? 'من 15:00' : 'from 15:00'}</dd>
-                <dt>{isAr ? 'تسجيل المغادرة' : 'Check-out'}</dt>
+                <dt className="notranslate" translate="no">{tx4(lang, 'Check-out', 'تسجيل المغادرة', 'Départ', 'Salida')}</dt>
                 <dd>{isAr ? 'حتى 11:00' : 'by 11:00'}</dd>
               </dl>
               <p className="foot-pay">
@@ -548,7 +549,7 @@ export function ClaudeBottomBar({ lang }: { lang: string }) {
   const href = (anchor: string) => (isHomePage ? `#${anchor}` : `/${lang}#${anchor}`);
 
   return (
-    <nav className="bbar" aria-label="Quick mobile bar">
+    <nav className="bbar notranslate" translate="no" aria-label="Quick mobile bar">
       <a
         href={href('top')}
         className="on"
@@ -562,7 +563,7 @@ export function ClaudeBottomBar({ lang }: { lang: string }) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M3 11 12 4l9 7v9H5z" />
         </svg>
-        {isAr ? 'الرئيسية' : 'Home'}
+        {tx4(lang, 'Home', 'الرئيسية', 'Accueil', 'Inicio')}
       </a>
       <a
         href={href('stay')}
@@ -577,7 +578,7 @@ export function ClaudeBottomBar({ lang }: { lang: string }) {
           <path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5" />
           <circle cx="7" cy="11" r="2" />
         </svg>
-        {isAr ? 'الغرف' : 'Rooms'}
+        {tx4(lang, 'Rooms', 'الغرف', 'Chambres', 'Habitaciones')}
       </a>
       <a
         href={href('tours')}
@@ -591,7 +592,7 @@ export function ClaudeBottomBar({ lang }: { lang: string }) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M3 20h18L14 6l-4 7-2-3z" />
         </svg>
-        {isAr ? 'الرحلات' : 'Tours'}
+        {tx4(lang, 'Tours', 'الرحلات', 'Excursions', 'Excursiones')}
       </a>
       <a
         href={`/${lang}/events`}
@@ -600,7 +601,7 @@ export function ClaudeBottomBar({ lang }: { lang: string }) {
           <path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z" />
           <path d="M14 6v12" strokeDasharray="2 2" />
         </svg>
-        {isAr ? 'الفعاليات' : 'Events'}
+        {tx4(lang, 'Events', 'الفعاليات', 'Événements', 'Eventos')}
       </a>
       <a
         href={href('films')}
@@ -615,7 +616,7 @@ export function ClaudeBottomBar({ lang }: { lang: string }) {
           <rect x="3" y="5" width="18" height="14" rx="3" />
           <path d="m10 9 5 3-5 3z" />
         </svg>
-        {isAr ? 'ريلز' : 'Films'}
+        {tx4(lang, 'Films', 'ريلز', 'Vidéos', 'Vídeos')}
       </a>
       <a
         href={href('top')}
@@ -629,7 +630,7 @@ export function ClaudeBottomBar({ lang }: { lang: string }) {
           <rect x="3" y="5" width="18" height="16" rx="3" />
           <path d="M3 10h18M8 3v4M16 3v4" />
         </svg>
-        {isAr ? 'احجز' : 'Book'}
+        {tx4(lang, 'Book', 'احجز', 'Réserver', 'Reservar')}
       </a>
     </nav>
   );

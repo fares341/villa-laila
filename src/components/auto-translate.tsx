@@ -40,20 +40,32 @@ export function AutoTranslate() {
   const [lang, setLang] = useState<{ code: string; name: string } | null>(null);
 
   useEffect(() => {
+    // The French and Spanish pages are written in English: they are translated into French / Spanish here, so
+    // switching the language gives the whole page in that language (no pill: it is the page's own language).
+    const site = location.pathname.split('/')[1];
+    const pageLang = site === 'fr' || site === 'es' ? site : null;
     const pref = (navigator.languages?.[0] || navigator.language || '').trim();
     const base = pref.split('-')[0].toLowerCase();
-    if (!base || OURS.includes(base) || readCookie(OFF)) return;
+    const foreign = !pageLang && site === 'en' && base && !OURS.includes(base) && !readCookie(OFF);
+    if (!pageLang && !foreign) {
+      // English / Arabic page: forget a translation left from the French or Spanish page, or it would translate this one.
+      if (readCookie('googtrans')) {
+        setCookie('googtrans', '', 0);
+        if (/translated-(ltr|rtl)/.test(document.documentElement.className)) location.reload();
+      }
+      return;
+    }
     // Google codes: keep the region for Chinese (zh-CN / zh-TW) and Portuguese; else the base language.
-    const code = base === 'zh' ? (/tw|hk|hant/i.test(pref) ? 'zh-TW' : 'zh-CN') : base === 'pt' ? 'pt' : base === 'he' ? 'iw' : base;
+    const code = pageLang ?? (base === 'zh' ? (/tw|hk|hant/i.test(pref) ? 'zh-TW' : 'zh-CN') : base === 'pt' ? 'pt' : base === 'he' ? 'iw' : base);
     let name = code;
-    try { name = new Intl.DisplayNames([pref], { type: 'language' }).of(pref.split('-')[0]) || code; } catch { /* keep the code */ }
-    setLang({ code, name: name.charAt(0).toUpperCase() + name.slice(1) });
+    try { name = new Intl.DisplayNames([pref || code], { type: 'language' }).of(code.split('-')[0]) || code; } catch { /* keep the code */ }
+    if (!pageLang) setLang({ code, name: name.charAt(0).toUpperCase() + name.slice(1) });
 
     guardDom();
-    setCookie('googtrans', `/auto/${code}`);
+    setCookie('googtrans', pageLang ? `/en/${code}` : `/auto/${code}`);
     const w = window as any;
     w.vlTranslateInit = () => {
-      try { new w.google.translate.TranslateElement({ pageLanguage: 'auto', autoDisplay: false }, 'vl-gt'); } catch { /* blocked */ }
+      try { new w.google.translate.TranslateElement({ pageLanguage: pageLang ? 'en' : 'auto', autoDisplay: false }, 'vl-gt'); } catch { /* blocked */ }
     };
     if (!document.getElementById('vl-gt-js')) {
       const s = document.createElement('script');
@@ -65,7 +77,7 @@ export function AutoTranslate() {
     document.documentElement.classList.add('vl-mt');
   }, []);
 
-  if (!lang) return null;
+  if (!lang) return <div id="vl-gt" hidden />;
   const original = () => {
     setCookie(OFF, '1');
     setCookie('googtrans', '', 0);
