@@ -1954,3 +1954,11 @@ html.vl-mt body { top: 0 !important; position: static !important; }
   .goog-te-banner-frame { display: none !important; }
   font { overflow-wrap: anywhere; }
 }
+/* Room cards on phones: the price on its own line, «Details» and «Book / Dates» under it, side by side, same width,
+   in every language (they were squeezed or cut off). */
+@media (max-width: 640px) {
+  .row:has(> .acts) { flex-wrap: wrap; align-items: flex-end; row-gap: 12px; }
+  .row:has(> .acts) > .price { flex: 1 1 100%; }
+  .row > .acts { flex: 1 1 100%; }
+  .row > .acts .btn { flex: 1 1 0; min-width: 0; justify-content: center; min-height: 44px; padding: 0 10px; white-space: nowrap; }
+}
