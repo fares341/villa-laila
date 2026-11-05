@@ -37,7 +37,7 @@ export async function collabSaveAction(f: FormData) {
       priceAr: S(f, 'priceAr'), priceEn: S(f, 'priceEn'), capacity: S(f, 'capacity') ? Number(S(f, 'capacity')) : null,
       accent: S(f, 'accent'), askEmail: f.get('askEmail') === 'on', notifyEmails: S(f, 'notifyEmails'),
       logo: await fileOf(f.get('logo')), cover: await fileOf(f.get('cover')), removeCover: f.get('removeCover') === 'on', newPhotos: photos, keepPhotos: f.getAll('keepPhoto').map(String), meals,
-      priceMode: S(f, 'priceMode'), price: S(f, 'price'), signupMode: S(f, 'signupMode'), signupUrl: S(f, 'signupUrl'),
+      priceMode: S(f, 'priceMode'), price: S(f, 'price'), signupMode: S(f, 'signupMode'), signupUrl: S(f, 'signupUrl'), waGroup: S(f, 'waGroup'),
       questions: Array.from({ length: 8 }, (_, i) => i).filter((i) => f.get(`q${i}_present`) != null && f.get(`q${i}_remove`) !== 'on').map((i) => ({
         id: S(f, `q${i}_id`), labelAr: S(f, `q${i}_labelAr`), labelEn: S(f, `q${i}_labelEn`), type: S(f, `q${i}_type`),
         optionsAr: String(f.get(`q${i}_optionsAr`) ?? ''), optionsEn: String(f.get(`q${i}_optionsEn`) ?? ''), required: f.get(`q${i}_required`) === 'on',

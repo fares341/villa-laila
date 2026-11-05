@@ -21,6 +21,8 @@ export type LiveRoomStatusMap = Record<
 
 export type ClaudeHomeProps = {
   lang: string;
+  /** The villa's WhatsApp community link, shown next to «Events». */
+  community?: string | null;
   /** Visitor's currency and rates: room prices come from Hostelworld in USD and are shown converted. */
   view?: { cur: DisplayCurrency; fx: Fx };
   initialRates?: LiveRoomStatusMap;
@@ -92,7 +94,7 @@ const icons = {
 
 const isVideo = (u: string | undefined) => !!u && /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(u);
 
-export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours: siteTours = null, films = null, roomPhotos = {}, slides = null }: ClaudeHomeProps) {
+export function ClaudeHome({ lang = 'en', community = null, view, initialRates, events = [], tours: siteTours = null, films = null, roomPhotos = {}, slides = null }: ClaudeHomeProps) {
   const router = useRouter();
   const isAr = lang === 'ar';
   const pv = view ?? { cur: 'USD' as DisplayCurrency, fx: FX_FALLBACK };
@@ -1001,7 +1003,7 @@ export function ClaudeHome({ lang = 'en', view, initialRates, events = [], tours
       </section>
 
       {/* ================= EVENTS ================= */}
-      <EventsSection lang={lang} events={events} limit={6} />
+      <EventsSection lang={lang} events={events} limit={6} community={community} />
 
       {/* ================= ROOMS & DORMS ================= */}
       <section className="sec band-white" id="stay">

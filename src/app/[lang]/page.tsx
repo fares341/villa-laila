@@ -5,6 +5,7 @@ import { homeRoomPrices } from '@/services/direct-book';
 import { addDays, todayLocal } from '@/lib/dates';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs, ClaudeBottomBar } from '@/components/claude-shell';
 import { ClaudeHome } from '@/components/claude-home';
+import { communityLink } from '@/services/settings';
 import { listPublicEvents } from '@/services/events';
 import { toEventCard, withCollabs } from '@/services/event-view';
 import { visitorPriceView } from '@/services/visitor-currency';
@@ -31,7 +32,7 @@ export default async function Home({ params }: { params: Promise<{ lang: string 
     <div className="vl-page min-h-screen flex flex-col bg-[#FBF7F1] text-[#2F2925]">
       <ClaudeHeader lang={lang} />
       <main id="main" className="flex-1">
-        <ClaudeHome lang={lang} view={view} initialRates={initialRates} events={events} tours={tours.length ? tours : null} films={films} roomPhotos={roomPhotos} slides={slides.length ? slides : null} />
+        <ClaudeHome community={await communityLink()} lang={lang} view={view} initialRates={initialRates} events={events} tours={tours.length ? tours : null} films={films} roomPhotos={roomPhotos} slides={slides.length ? slides : null} />
       </main>
       <ClaudeFooter lang={lang} />
       <ClaudeFabs lang={lang} />

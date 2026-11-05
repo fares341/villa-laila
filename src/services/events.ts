@@ -22,6 +22,7 @@ export type EventRow = Schedule & {
   /** Written address and map link of this event (empty = the villa's own). */
   address?: { ar?: string; en?: string } | null;
   map_url?: string | null;
+  whatsapp_group?: string | null;
   /** Other events the guest can add on the same day. */
   addon_event_ids?: string[];
   /** Which weekly menu the page shows: dinner, breakfast, none; null = automatic. */
@@ -114,7 +115,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEvent | null> 
 
 /** Every column except the image bytes. */
 export const EVENT_COLS = `id, slug, title, summary, description, includes, image, price_cents, guest_price_cents, deposit_cents, dinner_cents, currency, start_time, end_time, recurrence, weekdays,
-  once_date, ends_on, capacity, options, pay_methods, note, active, sort_order, cost_per_attendee_cents, kind, guest_mode, guest_discount_pct, address, map_url, addon_event_ids, menu_kind, (image_bytes IS NOT NULL) has_upload`;
+  once_date, ends_on, capacity, options, pay_methods, note, active, sort_order, cost_per_attendee_cents, kind, guest_mode, guest_discount_pct, address, map_url, whatsapp_group, addon_event_ids, menu_kind, (image_bytes IS NOT NULL) has_upload`;
 
 const HELD = `(status IN ('paid','pending_verification','pay_on_site') OR (status='awaiting_payment' AND (hold_expires_at IS NULL OR hold_expires_at > now())))`;
 
@@ -379,12 +380,16 @@ export async function moveEvent(id: string, dir: 'up' | 'down' | 'top' | 'bottom
 }
 
 /** Villa-guest pricing, same-day add-on events and the menu shown on the page. */
-export async function setEventExtras(eventId: string, v: { guestMode: string; addonEventIds: string[]; menuKind: string; guestPct?: string; addressAr?: string; addressEn?: string; mapUrl?: string }, actor: string) {
+export async function setEventExtras(eventId: string, v: { guestMode: string; addonEventIds: string[]; menuKind: string; guestPct?: string; addressAr?: string; addressEn?: string; mapUrl?: string; waGroup?: string }, actor: string) {
   const mode = ['pwyw', 'fixed', 'free', 'percent', 'none'].includes(v.guestMode) ? v.guestMode : 'pwyw';
   const pct = Math.round(Number(String(v.guestPct ?? '').replace(/[^\d.]/g, '')));
   if (mode === 'percent' && !(pct >= 1 && pct <= 100)) throw new BookingError('INVALID_INPUT', 'Write the discount for villa guests (1–100 %)');
   const map = String(v.mapUrl ?? '').trim();
   if (map && !/^https?:\/\/\S+$/i.test(map)) throw new BookingError('INVALID_INPUT', 'The map link must start with https://');
+  const { waGroupLink } = await import('./settings');
+  const grp = waGroupLink(v.waGroup);
+  if (String(v.waGroup ?? '').trim() && !grp) throw new BookingError('INVALID_INPUT', 'The WhatsApp group link must look like https://chat.whatsapp.com/…');
+  await q(`UPDATE events SET whatsapp_group=$2 WHERE id=$1`, [eventId, grp]);
   await q(`UPDATE events SET guest_discount_pct=$2, address=$3, map_url=$4 WHERE id=$1`, [eventId, mode === 'percent' ? pct : null,
     JSON.stringify({ ar: String(v.addressAr ?? '').trim().slice(0, 200), en: String(v.addressEn ?? '').trim().slice(0, 200) }), map ? map.slice(0, 500) : null]);
   if (mode === 'fixed') {

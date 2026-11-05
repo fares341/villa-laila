@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { CardSlider } from './card-slider';
+import { WaGroup } from './wa-group';
 
 export type EventCard = {
   slug: string;
@@ -43,7 +44,7 @@ const ic = {
 };
 
 /** "Events at Villa Layla" — sits right under the services section on the home page. */
-export function EventsSection({ lang, events, heading = 'h2', limit, head, id = 'events', slider = false }: { lang: string; events: EventCard[]; heading?: 'h1' | 'h2'; limit?: number; head?: { kicker: string; title: string; intro?: string }; id?: string; slider?: boolean }) {
+export function EventsSection({ lang, events, heading = 'h2', limit, head, id = 'events', slider = false, community }: { lang: string; events: EventCard[]; heading?: 'h1' | 'h2'; limit?: number; head?: { kicker: string; title: string; intro?: string }; id?: string; slider?: boolean; community?: string | null }) {
   if (!events.length) return null;
   const isAr = lang === 'ar';
   const H = heading;
@@ -61,6 +62,7 @@ export function EventsSection({ lang, events, heading = 'h2', limit, head, id = 
                 : 'Breakfast in the garden, pool days, yoga and homemade dinners. Book and pay online, and your ticket arrives instantly.'}
             </p>
           </div>
+          {community && <WaGroup href={community} lang={lang} variant="head" />}
         </div>
 
         <div className={`ev-grid${slider ? ' ev-slider' : ''}`} id={`${id}-grid`}>

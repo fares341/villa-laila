@@ -154,6 +154,11 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
                 <div><Lbl htmlFor="c-su">Ticket link (for «On another link»)</Lbl><input id="c-su" name="signupUrl" dir="ltr" defaultValue={c.signup_url ?? ''} placeholder="https://forms.gle/… or https://tickets…" className={Input} /></div>
               </div>
             </Card>
+            <Card title="WhatsApp group">
+              <Lbl htmlFor="c-wg">Group invite link (optional)</Lbl>
+              <input id="c-wg" name="waGroup" dir="ltr" defaultValue={c.whatsapp_group ?? ''} placeholder="https://chat.whatsapp.com/…" className={Input} />
+              <p className="mt-1 text-xs text-slate-500">Shown on the page as «Join the event’s WhatsApp group». Empty = the Villa Layla community is shown instead.</p>
+            </Card>
             <Card title="Ticket form">
               <div className="grid gap-3 text-sm">
                 <div><Lbl htmlFor="c-cap">Places (people), empty = no limit</Lbl><input id="c-cap" name="capacity" type="number" min={1} defaultValue={c.capacity ?? ''} className={Input} /></div>

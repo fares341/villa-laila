@@ -17,6 +17,8 @@ export const DEFAULTS: Record<string, unknown> = {
   cancellation_policy: { en: null, es: null, fr: null, ar: null },
   house_rules: { en: null, es: null, fr: null, ar: null },
   booking_howto: { en: null, es: null, fr: null, ar: null },
+  // The villa's WhatsApp community (shown next to «Events» on the website).
+  whatsapp_community: 'https://chat.whatsapp.com/J6jCghuH4DJ5Lzyqeu3jdU',
   staff_notify_telegram: true,
 };
 
@@ -32,6 +34,18 @@ export async function policyText(key: PolicyKey, lang: string): Promise<string |
   const v = (await getSetting<any>(key).catch(() => null)) ?? {};
   const d = POLICY_TEXT[key] as Record<string, string>;
   return v[lang] || d[lang] || v.en || d.en || null;
+}
+/** A WhatsApp group / community invite link, or null when it doesn't look like one. */
+export const waGroupLink = (raw: unknown): string | null => {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  const u = /^https?:\/\//i.test(s) ? s : `https://${s}`;
+  return /^https:\/\/(chat\.whatsapp\.com|whatsapp\.com\/channel|wa\.me)\/\S+$/i.test(u) ? u.slice(0, 300) : null;
+};
+/** The villa's WhatsApp community link ('' in Settings = hidden). */
+export async function communityLink(): Promise<string | null> {
+  const v = await getSetting<string | null>('whatsapp_community').catch(() => DEFAULTS.whatsapp_community as string);
+  return waGroupLink(v);
 }
 export const localized = (v: any, lang: string): string | null => (v && (v[lang] ?? null)) || null;
 

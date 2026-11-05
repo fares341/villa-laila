@@ -196,3 +196,17 @@ export async function moveEventAction(f: FormData) {
   revalidatePath(P); revalidatePath('/[lang]', 'layout');
   redirect(`${P}?tab=events#order`);
 }
+
+/** The villa's WhatsApp community link, shown next to «Events» on the website (empty = hidden). */
+export async function saveCommunityAction(f: FormData) {
+  await requireUser('events.manage');
+  try {
+    const { setSetting, waGroupLink } = await import('@/services/settings');
+    const raw = S(f, 'community');
+    const link = waGroupLink(raw);
+    if (raw && !link) throw new Error('The community link must look like https://chat.whatsapp.com/…');
+    await setSetting('whatsapp_community', link ?? '');
+  } catch (e) { fail(e, SET); }
+  revalidatePath('/en'); revalidatePath('/ar');
+  done('WhatsApp community link saved', SET);
+}

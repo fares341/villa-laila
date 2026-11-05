@@ -117,6 +117,11 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
           <Card title="Address & map">
             <MapPicker addressAr={e.address?.ar ?? ''} addressEn={e.address?.en ?? ''} mapUrl={e.map_url ?? ''} />
           </Card>
+          <Card title="WhatsApp group of this event">
+            <Lbl htmlFor="e-wg">Group invite link (optional)</Lbl>
+            <input id="e-wg" name="waGroup" dir="ltr" defaultValue={e.whatsapp_group ?? ''} placeholder="https://chat.whatsapp.com/…" className={Input} />
+            <p className="mt-1 text-xs text-slate-500">Shown on the event page as «Join the event’s WhatsApp group». Empty = the page shows the Villa Layla community instead. In WhatsApp: group → Invite via link → Copy link.</p>
+          </Card>
           <Card title="Meal shown on the page">
             <select name="menuKind" defaultValue={e.menu_kind ?? ''} className={Input}>
               <option value="">Automatic (dinner menu when there is a dinner add-on or meal photos)</option>

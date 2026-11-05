@@ -6,6 +6,7 @@ import { EventsSection } from '@/components/events-section';
 import { listPublicEvents } from '@/services/events';
 import { toEventCard, withCollabs } from '@/services/event-view';
 import { visitorPriceView } from '@/services/visitor-currency';
+import { communityLink } from '@/services/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,18 +22,19 @@ export default async function EventsPage({ params }: { params: Promise<{ lang: s
   const ar = lang === 'ar';
   const view = await visitorPriceView();
   const events = await withCollabs((await listPublicEvents()).map((e) => toEventCard(e, lang, view)), lang);
+  const community = await communityLink();
   const wa = `https://wa.me/201040551515?text=${encodeURIComponent(ar ? 'عايز أعرف الفعاليات الجاية في فيلا ليلى' : 'What events are coming up at Villa Layla?')}`;
   return (
     <div className="vl-page min-h-screen flex flex-col bg-[#FBF7F1] text-[#2F2925]">
       <ClaudeHeader lang={lang} />
       <main id="main" className="flex-1 evl-main">
-        {events.length ? <EventsSection lang={lang} events={events} heading="h1" /> : (
+        {events.length ? <EventsSection lang={lang} events={events} heading="h1" community={community} /> : (
           <section className="sec band-white">
             <div className="wrap evl-empty">
               <span className="kicker">{ar ? 'فعاليات فيلا ليلى' : 'Events at Villa Layla'}</span>
               <h1>{ar ? 'مفيش فعاليات معلنة دلوقتي.' : 'No events announced right now.'}</h1>
               <p>{ar ? 'تابعنا على إنستجرام أو راسلنا على واتساب عشان تعرف الجديد أول بأول.' : 'Follow us on Instagram or message us on WhatsApp to hear about the next ones.'}</p>
-              <a className="btn btn-wa" href={wa} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+              <a className="btn btn-wa" href={community ?? wa} target="_blank" rel="noopener noreferrer">{community ? (ar ? 'انضم لمجتمعنا على واتساب' : 'Join our WhatsApp community') : 'WhatsApp'}</a>
             </div>
           </section>
         )}

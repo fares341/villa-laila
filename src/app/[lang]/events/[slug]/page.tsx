@@ -19,6 +19,8 @@ import { weeklyMenu, breakfastPair } from '@/services/weekly-menu';
 import { BreakfastPair } from './breakfast-pair';
 import { StoryStrip, type Story } from './story-strip';
 import { EventAbout } from './event-about';
+import { communityLink } from '@/services/settings';
+import { WaGroup } from '@/components/wa-group';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +57,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const ev = await getPublicEvent(slug);
   if (!ev) notFound();
   const isAr = lang === 'ar';
+  const groupLink = ev.whatsapp_group || (await communityLink());
   const view = await visitorPriceView();
   const L = (o: { en: string; ar: string }) => (isAr ? o.ar : o.en);
   const [left, media, wallets] = await Promise.all([seatsLeft(ev), eventMedia(ev.id), getWallets()]);
@@ -204,6 +207,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
               />
             )}
           </aside>
+          {groupLink && <WaGroup href={groupLink} lang={lang} kind={ev.whatsapp_group ? 'event' : 'community'} />}
           </div>
         </div>
       </main>

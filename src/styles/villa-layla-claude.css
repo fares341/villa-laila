@@ -1970,3 +1970,18 @@ html.vl-mt body { top: 0 !important; position: static !important; }
 .bk-pol li:last-child::before { display: none; }
 .bk-pol li:last-child { padding-inline-start: 0; }
 .bk-pol a { color: var(--color-primary-dark); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+
+/* WhatsApp group / community card: next to the «Events» heading (head) and in an event page's side column (side) */
+.wag { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px 14px; padding: 16px 18px; border-radius: var(--r); text-decoration: none;
+  background: linear-gradient(135deg, #0F6B33 0%, #128C4A 100%); color: #fff; box-shadow: 0 10px 24px -14px rgba(17,122,58,.7); transition: transform .2s var(--ease, ease), box-shadow .2s; position: relative; overflow: hidden; }
+.wag::after { content: ''; position: absolute; inset-inline-end: -40px; top: -40px; width: 140px; height: 140px; border-radius: 50%; background: rgba(255,255,255,.08); pointer-events: none; }
+.wag:hover { transform: translateY(-2px); box-shadow: 0 16px 30px -14px rgba(17,122,58,.75); color: #fff; }
+.wag-ic { grid-row: span 2; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: #fff; color: #128C4A; box-shadow: 0 0 0 5px rgba(255,255,255,.16); }
+.wag-txt { display: grid; gap: 3px; min-width: 0; }
+.wag-txt b { font-size: 16.5px; line-height: 1.3; color: #fff; }
+.wag-txt small { font-size: 13.5px; line-height: 1.5; color: rgba(255,255,255,.86); }
+.wag-cta { grid-column: 2; justify-self: start; display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 7px 14px; border-radius: 999px; background: #fff; color: #0F6B33; font-weight: 800; font-size: 14px; }
+[dir='rtl'] .wag-cta svg { transform: scaleX(-1); }
+.sec-hd .wag-head { width: min(100%, 380px); flex: 0 0 auto; }
+.evd-side .wag-side { margin-top: 16px; }
+@media (max-width: 640px) { .sec-hd .wag-head { width: 100%; } .wag { padding: 14px; } }

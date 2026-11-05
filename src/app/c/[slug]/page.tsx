@@ -12,6 +12,8 @@ import { weeklyMenu } from '@/services/weekly-menu';
 import { EventsSection } from '@/components/events-section';
 import { moreEventsFor } from '@/services/event-view';
 import { visitorPriceView } from '@/services/visitor-currency';
+import { communityLink } from '@/services/settings';
+import { WaGroup } from '@/components/wa-group';
 import './collab.css';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +49,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
   const L = (en: string, a: string) => (ar ? a : en);
   const external = c.signup_mode === 'link' && !!c.signup_url;
   const going = external ? 0 : await peopleGoing(c.id);
+  const groupLink = c.whatsapp_group || (await communityLink());
   const more = await moreEventsFor(c, lang, await visitorPriceView().catch(() => undefined));
   const sameDay = more.filter((e) => e.hl).length;
   const left = external || c.capacity == null ? null : Math.max(0, c.capacity - going);
@@ -193,6 +196,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
                 <RsvpForm slug={c.slug} ar={ar} askEmail={c.ask_email} questions={c.questions ?? []} priceMode={c.price_mode ?? 'free'} priceCents={c.price_cents ?? null} maxPeople={left == null ? 10 : Math.min(10, left)} title={title} partner={c.partner_name} calendarUrl={cal} />
               )}
             </aside>
+            {groupLink && <WaGroup href={groupLink} lang={lang} kind={c.whatsapp_group ? 'event' : 'community'} />}
           </div>
         </div>
         <EventsSection lang={lang} events={more} limit={10} id="more" slider head={{

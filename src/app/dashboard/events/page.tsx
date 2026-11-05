@@ -12,7 +12,7 @@ import { tr, eventProfit, listPublicEvents, hiddenReason, EVENT_COLS } from '@/s
 import { Icon } from '@/components/icons';
 import {
   checkInEventAction, cancelEventBookingAction, confirmEventBookingAction, findTicketAction,
-  saveWalletsAction, saveAdminBotAction, testAdminBotAction, saveWhatsAppAction, moveEventAction,
+  saveWalletsAction, saveCommunityAction, saveAdminBotAction, testAdminBotAction, saveWhatsAppAction, moveEventAction,
 } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -256,6 +256,8 @@ async function EventsList({ from, to, canEdit }: { from: string; to: string; can
 
 async function Settings({ wallets, bot, isOwner }: { wallets: Awaited<ReturnType<typeof getWallets>>; bot: Awaited<ReturnType<typeof getAdminBotConfig>>; isOwner: boolean }) {
   const wa = await getWhatsAppConfig();
+  const { communityLink } = await import('@/services/settings');
+  const community = await communityLink();
   return (
     <div className="grid gap-5 xl:grid-cols-2">
       <Card title="Payment accounts (shown to guests)">
@@ -274,6 +276,15 @@ async function Settings({ wallets, bot, isOwner }: { wallets: Awaited<ReturnType
           <input type="hidden" name="vfOn" value="" />
           <p className="text-xs text-slate-500">Guests who pick one of these see the account, send the money and upload the receipt with the booking. You approve it here or on Telegram; then the booking is confirmed.</p>
           <button className={Btn}><Icon name="check" size={16} /> Save accounts</button>
+        </form>
+      </Card>
+
+      <Card title="WhatsApp community (website)">
+        <form action={saveCommunityAction} className="space-y-3">
+          <Lbl htmlFor="wa-com">Community / group invite link</Lbl>
+          <input id="wa-com" name="community" dir="ltr" defaultValue={community ?? ''} placeholder="https://chat.whatsapp.com/…" className={Input} />
+          <p className="text-xs text-slate-500">Shown next to «Events» on the home page and the events page, and on event pages that have no group of their own. Empty = hidden.</p>
+          <button className={Btn}><Icon name="check" size={16} /> Save link</button>
         </form>
       </Card>
 
