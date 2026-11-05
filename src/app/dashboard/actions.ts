@@ -284,7 +284,7 @@ export async function saveHostelAction(f: FormData) {
 export async function saveTextsAction(f: FormData) {
   const u = await requireUser('settings.manage');
   return run('/dashboard/settings', async () => {
-    for (const k of ['payment_instructions', 'cancellation_policy', 'house_rules']) await setSetting(k, Object.fromEntries(['en', 'es', 'fr', 'ar'].map((l) => [l, S(f, `${k}_${l}`) || null])));
+    for (const k of ['booking_howto', 'payment_instructions', 'cancellation_policy', 'house_rules']) await setSetting(k, Object.fromEntries(['en', 'es', 'fr', 'ar'].map((l) => [l, S(f, `${k}_${l}`) || null])));
     await audit(u.email, 'settings.texts');
     return 'Policies and payment instructions saved. They are now shown on the website and in the Telegram bot.';
   });

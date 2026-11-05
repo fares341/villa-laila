@@ -1962,3 +1962,11 @@ html.vl-mt body { top: 0 !important; position: static !important; }
   .row > .acts { flex: 1 1 100%; }
   .row > .acts .btn { flex: 1 1 0; min-width: 0; justify-content: center; min-height: 44px; padding: 0 10px; white-space: nowrap; }
 }
+
+/* Booking page, payment step: the deposit / cancellation / house-rules summary with a link to the policies page */
+.bk-pol { list-style: none; margin: 14px 0 0; padding: 14px 16px; display: grid; gap: 6px; border-radius: var(--r-sm); background: var(--color-ivory); }
+.bk-pol li { position: relative; padding-inline-start: 18px; font-size: 13.5px; line-height: 1.55; color: var(--color-text-secondary); }
+.bk-pol li::before { content: ''; position: absolute; inset-inline-start: 2px; top: .6em; width: 6px; height: 6px; border-radius: 50%; background: var(--color-gold); }
+.bk-pol li:last-child::before { display: none; }
+.bk-pol li:last-child { padding-inline-start: 0; }
+.bk-pol a { color: var(--color-primary-dark); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }

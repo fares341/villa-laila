@@ -12,7 +12,7 @@ import { createReservation } from '@/services/reservations';
 import { requestExtension } from '@/services/extensions';
 import { BookingError } from '@/services/errors';
 import { activeRules, requiredFacts, evaluate, normalizeGovernorate } from '@/services/policy';
-import { getSetting, localized } from '@/services/settings';
+import { getSetting, localized, policyText } from '@/services/settings';
 import { reschedule, cancelFollowups } from '@/services/followups';
 import { ALL_COUNTRIES } from '@/content/countries';
 import { payState } from '@/services/payments';
@@ -234,7 +234,7 @@ async function submit(conv: Conversation, d: Data, from: any): Promise<void> {
     });
     await saveState(conv.id, { flow: 'idle', step: 'start', data: { lastReservationId: res.id }, guest_id: res.guest_id, reservation_id: res.id });
     await cancelFollowups({ conversationId: conv.id, kinds: ['incomplete_booking'] });
-    const pay = localized(await getSetting('payment_instructions'), lang);
+    const pay = await policyText('payment_instructions', lang);
     let msg = t(lang, 'request_created', { ref: res.reference, until: res.hold_expires_at ? fmtWhen(new Date(res.hold_expires_at), lang) : '—' });
     if (res.needs_review) msg += '\n\n' + t(lang, 'needs_review_note');
     msg += '\n\n' + (pay ? pay + '\n' + t(lang, 'payment_help_note') : t(lang, 'payment_pending_info'));
@@ -336,7 +336,7 @@ async function approvedFacts(lang: Lang) {
   const h = await getSetting<any>('hostel');
   const facts: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(h ?? {})) if (v) facts['hostel_' + k] = v;
-  for (const k of ['house_rules', 'cancellation_policy', 'payment_instructions']) { const v = localized(await getSetting(k), lang); if (v) facts[k] = v; }
+  for (const k of ['booking_howto', 'house_rules', 'cancellation_policy', 'payment_instructions'] as const) { const v = await policyText(k, lang); if (v) facts[k] = v; }
   return facts;
 }
 
@@ -354,7 +354,7 @@ async function showInfo(conv: Conversation, question?: string) {
 
 async function showPayment(conv: Conversation) {
   const lang = L(conv);
-  const pay = localized(await getSetting('payment_instructions'), lang);
+  const pay = await policyText('payment_instructions', lang);
   await reply(conv, (pay ?? t(lang, 'payment_help_missing')) + '\n\n' + t(lang, 'payment_help_note'), { inline: [[humanBtn(lang)], [{ text: t(lang, 'nav_menu'), data: 'm:menu' }]] });
 }
 

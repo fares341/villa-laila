@@ -1,5 +1,6 @@
 import { q } from '@/lib/db';
 import type { Q } from '@/lib/db';
+import { POLICY_TEXT, type PolicyKey } from '@/content/policies';
 
 export const DEFAULTS: Record<string, unknown> = {
   currency: 'EGP',
@@ -15,6 +16,7 @@ export const DEFAULTS: Record<string, unknown> = {
   payment_instructions: { en: null, es: null, fr: null, ar: null },
   cancellation_policy: { en: null, es: null, fr: null, ar: null },
   house_rules: { en: null, es: null, fr: null, ar: null },
+  booking_howto: { en: null, es: null, fr: null, ar: null },
   staff_notify_telegram: true,
 };
 
@@ -24,6 +26,12 @@ export async function getSetting<T = any>(key: string, c?: Q): Promise<T> {
 }
 export async function setSetting(key: string, value: unknown) {
   await q('INSERT INTO settings(key,value,updated_at) VALUES($1,$2,now()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()', [key, JSON.stringify(value)]);
+}
+/** A policy text in a language: the one saved in Settings, else the owner's text (src/content/policies.ts), else English. */
+export async function policyText(key: PolicyKey, lang: string): Promise<string | null> {
+  const v = (await getSetting<any>(key).catch(() => null)) ?? {};
+  const d = POLICY_TEXT[key] as Record<string, string>;
+  return v[lang] || d[lang] || v.en || d.en || null;
 }
 export const localized = (v: any, lang: string): string | null => (v && (v[lang] ?? null)) || null;
 

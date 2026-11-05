@@ -1,0 +1,46 @@
+/* Policies page: hero, a sticky row of section links, quick facts, then booking / payment / cancellation / house rules. */
+.pol-hero { min-height: clamp(280px, 36vw, 420px); }
+.pol-nav { position: sticky; top: var(--hdr-h, 64px); z-index: 20; background: rgba(255,255,255,.94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--color-border); }
+.pol-nav .wrap { display: flex; gap: 6px; overflow-x: auto; padding-top: 10px; padding-bottom: 10px; scrollbar-width: none; }
+.pol-nav .wrap::-webkit-scrollbar { display: none; }
+.pol-nav a { flex: 0 0 auto; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-border); background: #fff; color: var(--color-primary-dark); font-weight: 700; font-size: 14px; text-decoration: none; white-space: nowrap; }
+.pol-nav a:hover { border-color: var(--color-gold); background: var(--color-ivory); }
+.pol-wrap { padding-top: 28px; padding-bottom: 56px; max-width: 980px; }
+.pol-sec { scroll-margin-top: 140px; margin-top: 44px; }
+.pol-sec > h2 { display: flex; align-items: center; gap: 12px; font-size: clamp(24px, 3vw, 32px); color: var(--color-primary-dark); margin: 0 0 16px; }
+.pol-ic { flex: 0 0 auto; width: 42px; height: 42px; display: inline-grid; place-items: center; border-radius: 12px; background: var(--color-ivory); color: var(--color-gold); }
+.pol-text p { margin: 0 0 10px; line-height: 1.75; color: var(--color-text-secondary); font-size: 15.5px; }
+.pol-text p:last-child { margin-bottom: 0; }
+.pol-text ul { margin: 0 0 10px; padding: 0; list-style: none; display: grid; gap: 8px; }
+.pol-text li { position: relative; padding-inline-start: 22px; line-height: 1.65; color: var(--color-text-secondary); font-size: 15.5px; }
+.pol-text li::before { content: ''; position: absolute; inset-inline-start: 4px; top: .7em; width: 7px; height: 7px; border-radius: 50%; background: var(--color-gold); }
+.pol-lead p { font-size: 16.5px; color: var(--color-primary-dark); }
+
+.pol-facts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.pol-facts li { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--color-border); border-radius: var(--r-sm); background: #fff; }
+.pol-facts b { display: block; color: var(--color-primary-dark); font-size: 15px; }
+.pol-facts small { display: block; color: var(--color-text-secondary); font-size: 13px; margin-top: 2px; }
+@media (max-width: 900px) { .pol-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .pol-facts li { flex-direction: column; align-items: flex-start; gap: 8px; } }
+
+.pol-steps { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; counter-reset: s; }
+.pol-steps li { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--r-sm); background: var(--color-section-light, #FBF6EE); color: var(--color-primary-dark); font-weight: 700; font-size: 14.5px; line-height: 1.4; }
+.pol-steps b { flex: 0 0 auto; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--color-primary-dark, #4A3222); color: #fff; font-size: 14px; }
+@media (max-width: 900px) { .pol-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .pol-steps { grid-template-columns: 1fr; } }
+.pol-cta { margin-top: 18px; }
+
+.pol-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 720px) { .pol-cards { grid-template-columns: 1fr; } }
+.pol-card { padding: 18px; border: 1px solid var(--color-border); border-radius: var(--r); background: #fff; }
+.pol-card h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 18px; color: var(--color-primary-dark); }
+.pol-card .pol-ic { width: 36px; height: 36px; border-radius: 10px; }
+.pol-card.t-ok { border-color: #BFE3CB; background: #F4FBF6; } .pol-card.t-ok .pol-ic { background: #DFF3E6; color: #117A3A; }
+.pol-card.t-warn { border-color: #F1D9AE; background: #FFF9EE; } .pol-card.t-warn .pol-ic { background: #FBEBCB; color: #A15C07; }
+.pol-card.t-bad { border-color: #F2C9C4; background: #FFF5F4; } .pol-card.t-bad .pol-ic { background: #FBE0DC; color: #B42318; }
+.pol-note { margin-top: 14px; padding: 14px 16px; border-radius: var(--r-sm); background: var(--color-ivory); }
+.pol-note p { color: var(--color-primary-dark); font-weight: 600; }
+.pol-rules { margin-top: 16px; }
+
+.pol-help { margin-top: 48px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 20px; border-radius: var(--r); background: var(--color-ivory); }
+.pol-help p { margin: 0; color: var(--color-primary-dark); font-weight: 700; }

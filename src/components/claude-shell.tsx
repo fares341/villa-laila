@@ -455,7 +455,8 @@ export function ClaudeFooter({ lang }: { lang: string }) {
             <span>© {new Date().getFullYear()} Villa Layla Hostel · Cairo, Egypt</span>
             <nav aria-label="Legal">
               <Link href={`/${lang}/policies`}>{isAr ? 'السياسات' : 'Policies'}</Link>
-              <Link href={`/${lang}/policies#privacy`}>{isAr ? 'الخصوصية' : 'Privacy'}</Link>
+              <Link href={`/${lang}/policies#cancellation`}>{isAr ? 'الإلغاء' : 'Cancellation'}</Link>
+              <Link href={`/${lang}/policies#house-rules`}>{isAr ? 'قواعد البيت' : 'House rules'}</Link>
               <Link href={`/${lang}/faq`}>{isAr ? 'الأسئلة الشائعة' : 'FAQ'}</Link>
             </nav>
             <div className="foot-b-group">

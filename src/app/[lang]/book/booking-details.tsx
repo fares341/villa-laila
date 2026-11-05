@@ -150,6 +150,12 @@ export function BookingDetails(p: {
         <div className="bk-nav">
           <button type="button" className="btn btn-line" onClick={() => go('details')}>{L('Back', 'رجوع')}</button>
         </div>
+        <ul className="bk-pol">
+          <li>{L('10% deposit when you book, the other 90% on arrival.', 'عربون 10% وقت الحجز، والـ 90% الباقيين لما توصل.')}</li>
+          <li>{L('Free cancellation up to 72 hours before check-in (3:00 PM, Cairo time). Later cancellations or a no-show lose the deposit.', 'إلغاء مجاني لحد 72 ساعة قبل الوصول (3:00 العصر بتوقيت القاهرة). الإلغاء بعد كده أو عدم الحضور بيضيّع العربون.')}</li>
+          <li>{L('Check-in from 3:00 PM · check-out by 11:00 AM · quiet hours 11:00 PM – 7:00 AM.', 'الدخول من 3:00 العصر · الخروج لحد 11:00 الصبح · الهدوء من 11:00 بالليل لـ 7:00 الصبح.')}</li>
+          <li><a href={`/${p.lang}/policies`} target="_blank" rel="noopener">{L('Read the full policies & house rules', 'اقرا السياسات وقواعد البيت كاملة')}</a></li>
+        </ul>
         {p.terms && (p.terms.cancellation || p.terms.deposit) && <p className="evb-fine">{[p.terms.cancellation, p.terms.deposit].filter(Boolean).join(' · ')}</p>}
         <p className="evb-fine">{method === 'paymob'
           ? L('After you pay, reception reviews your booking and confirms it by e-mail and WhatsApp. If it can’t be confirmed, the payment is refunded.', 'بعد الدفع، الاستقبال بيراجع حجزك ويأكده بالإيميل والواتساب. لو الحجز ماتأكدش، المبلغ بيرجعلك.')
