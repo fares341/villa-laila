@@ -112,3 +112,6 @@ a.cbx-brand:hover { transform: translateY(-2px); }
 .cbx-ext-btn { font-size: 16px; }
 [dir='rtl'] .cbx-ext-btn svg { transform: scaleX(-1); }
 .cbx-ext small { text-align: center; color: var(--color-text-secondary); font-size: 12px; }
+
+/* The ticket box stays in its place on the page (it does not follow the scroll) */
+.cbx-grid .evd-book { position: static; }

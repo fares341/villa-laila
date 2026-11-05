@@ -90,7 +90,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
       <ClaudeHeader lang={lang} />
       <main id="main" className="flex-1">
         <section className="evd-hero cbx-hero">
-          <HeroMedia video={null} photos={c.cover ? [c.cover] : c.photos} cover={c.partner_logo} />
+          <HeroMedia video={null} photos={c.inner_cover || c.cover ? [(c.inner_cover || c.cover)!] : c.photos} cover={c.partner_logo} />
           <div className="wrap evd-hero-in">
             <a href={`/${lang}/events`} className="evd-back">{ar ? '→ كل الفعاليات' : '← All events'}</a>
             {/* Each logo with its name under it; both open that side's Instagram */}
@@ -120,7 +120,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
           <a className="cbx-lang" href={`?lang=${ar ? 'en' : 'ar'}`}>{ar ? 'English' : 'عربي'}</a>
         </section>
 
-        <div className="wrap evd-grid">
+        <div className="wrap evd-grid cbx-grid">
           <div className="evd-info">
             <dl className="evd-facts cbx-facts">
               {when && <div><dt>{L('Date', 'اليوم')}</dt><dd>{when}</dd></div>}

@@ -85,18 +85,23 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
                 <div className="sm:col-span-2"><Lbl htmlFor="c-de">Description (English)</Lbl><RichTextarea id="c-de" name="descEn" rows={9} defaultValue={c.description?.en ?? ''} /></div>
               </div>
             </Card>
-            <Card title="Cover photo">
-              <div className="grid gap-3 sm:grid-cols-[220px_1fr] sm:items-start">
-                {c.cover
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={c.cover} alt="" className="aspect-video w-full rounded-lg border border-cocoa-200 object-cover" />
-                  : <span className="grid aspect-video w-full place-items-center rounded-lg bg-cocoa-50 px-3 text-center text-xs text-slate-500">No cover yet · the first photo below is used</span>}
-                <div>
-                  <Lbl htmlFor="c-cv">{c.cover ? 'Change the cover' : 'Upload the cover'}</Lbl>
-                  <ImageInput id="c-cv" name="cover" max={2400} className={Input} />
-                  <p className="mt-1 text-xs text-slate-500">The big photo at the top of the page, the photo on the card in the events list and in shared links. Wide (16:9) looks best. Separate from the photos below.</p>
-                  {c.cover && <label className="mt-2 flex items-center gap-2 text-sm text-red-700"><input type="checkbox" name="removeCover" /> Remove the cover</label>}
-                </div>
+            <Card title="Covers">
+              <div className="grid gap-5 md:grid-cols-2">
+                {([
+                  ['cover', 'removeCover', c.cover, 'Outside cover', 'The photo on the card in the events list and in shared links (WhatsApp, Instagram, e-mails). Wide (16:9) looks best.'],
+                  ['innerCover', 'removeInnerCover', c.inner_cover, 'Inside cover', 'The big photo at the top of the event page, behind the logos and the title. Empty = the outside cover is used.'],
+                ] as const).map(([name, rm, img, title, hint]) => (
+                  <div key={name} className="grid content-start gap-2">
+                    <p className="text-sm font-semibold text-cocoa-800">{title}</p>
+                    {img
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={img} alt="" className="aspect-video w-full rounded-lg border border-cocoa-200 object-cover" />
+                      : <span className="grid aspect-video w-full place-items-center rounded-lg bg-cocoa-50 px-3 text-center text-xs text-slate-500">{name === 'cover' ? 'No outside cover · the first photo below is used' : 'No inside cover · the outside cover is used'}</span>}
+                    <ImageInput id={`c-${name}`} name={name} max={2400} className={Input} label={title} />
+                    <p className="text-xs text-slate-500">{hint}</p>
+                    {img && <label className="flex items-center gap-2 text-sm text-red-700"><input type="checkbox" name={rm} /> Remove</label>}
+                  </div>
+                ))}
               </div>
             </Card>
             <Card title="Photos">
