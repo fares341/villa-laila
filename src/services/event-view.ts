@@ -69,7 +69,7 @@ export async function collabCards(lang: string): Promise<{ card: EventCard; date
           partner: c.partner_name,
           title: t(c.title),
           summary: plain(t(c.description)).slice(0, 180),
-          image: c.photos[0] ?? c.partner_logo,
+          image: c.cover ?? c.photos[0] ?? c.partner_logo,
           price: c.price_mode === 'fixed' && c.price_cents ? priceLabel(c.price_cents, 'EGP', lang)
             : c.price_mode === 'pwyw' ? (ar ? 'ادفع اللي تحبه' : 'Pay what you want')
             : t(c.price_note) || (ar ? 'مجانًا' : 'Free'),
@@ -77,8 +77,8 @@ export async function collabCards(lang: string): Promise<{ card: EventCard; date
           time: [c.start_time, c.end_time].filter(Boolean).map((x) => timeLabel(x!, lang)).join(' – '),
           next: d ? whenLabel(d, lang) : ar ? 'قريبًا' : 'Coming soon',
           soon: !!d && (d === today || d === addDays(today, 1)),
-          soldOut: left === 0,
-          left,
+          soldOut: c.signup_mode !== 'link' && left === 0,
+          left: c.signup_mode === 'link' ? null : left,
         },
       };
     });

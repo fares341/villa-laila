@@ -1,5 +1,6 @@
 import { requireUser } from '@/lib/auth';
-import { PageHeader, Card, Flash, Btn, BtnGhost, BtnDanger, Input, Lbl, SubTabs } from '@/components/dash';
+import { PageHeader, Card, Flash, Btn, BtnGhost, BtnDanger, Input, InputLg, Lbl, SubTabs } from '@/components/dash';
+import { ImageInput } from '@/components/image-input';
 import { Icon } from '@/components/icons';
 import { ConfirmButton } from '@/components/ConfirmButton';
 import { weeklyMenu, WEEKDAYS, BREAKFAST_SLOTS } from '@/services/weekly-menu';
@@ -60,7 +61,7 @@ export default async function WeeklyMenuPage({ searchParams }: { searchParams: P
         </p>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-5">
         {slots.map((w) => {
           const m = menu[w.d];
           return (
@@ -76,18 +77,18 @@ export default async function WeeklyMenuPage({ searchParams }: { searchParams: P
                   <input type="hidden" name="weekday" value={w.d} />
                   <input type="hidden" name="meal" value={meal} />
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <div><Lbl htmlFor={`t-ar-${w.d}`}>Meal (Arabic)</Lbl><input id={`t-ar-${w.d}`} name="titleAr" dir="rtl" defaultValue={m?.title.ar ?? ''} maxLength={80} className={Input} placeholder="مثال: طاجن لحمة" /></div>
-                    <div><Lbl htmlFor={`t-en-${w.d}`}>Meal (English)</Lbl><input id={`t-en-${w.d}`} name="titleEn" defaultValue={m?.title.en ?? ''} maxLength={80} className={Input} placeholder="e.g. Beef tagine" /></div>
-                    <div><Lbl htmlFor={`d-ar-${w.d}`}>On the plate (Arabic, one per line)</Lbl><textarea id={`d-ar-${w.d}`} name="dishesAr" dir="rtl" rows={4} defaultValue={(m?.dishes ?? []).map((x) => x.ar ?? '').join('\n')} className={Input} placeholder={'مثال:\nأرز بالشعرية\nسلطة'} /></div>
-                    <div><Lbl htmlFor={`d-en-${w.d}`}>On the plate (English, same order)</Lbl><textarea id={`d-en-${w.d}`} name="dishesEn" rows={4} defaultValue={(m?.dishes ?? []).map((x) => x.en ?? '').join('\n')} className={Input} placeholder={'e.g.\nVermicelli rice\nSalad'} /></div>
+                    <div><Lbl htmlFor={`t-ar-${w.d}`}>Meal (Arabic)</Lbl><input id={`t-ar-${w.d}`} name="titleAr" dir="rtl" defaultValue={m?.title.ar ?? ''} maxLength={80} className={InputLg} placeholder="مثال: طاجن لحمة" /></div>
+                    <div><Lbl htmlFor={`t-en-${w.d}`}>Meal (English)</Lbl><input id={`t-en-${w.d}`} name="titleEn" defaultValue={m?.title.en ?? ''} maxLength={80} className={InputLg} placeholder="e.g. Beef tagine" /></div>
+                    <div><Lbl htmlFor={`d-ar-${w.d}`}>On the plate (Arabic, one per line)</Lbl><textarea id={`d-ar-${w.d}`} name="dishesAr" dir="rtl" rows={5} defaultValue={(m?.dishes ?? []).map((x) => x.ar ?? '').join('\n')} className={InputLg} placeholder={'مثال:\nأرز بالشعرية\nسلطة'} /></div>
+                    <div><Lbl htmlFor={`d-en-${w.d}`}>On the plate (English, same order)</Lbl><textarea id={`d-en-${w.d}`} name="dishesEn" rows={5} defaultValue={(m?.dishes ?? []).map((x) => x.en ?? '').join('\n')} className={InputLg} placeholder={'e.g.\nVermicelli rice\nSalad'} /></div>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <div><Lbl htmlFor={`x-ar-${w.d}`}>About the meal (Arabic) · up to 6 points, one per line</Lbl>
-                      <textarea id={`x-ar-${w.d}`} name="descAr" dir="rtl" rows={6} defaultValue={m?.description.ar ?? ''} className={Input} placeholder={'مثال:\nلحمة بلدي مطهية ٣ ساعات\nالصوص بالبصل والطماطم\nحار خفيف\nمناسب للي مش بياكل جلوتين'} /></div>
+                      <textarea id={`x-ar-${w.d}`} name="descAr" dir="rtl" rows={6} defaultValue={m?.description.ar ?? ''} className={InputLg} placeholder={'مثال:\nلحمة بلدي مطهية ٣ ساعات\nالصوص بالبصل والطماطم\nحار خفيف\nمناسب للي مش بياكل جلوتين'} /></div>
                     <div><Lbl htmlFor={`x-en-${w.d}`}>About the meal (English) · up to 6 points</Lbl>
-                      <textarea id={`x-en-${w.d}`} name="descEn" rows={6} defaultValue={m?.description.en ?? ''} className={Input} placeholder={'e.g.\nLocal beef slow-cooked for 3 hours\nOnion & tomato sauce\nMildly spicy\nGluten-free'} /></div>
+                      <textarea id={`x-en-${w.d}`} name="descEn" rows={6} defaultValue={m?.description.en ?? ''} className={InputLg} placeholder={'e.g.\nLocal beef slow-cooked for 3 hours\nOnion & tomato sauce\nMildly spicy\nGluten-free'} /></div>
                   </div>
-                  <div><Lbl htmlFor={`p-${w.d}`}>{m?.img ? 'Change the photo (optional)' : 'Photo of the meal'}</Lbl><input id={`p-${w.d}`} name="photo" type="file" accept="image/*" className={Input} /></div>
+                  <div><Lbl htmlFor={`p-${w.d}`}>{m?.img ? 'Change the photo (optional)' : 'Photo of the meal'}</Lbl><ImageInput id={`p-${w.d}`} name="photo" className={Input} /></div>
                   <div className="flex flex-wrap gap-2"><button className={Btn}><Icon name="check" size={16} /> {meal === 'dinner' ? `Save ${w.en}’s dinner` : `Save ${w.en}`}</button></div>
                 </form>
               </div>

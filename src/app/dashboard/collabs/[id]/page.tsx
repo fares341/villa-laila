@@ -12,6 +12,7 @@ import { siteBase } from '@/lib/base-url';
 import { weeklyMenu, WEEKDAYS, BREAKFAST_SLOTS } from '@/services/weekly-menu';
 import { MealSlot, type MenuChoice } from './meal-slot';
 import { QuestionsEditor } from './questions-editor';
+import { ImageInput, UploadGuard } from '@/components/image-input';
 import { collabSaveAction, collabDeleteAction, collabRsvpAction, collabCloneAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -71,7 +72,7 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={c.partner_logo} alt="" className="h-16 w-16 rounded-full border border-cocoa-200 object-cover" />
                     : <span className="grid h-16 w-16 place-items-center rounded-full bg-cocoa-50 text-xs text-slate-500">Logo</span>}
-                  <div className="flex-1"><Lbl htmlFor="c-lg">{c.partner_logo ? 'Change their logo' : 'Their logo'} (square PNG/JPG looks best)</Lbl><input id="c-lg" name="logo" type="file" accept="image/*" className={Input} /></div>
+                  <div className="flex-1"><Lbl htmlFor="c-lg">{c.partner_logo ? 'Change their logo' : 'Their logo'} (square PNG/JPG looks best)</Lbl><ImageInput id="c-lg" name="logo" max={800} className={Input} /></div>
                 </div>
               </div>
             </Card>
@@ -81,6 +82,20 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
                 <div><Lbl htmlFor="c-te">Title (English)</Lbl><input id="c-te" name="titleEn" defaultValue={c.title?.en ?? ''} className={Input} /></div>
                 <div className="sm:col-span-2"><Lbl htmlFor="c-da">Description (Arabic)</Lbl><RichTextarea id="c-da" name="descAr" dir="rtl" rows={9} defaultValue={c.description?.ar ?? ''} /></div>
                 <div className="sm:col-span-2"><Lbl htmlFor="c-de">Description (English)</Lbl><RichTextarea id="c-de" name="descEn" rows={9} defaultValue={c.description?.en ?? ''} /></div>
+              </div>
+            </Card>
+            <Card title="Cover photo">
+              <div className="grid gap-3 sm:grid-cols-[220px_1fr] sm:items-start">
+                {c.cover
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={c.cover} alt="" className="aspect-video w-full rounded-lg border border-cocoa-200 object-cover" />
+                  : <span className="grid aspect-video w-full place-items-center rounded-lg bg-cocoa-50 px-3 text-center text-xs text-slate-500">No cover yet · the first photo below is used</span>}
+                <div>
+                  <Lbl htmlFor="c-cv">{c.cover ? 'Change the cover' : 'Upload the cover'}</Lbl>
+                  <ImageInput id="c-cv" name="cover" max={2400} className={Input} />
+                  <p className="mt-1 text-xs text-slate-500">The big photo at the top of the page, the photo on the card in the events list and in shared links. Wide (16:9) looks best. Separate from the photos below.</p>
+                  {c.cover && <label className="mt-2 flex items-center gap-2 text-sm text-red-700"><input type="checkbox" name="removeCover" /> Remove the cover</label>}
+                </div>
               </div>
             </Card>
             <Card title="Photos">
@@ -95,8 +110,8 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
                   ))}
                 </div>
               )}
-              <Lbl htmlFor="c-ph">Add photos (you can pick several)</Lbl><input id="c-ph" name="photos" type="file" accept="image/*" multiple className={Input} />
-              <p className="mt-1 text-xs text-slate-500">Untick «keep» to remove a photo. The first photo is the big one at the top.</p>
+              <Lbl htmlFor="c-ph">Add photos (you can pick several)</Lbl><ImageInput id="c-ph" name="photos" multiple className={Input} />
+              <p className="mt-1 text-xs text-slate-500">Untick «keep» to remove a photo. Big phone photos are made lighter before saving, so you can add many at once. Without a cover, the first photo is the big one at the top.</p>
             </Card>
             <Card title="Meals of the night (optional)">
               <p className="mb-3 text-xs text-slate-500">Pick one of Villa Layla’s weekly menu meals, or add a meal of its own (photo, name, up to 6 points). Shown like our menu, in a gold frame. Empty slots are skipped.</p>
@@ -132,6 +147,13 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
                 <p className="text-xs text-slate-500">Paid at the villa (no online payment on this page).</p>
               </div>
             </Card>
+            <Card title="Where people get tickets">
+              <div className="grid gap-2 text-sm">
+                <label className="flex items-start gap-2"><input type="radio" name="signupMode" value="here" className="mt-1" defaultChecked={(c.signup_mode ?? 'here') === 'here'} /> <span><b>On our page</b> · the ticket form below; the list is here in the dashboard</span></label>
+                <label className="flex items-start gap-2"><input type="radio" name="signupMode" value="link" className="mt-1" defaultChecked={c.signup_mode === 'link'} /> <span><b>On another link</b> · e.g. the partner’s own form or ticket site. The page shows a «Get your ticket» button to it instead of our form</span></label>
+                <div><Lbl htmlFor="c-su">Ticket link (for «On another link»)</Lbl><input id="c-su" name="signupUrl" dir="ltr" defaultValue={c.signup_url ?? ''} placeholder="https://forms.gle/… or https://tickets…" className={Input} /></div>
+              </div>
+            </Card>
             <Card title="Ticket form">
               <div className="grid gap-3 text-sm">
                 <div><Lbl htmlFor="c-cap">Places (people), empty = no limit</Lbl><input id="c-cap" name="capacity" type="number" min={1} defaultValue={c.capacity ?? ''} className={Input} /></div>
@@ -151,6 +173,7 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
               </div>
             </Card>
             <button className={Btn + ' w-full py-3 text-base'}><Icon name="check" size={18} /> {isNew ? 'Create the page' : 'Save changes'}</button>
+            <UploadGuard />
           </div>
         </form>
       )}
@@ -160,7 +183,7 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
           <div className="mb-3 flex flex-wrap gap-2">
             <a href={`/api/dashboard/collab-csv?id=${c.id}`} className={BtnGhost}><Icon name="download" size={16} /> Download the list (Excel / CSV)</a>
           </div>
-          {rsvps.length === 0 ? <Empty>Nobody signed up yet. Share the link on your stories.</Empty> : (
+          {rsvps.length === 0 ? <Empty>{c.signup_mode === 'link' ? 'Tickets for this event are taken on the other link, so the list is there.' : 'Nobody signed up yet. Share the link on your stories.'}</Empty> : (
             <div className="overflow-x-auto"><table className="w-full text-sm">
               <thead className="text-left text-slate-600"><tr><th className="py-2">Name</th><th>Phone</th><th>Tickets</th>{c.price_mode !== 'free' && <th>To pay</th>}<th>Answers / note</th><th>Booked</th><th /></tr></thead>
               <tbody>{rsvps.map((r) => (

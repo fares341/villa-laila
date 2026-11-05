@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Input } from '@/components/dash-ui';
+import { Input, InputLg } from '@/components/dash-ui';
+import { ImageInput } from '@/components/image-input';
 
 export type MenuChoice = { key: string; group: string; label: string; titleAr: string; titleEn: string; points: string; img: string | null };
 type M = { title: { ar?: string; en?: string }; points: { ar?: string; en?: string }; img: string | null; from?: string | null };
@@ -31,17 +32,17 @@ export function MealSlot({ i, m, choices }: { i: number; m: M; choices: MenuChoi
           <input type="radio" className="sr-only" name={`m${i}_mode`} value="own" checked={mode === 'own'} onChange={() => setMode('own')} /> Its own meal (upload)
         </label>
       </div>
-      <div className="grid gap-3 sm:grid-cols-[96px_1fr]">
+      <div className="grid gap-4 md:grid-cols-[120px_1fr]">
         {img
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={img} alt="" className="aspect-square w-24 rounded-lg bg-black object-contain" />
-          : <span className="grid aspect-square w-24 place-items-center rounded-lg bg-cocoa-50 text-center text-xs text-slate-500">No photo</span>}
+          ? <img src={img} alt="" className="aspect-square w-28 rounded-lg bg-black object-contain md:w-full" />
+          : <span className="grid aspect-square w-28 place-items-center rounded-lg bg-cocoa-50 text-center text-xs text-slate-500 md:w-full">No photo</span>}
         {mode === 'menu' ? (
-          <div className="grid content-start gap-2">
+          <div className="grid content-start gap-3">
             {choices.length === 0 ? (
               <p className="text-sm text-slate-500">The weekly menu is empty. Add meals in Events → Weekly menu, or use «Its own meal».</p>
             ) : (
-              <select name={`m${i}_pick`} value={pick} onChange={(e) => setPick(e.target.value)} className={Input} aria-label="Meal from the weekly menu">
+              <select name={`m${i}_pick`} value={pick} onChange={(e) => setPick(e.target.value)} className={InputLg} aria-label="Meal from the weekly menu">
                 <option value="">— Choose a meal —</option>
                 {groups.map((g) => (
                   <optgroup key={g} label={g}>
@@ -51,20 +52,25 @@ export function MealSlot({ i, m, choices }: { i: number; m: M; choices: MenuChoi
               </select>
             )}
             {chosen && (
-              <div className="rounded-lg bg-cocoa-50 p-2 text-sm">
-                <b>{chosen.titleEn || chosen.titleAr}</b>{chosen.titleAr && chosen.titleEn && <span className="text-slate-600"> · <bdi>{chosen.titleAr}</bdi></span>}
-                {chosen.points && <ul className="mt-1 list-disc ps-5 text-xs text-slate-600">{chosen.points.split('\n').map((p, k) => <li key={k}>{p}</li>)}</ul>}
+              <div className="rounded-lg bg-cocoa-50 p-3 text-base leading-relaxed">
+                <b>{chosen.titleEn || chosen.titleAr}</b>{chosen.titleAr && chosen.titleEn && <span className="text-slate-700"> · <bdi>{chosen.titleAr}</bdi></span>}
+                {chosen.points && <ul className="mt-1 list-disc ps-5 text-[15px] text-slate-700">{chosen.points.split('\n').map((p, k) => <li key={k}>{p}</li>)}</ul>}
               </div>
             )}
             {has && <label className="flex items-center gap-2 text-sm text-red-700"><input type="checkbox" name={`m${i}_remove`} /> Remove this meal</label>}
           </div>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input name={`m${i}_titleAr`} dir="rtl" defaultValue={m.from ? '' : m.title.ar ?? ''} placeholder="اسم الوجبة" className={Input} aria-label="Meal name (Arabic)" />
-            <input name={`m${i}_titleEn`} defaultValue={m.from ? '' : m.title.en ?? ''} placeholder="Meal name" className={Input} aria-label="Meal name (English)" />
-            <textarea name={`m${i}_pointsAr`} dir="rtl" rows={4} defaultValue={m.from ? '' : m.points.ar ?? ''} placeholder={'نقطة في كل سطر'} className={Input} aria-label="Points (Arabic)" />
-            <textarea name={`m${i}_pointsEn`} rows={4} defaultValue={m.from ? '' : m.points.en ?? ''} placeholder={'One point per line'} className={Input} aria-label="Points (English)" />
-            <input name={`m${i}_photo`} type="file" accept="image/*" className={Input} aria-label="Meal photo" />
+          <div className="grid gap-3 lg:grid-cols-2">
+            <label className="block"><span className="mb-1 block text-sm font-medium text-slate-700">Meal name (Arabic)</span>
+              <input name={`m${i}_titleAr`} dir="rtl" defaultValue={m.from ? '' : m.title.ar ?? ''} placeholder="اسم الوجبة" className={InputLg} /></label>
+            <label className="block"><span className="mb-1 block text-sm font-medium text-slate-700">Meal name (English)</span>
+              <input name={`m${i}_titleEn`} defaultValue={m.from ? '' : m.title.en ?? ''} placeholder="Meal name" className={InputLg} /></label>
+            <label className="block"><span className="mb-1 block text-sm font-medium text-slate-700">About the meal (Arabic) · one point per line, up to 6</span>
+              <textarea name={`m${i}_pointsAr`} dir="rtl" rows={6} defaultValue={m.from ? '' : m.points.ar ?? ''} placeholder={'مثال:\nفراخ مشوية على الفحم\nأرز بسمتي\nسلطة خضرا'} className={InputLg} /></label>
+            <label className="block"><span className="mb-1 block text-sm font-medium text-slate-700">About the meal (English) · same order</span>
+              <textarea name={`m${i}_pointsEn`} rows={6} defaultValue={m.from ? '' : m.points.en ?? ''} placeholder={'e.g.\nCharcoal-grilled chicken\nBasmati rice\nGreen salad'} className={InputLg} /></label>
+            <label className="block lg:col-span-2"><span className="mb-1 block text-sm font-medium text-slate-700">{m.img && !m.from ? 'Change the photo' : 'Photo of the meal'}</span>
+              <ImageInput name={`m${i}_photo`} className={Input} label="Meal photo" /></label>
             {has && <label className="flex items-center gap-2 text-sm text-red-700"><input type="checkbox" name={`m${i}_remove`} /> Remove this meal</label>}
           </div>
         )}

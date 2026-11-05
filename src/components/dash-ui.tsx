@@ -96,6 +96,8 @@ export const Btn = 'inline-flex items-center justify-center gap-1.5 rounded-lg b
 export const BtnGhost = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-cocoa-200 bg-white px-4 py-2 text-sm font-semibold text-cocoa-800 hover:border-cocoa-600 hover:bg-cocoa-50';
 export const BtnDanger = 'inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800';
 export const Input = 'w-full rounded-lg border border-cocoa-200 bg-white px-3 py-2 text-sm focus:border-cocoa-600 focus:outline-none';
+/** Bigger, easier to read text fields (meal names and points). */
+export const InputLg = 'w-full rounded-lg border border-cocoa-300 bg-white px-3.5 py-2.5 text-base leading-relaxed text-slate-900 placeholder:text-slate-400 focus:border-cocoa-600 focus:outline-none focus:ring-2 focus:ring-cocoa-200';
 export const Lbl = ({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) => (
   <label htmlFor={htmlFor} className="mb-1 block text-sm font-medium text-slate-700">
     {children}

@@ -17,21 +17,25 @@ export type CollabMeal = { title: Loc; points: Loc; img: string | null; from?: s
 export type Collab = {
   id: string; slug: string; active: boolean; partner_name: string; partner_logo: string | null; partner_link: string | null;
   title: Loc; description: Loc; event_date: string | null; start_time: string | null; end_time: string | null; place: Loc; price_note: Loc;
-  capacity: number | null; accent: string; photos: string[]; meals: CollabMeal[]; ask_email: boolean; notify_emails: string[]; questions: CollabQuestion[]; price_mode: PriceMode; price_cents: number | null; created_at: string; updated_at: string;
+  capacity: number | null; accent: string; photos: string[]; meals: CollabMeal[]; ask_email: boolean; notify_emails: string[]; questions: CollabQuestion[]; price_mode: PriceMode; price_cents: number | null;
+  cover: string | null; signup_mode: 'here' | 'link'; signup_url: string | null; created_at: string; updated_at: string;
 };
 
 const COLS = `id, slug, active, partner_name, partner_logo, partner_link, title, description, event_date::text event_date, start_time, end_time, place, price_note,
-  capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, created_at, updated_at`;
+  capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, signup_mode, signup_url, created_at, updated_at`;
 const clean = (s: unknown, max: number) => String(s ?? '').trim().slice(0, max);
 const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'collab';
-const MAX_IMG = 10 * 1024 * 1024;
+const MAX_IMG = 12 * 1024 * 1024;
 
 export type Upload = { bytes: Buffer; mime: string; name?: string };
 
 /** Saves a photo in the uploads folder and returns its address on the site. */
 export async function savePhoto(f: Upload): Promise<string> {
-  if (!/^image\/(jpeg|png|webp|avif|gif)$/.test(f.mime)) throw new BookingError('INVALID_INPUT', 'Photos must be JPG, PNG or WebP');
-  if (f.bytes.length > MAX_IMG) throw new BookingError('INVALID_INPUT', 'Each photo must be under 10 MB');
+  const byName = ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', avif: 'image/avif', gif: 'image/gif' } as Record<string, string>)[/\.([a-z0-9]+)$/i.exec(f.name ?? '')?.[1]?.toLowerCase() ?? ''];
+  if (!/^image\//.test(f.mime) && byName) f = { ...f, mime: byName };
+  if (/heic|heif/i.test(f.mime) || /\.hei[cf]$/i.test(f.name ?? '')) throw new BookingError('INVALID_INPUT', `«${f.name ?? 'photo'}» is an iPhone HEIC photo. Pick it again from the phone (it is converted to JPG), or save it as JPG first`);
+  if (!/^image\/(jpeg|png|webp|avif|gif)$/.test(f.mime)) throw new BookingError('INVALID_INPUT', `«${f.name ?? 'file'}» is not a photo. Photos must be JPG, PNG or WebP`);
+  if (f.bytes.length > MAX_IMG) throw new BookingError('INVALID_INPUT', `«${f.name ?? 'photo'}» is over 10 MB. Pick a smaller photo`);
   const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/avif': 'avif', 'image/gif': 'gif' } as Record<string, string>)[f.mime];
   const id = randomUUID();
   await saveBuffer(`site/${id}.${ext}`, f.bytes);
@@ -68,8 +72,8 @@ export type CollabInput = {
   date?: string; startTime?: string; endTime?: string; placeAr?: string; placeEn?: string; priceAr?: string; priceEn?: string;
   capacity?: number | null; accent?: string; askEmail?: boolean; notifyEmails?: string;
   questions?: { labelAr: string; labelEn: string; type: string; optionsAr: string; optionsEn: string; required: boolean; id?: string }[];
-  priceMode?: string; price?: string;
-  logo?: Upload | null; newPhotos?: Upload[]; keepPhotos?: string[];
+  priceMode?: string; price?: string; signupMode?: string; signupUrl?: string;
+  logo?: Upload | null; cover?: Upload | null; removeCover?: boolean; newPhotos?: Upload[]; keepPhotos?: string[];
   meals?: { titleAr: string; titleEn: string; pointsAr: string; pointsEn: string; img: string | null; photo?: Upload | null; remove?: boolean; pick?: string }[];
 };
 
@@ -134,8 +138,15 @@ export async function saveCollab(v: CollabInput, actor: string): Promise<string>
   const mode: PriceMode = v.priceMode === 'pwyw' || v.priceMode === 'fixed' ? v.priceMode : 'free';
   const pc = Math.round(Number(String(v.price ?? '').replace(/[^\d.]/g, '')) * 100);
   if (mode === 'fixed' && !(pc > 0)) throw new BookingError('INVALID_INPUT', 'Write the ticket price');
-  await q(`UPDATE collabs SET notify_emails=$2, questions=$3, price_mode=$4, price_cents=$5 WHERE id=$1`,
-    [id, parseEmails(v.notifyEmails), JSON.stringify(questions.slice(0, 8)), mode, pc > 0 ? Math.min(pc, 10_000_000) : null]);
+  // Tickets taken here (our form) or on another site: then the page shows a button to that link instead of the form.
+  const signupMode = v.signupMode === 'link' ? 'link' : 'here';
+  const rawUrl = clean(v.signupUrl, 500);
+  const signupUrl = rawUrl ? (/^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`) : null;
+  if (signupUrl && !/^https?:\/\/[^\s/.]+\.[^\s]+$/i.test(signupUrl)) throw new BookingError('INVALID_INPUT', 'The ticket link does not look like a web address (e.g. https://tickets.example.com/...)');
+  if (signupMode === 'link' && !signupUrl) throw new BookingError('INVALID_INPUT', 'Write the link where people get their tickets, or choose «On our page»');
+  const cover = v.cover ? await savePhoto(v.cover) : v.removeCover ? null : old?.cover ?? null;
+  await q(`UPDATE collabs SET notify_emails=$2, questions=$3, price_mode=$4, price_cents=$5, cover=$6, signup_mode=$7, signup_url=$8 WHERE id=$1`,
+    [id, parseEmails(v.notifyEmails), JSON.stringify(questions.slice(0, 8)), mode, pc > 0 ? Math.min(pc, 10_000_000) : null, cover, signupMode, signupUrl]);
   await audit(actor, old ? 'collab.update' : 'collab.create', 'collab', id!, { partner });
   return id!;
 }
@@ -158,7 +169,7 @@ export async function addRsvp(v: RsvpInput) {
   if (!(people >= 1 && people <= 10)) throw new BookingError('INVALID_INPUT', 'people');
   return tx(async (c) => {
     const ev = (await c.query(`SELECT ${COLS} FROM collabs WHERE slug=$1 AND active FOR UPDATE`, [v.slug])).rows[0] as Collab | undefined;
-    if (!ev) throw new BookingError('NOT_FOUND');
+    if (!ev || ev.signup_mode === 'link') throw new BookingError('NOT_FOUND');
     if (ev.event_date && ev.event_date < new Date(Date.now() + 2 * 3600_000).toISOString().slice(0, 10)) throw new BookingError('BAD_STATE', 'over');
     if (ev.ask_email && !/^\S+@\S+\.\S+$/.test(v.email || '')) throw new BookingError('INVALID_INPUT', 'email');
     // The same phone twice: update that sign-up instead of adding another.
@@ -259,9 +270,9 @@ export async function cloneCollab(id: string, date: string | null, actor: string
   let slug = base;
   if ((await q('SELECT 1 FROM collabs WHERE slug=$1', [slug])).length) slug = `${base}-${Date.now().toString(36).slice(-4)}`;
   const nid = (await q<any>(`INSERT INTO collabs(slug, active, partner_name, partner_logo, partner_link, title, description, event_date, start_time, end_time, place, price_note,
-      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents)
+      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, signup_mode, signup_url)
     SELECT $2, false, partner_name, partner_logo, partner_link, title, description, $3::date, start_time, end_time, place, price_note,
-      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents FROM collabs WHERE id=$1 RETURNING id`, [id, slug, d]))[0].id;
+      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, signup_mode, signup_url FROM collabs WHERE id=$1 RETURNING id`, [id, slug, d]))[0].id;
   await audit(actor, 'collab.clone', 'collab', nid, { from: id, date: d });
   return nid;
 }
@@ -327,7 +338,8 @@ export async function sendInvites(collabId: string, emails: string[], v: { subje
   const when = c.event_date ? new Intl.DateTimeFormat(ar ? 'ar-EG-u-nu-latn' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(c.event_date + 'T12:00:00Z')) : '';
   const hours = [c.start_time, c.end_time].filter(Boolean).join(' – ');
   const facts = [when, hours, t(c.place)].filter(Boolean).join(' · ');
-  const photo = c.photos[0] ? (c.photos[0].startsWith('http') ? c.photos[0] : base + c.photos[0]) : null;
+  const p0 = c.cover ?? c.photos[0];
+  const photo = p0 ? (p0.startsWith('http') ? p0 : base + p0) : null;
   const subject = (v.subject || '').trim().slice(0, 150) || (ar ? `دعوة: ${title} · فيلا ليلى & ${c.partner_name}` : `You're invited: ${title} · Villa Layla & ${c.partner_name}`);
   let sent = 0, failed = 0, skipped = 0;
   for (const email of list) {

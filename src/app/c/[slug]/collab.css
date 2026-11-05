@@ -104,3 +104,11 @@ a.cbx-brand:hover { transform: translateY(-2px); }
 .cbx-opt:has(input:checked) { border-color: var(--color-primary); background: #fff; }
 .cbx-opt input { width: 18px; height: 18px; accent-color: var(--color-primary-dark); }
 .cbx-total { margin: 0; padding: 10px 14px; border-radius: var(--r-sm); background: var(--color-ivory); font-weight: 700; color: var(--color-primary-dark); display: flex; justify-content: space-between; }
+
+/* Tickets taken on the partner's site: a short line, a big button to their link, then add to calendar */
+.cbx-ext { display: grid; gap: 12px; }
+.cbx-ext p { margin: 0; color: var(--color-text-secondary); line-height: 1.6; }
+.cbx-ext .btn { width: 100%; justify-content: center; min-height: 50px; gap: 8px; }
+.cbx-ext-btn { font-size: 16px; }
+[dir='rtl'] .cbx-ext-btn svg { transform: scaleX(-1); }
+.cbx-ext small { text-align: center; color: var(--color-text-secondary); font-size: 12px; }

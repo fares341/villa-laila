@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const c = await getCollabBySlug(slug);
   if (!c) return {};
   const title = `${c.title.en || c.title.ar} · Villa Layla & ${c.partner_name}`;
-  return { title, description: (c.description.en || c.description.ar || '').replace(/[*_#-]/g, '').slice(0, 160), openGraph: { title, images: c.photos[0] ? [c.photos[0]] : c.partner_logo ? [c.partner_logo] : [] } };
+  return { title, description: (c.description.en || c.description.ar || '').replace(/[*_#-]/g, '').slice(0, 160), openGraph: { title, images: c.cover ? [c.cover] : c.photos[0] ? [c.photos[0]] : c.partner_logo ? [c.partner_logo] : [] } };
 }
 
 /**
@@ -45,10 +45,11 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
   const lang = await pickLang(sp.lang);
   const ar = lang === 'ar';
   const L = (en: string, a: string) => (ar ? a : en);
-  const going = await peopleGoing(c.id);
+  const external = c.signup_mode === 'link' && !!c.signup_url;
+  const going = external ? 0 : await peopleGoing(c.id);
   const more = await moreEventsFor(c, lang, await visitorPriceView().catch(() => undefined));
   const sameDay = more.filter((e) => e.hl).length;
-  const left = c.capacity == null ? null : Math.max(0, c.capacity - going);
+  const left = external || c.capacity == null ? null : Math.max(0, c.capacity - going);
   const over = !!c.event_date && c.event_date < new Date(Date.now() + 2 * 3600_000).toISOString().slice(0, 10);
   const when = c.event_date ? new Intl.DateTimeFormat(ar ? 'ar-EG-u-nu-latn' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(c.event_date + 'T12:00:00Z')) : null;
   const time = (x: string | null) => (x ? new Intl.DateTimeFormat(ar ? 'ar-EG-u-nu-latn' : 'en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }).format(new Date(`2000-01-01T${x}:00Z`)) : '');
@@ -81,7 +82,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
       <ClaudeHeader lang={lang} />
       <main id="main" className="flex-1">
         <section className="evd-hero cbx-hero">
-          <HeroMedia video={null} photos={c.photos} cover={c.partner_logo} />
+          <HeroMedia video={null} photos={c.cover ? [c.cover] : c.photos} cover={c.partner_logo} />
           <div className="wrap evd-hero-in">
             <a href={`/${lang}/events`} className="evd-back">{ar ? '→ كل الفعاليات' : '← All events'}</a>
             {/* Each logo with its name under it; both open that side's Instagram */}
@@ -177,6 +178,16 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
                 <div className="evd-off">
                   <p><b>{L('Sold out', 'التذاكر خلصت')}</b> · {L('Message us on WhatsApp to join the waiting list.', 'كلمنا على واتساب عشان نضيفك على قايمة الانتظار.')}</p>
                   <a className="btn btn-wa" href={wa} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                </div>
+              ) : external ? (
+                <div className="cbx-ext">
+                  <p>{L(`Tickets for this event are taken by ${c.partner_name}. Tap below to get yours on their page.`, `تذاكر الإيفنت ده بتتحجز عند ${c.partner_name}. اضغط تحت واحجز تذكرتك من عندهم.`)}</p>
+                  <a className="btn btn-primary cbx-ext-btn" href={c.signup_url!} target="_blank" rel="noopener noreferrer">
+                    {L('Get your ticket', 'احجز تذكرتك')}
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M7 17 17 7M9 7h8v8" /></svg>
+                  </a>
+                  {cal && <a className="btn btn-line" href={cal} target="_blank" rel="noopener noreferrer">{L('Add to calendar', 'ضيفه على التقويم')}</a>}
+                  <small dir="ltr">{(() => { try { return new URL(c.signup_url!).hostname.replace(/^www\./, ''); } catch { return ''; } })()}</small>
                 </div>
               ) : (
                 <RsvpForm slug={c.slug} ar={ar} askEmail={c.ask_email} questions={c.questions ?? []} priceMode={c.price_mode ?? 'free'} priceCents={c.price_cents ?? null} maxPeople={left == null ? 10 : Math.min(10, left)} title={title} partner={c.partner_name} calendarUrl={cal} />

@@ -10,6 +10,7 @@ import { EventMediaManager } from '@/components/event-media-manager';
 import { RichTextarea } from '@/components/rich-textarea';
 
 import { MapPicker } from './map-picker';
+import { ImageInput } from '@/components/image-input';
 
 export const dynamic = 'force-dynamic';
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -138,8 +139,8 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
           </Card>
           <Card title="Cover photo">
             {e.image && <img src={e.image} alt="" className="mb-3 aspect-video w-full rounded-lg object-cover" />}
-            <input type="file" name="image" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm" aria-label="Upload image" />
-            <p className="mt-1 text-xs text-slate-500">JPG, PNG or WebP under 5 MB. 16:9 looks best.</p>
+            <ImageInput name="image" max={2400} className="block w-full text-sm" label="Upload image" />
+            <p className="mt-1 text-xs text-slate-500">JPG, PNG or WebP. Big phone photos are made lighter before saving. 16:9 looks best.</p>
             <div className="mt-3"><Lbl htmlFor="e-iu">Or image URL</Lbl><input id="e-iu" name="imageUrl" dir="ltr" defaultValue={e.has_upload ? '' : e.image ?? ''} className={Input} /></div>
           </Card>
           <button className={Btn + ' w-full py-3 text-base'}><Icon name="check" size={18} /> {isNew ? 'Create and publish' : 'Save changes'}</button>
