@@ -28,7 +28,7 @@ const coordsOf = (url: string): [number, number] | null => {
  * the map to drop the pin; the pin is saved as a Google Maps link, so the event page's map and «Map» button open
  * exactly there. A Google Maps link can also be pasted. Empty = the villa.
  */
-export function MapPicker({ addressAr, addressEn, mapUrl }: { addressAr: string; addressEn: string; mapUrl: string }) {
+export function MapPicker({ addressAr, addressEn, mapUrl, names = { ar: 'addressAr', en: 'addressEn' }, villaAr, villaEn }: { addressAr: string; addressEn: string; mapUrl: string; names?: { ar: string; en: string }; villaAr?: string; villaEn?: string }) {
   const [url, setUrl] = useState(mapUrl);
   const [q, setQ] = useState('');
   const [msg, setMsg] = useState('');
@@ -36,6 +36,29 @@ export function MapPicker({ addressAr, addressEn, mapUrl }: { addressAr: string;
   const box = useRef<HTMLDivElement | null>(null);
   const map = useRef<any>(null);
   const pin = useRef<any>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const arRef = useRef<HTMLInputElement>(null);
+  const enRef = useRef<HTMLInputElement>(null);
+
+  /** A pasted Google Maps link: put the pin there. Short links (maps.app.goo.gl) are opened by the server first. */
+  const fromLink = (v: string) => {
+    if (timer.current) clearTimeout(timer.current);
+    const c = coordsOf(v);
+    if (c) { place(c[0], c[1]); setUrl(v); return; }
+    if (!/(goo\.gl|google\.[a-z.]+\/maps|maps\.google\.)/i.test(v)) return;
+    setMsg('Reading the Google Maps link…');
+    timer.current = setTimeout(async () => {
+      try {
+        const r = await (await fetch(`/api/dashboard/resolve-map?url=${encodeURIComponent(v.trim())}`)).json() as { url: string; lat: number | null; lng: number | null; name: string | null };
+        if (r.lat != null && r.lng != null) { place(r.lat, r.lng); setUrl(r.url); }
+        if (r.name) {
+          if (enRef.current && (!enRef.current.value.trim() || enRef.current.value === villaEn)) enRef.current.value = r.name;
+          if (arRef.current && (!arRef.current.value.trim() || arRef.current.value === villaAr)) arRef.current.value = r.name;
+        }
+        setMsg(r.lat != null ? `Found${r.name ? `: ${r.name}` : ''} ✓ The pin is on the map. Check the address above, then save.` : r.name ? `Found «${r.name}» but no pin in the link. Tap the exact place on the map.` : 'Could not read this link. Tap the place on the map instead.');
+      } catch { setMsg('Could not read this link. Tap the place on the map instead.'); }
+    }, 400);
+  };
 
   const place = (lat: number, lon: number, zoom = 17) => {
     const L = window.L; if (!L || !map.current) return;
@@ -74,8 +97,8 @@ export function MapPicker({ addressAr, addressEn, mapUrl }: { addressAr: string;
 
   return (
     <div className="grid gap-2 text-sm">
-      <div><label className="mb-1 block text-xs font-semibold text-cocoa-700" htmlFor="e-ada">Address (Arabic)</label><input id="e-ada" name="addressAr" dir="rtl" defaultValue={addressAr} placeholder="فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب" className={Input} /></div>
-      <div><label className="mb-1 block text-xs font-semibold text-cocoa-700" htmlFor="e-ade">Address (English)</label><input id="e-ade" name="addressEn" defaultValue={addressEn} placeholder="Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab" className={Input} /></div>
+      <div><label className="mb-1 block text-xs font-semibold text-cocoa-700" htmlFor="e-ada">Place / address (Arabic)</label><input ref={arRef} id="e-ada" name={names.ar} dir="rtl" defaultValue={addressAr} placeholder="فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب" className={Input} /></div>
+      <div><label className="mb-1 block text-xs font-semibold text-cocoa-700" htmlFor="e-ade">Place / address (English)</label><input ref={enRef} id="e-ade" name={names.en} defaultValue={addressEn} placeholder="Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab" className={Input} /></div>
       <div className="mt-1 flex gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void search(q); } }} placeholder="Find the place on the map (name or address)" className={Input} aria-label="Find the place" />
         <button type="button" className="shrink-0 rounded-lg border border-cocoa-200 bg-white px-3 py-2 text-sm font-semibold text-cocoa-800" onClick={() => search(q || (document.getElementById('e-ade') as HTMLInputElement)?.value || '')}>Find</button>
@@ -87,13 +110,13 @@ export function MapPicker({ addressAr, addressEn, mapUrl }: { addressAr: string;
       )}
       <div ref={box} className="h-64 w-full overflow-hidden rounded-xl border border-cocoa-200 bg-cocoa-50" aria-label="Map: tap to put the pin" />
       <p className="text-xs text-slate-500">{msg || 'Tap the map (or drag the pin) to set exactly where the event is.'}</p>
-      <div><label className="mb-1 block text-xs font-semibold text-cocoa-700" htmlFor="e-map">Google Maps link (filled by the pin, or paste one)</label>
-        <input id="e-map" name="mapUrl" dir="ltr" value={url} onChange={(e) => { setUrl(e.target.value); const c = coordsOf(e.target.value); if (c) place(c[0], c[1]); }} placeholder="https://maps.app.goo.gl/…" className={Input} /></div>
+      <div><label className="mb-1 block text-xs font-semibold text-cocoa-700" htmlFor="e-map">Google Maps link · paste the place’s link (Share → Copy link) and the pin and name fill in by themselves</label>
+        <input id="e-map" name="mapUrl" dir="ltr" value={url} onChange={(e) => { setUrl(e.target.value); fromLink(e.target.value); }} placeholder="https://maps.app.goo.gl/…" className={Input} /></div>
       <div className="flex flex-wrap gap-2">
         {url && <a className="text-xs font-semibold text-cocoa-700 underline" href={url} target="_blank" rel="noopener noreferrer">Check it on Google Maps</a>}
         {url && <button type="button" className="text-xs font-semibold text-red-700 underline" onClick={() => { setUrl(''); if (pin.current) { map.current.removeLayer(pin.current); pin.current = null; } map.current?.setView(VILLA, 14); }}>Use the villa (clear the pin)</button>}
       </div>
-      <p className="text-xs text-slate-500">Leave the address and the pin empty for an event at the villa.</p>
+      <p className="text-xs text-slate-500">Leave the link and the pin empty for an event at the villa.</p>
     </div>
   );
 }

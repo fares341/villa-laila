@@ -18,11 +18,11 @@ export type Collab = {
   id: string; slug: string; active: boolean; partner_name: string; partner_logo: string | null; partner_link: string | null;
   title: Loc; description: Loc; event_date: string | null; start_time: string | null; end_time: string | null; place: Loc; price_note: Loc;
   capacity: number | null; accent: string; photos: string[]; meals: CollabMeal[]; ask_email: boolean; notify_emails: string[]; questions: CollabQuestion[]; price_mode: PriceMode; price_cents: number | null;
-  cover: string | null; whatsapp_group: string | null; signup_mode: 'here' | 'link'; signup_url: string | null; created_at: string; updated_at: string;
+  cover: string | null; map_url: string | null; whatsapp_group: string | null; signup_mode: 'here' | 'link'; signup_url: string | null; created_at: string; updated_at: string;
 };
 
 const COLS = `id, slug, active, partner_name, partner_logo, partner_link, title, description, event_date::text event_date, start_time, end_time, place, price_note,
-  capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, whatsapp_group, signup_mode, signup_url, created_at, updated_at`;
+  capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, map_url, whatsapp_group, signup_mode, signup_url, created_at, updated_at`;
 const clean = (s: unknown, max: number) => String(s ?? '').trim().slice(0, max);
 const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'collab';
 const MAX_IMG = 12 * 1024 * 1024;
@@ -72,7 +72,7 @@ export type CollabInput = {
   date?: string; startTime?: string; endTime?: string; placeAr?: string; placeEn?: string; priceAr?: string; priceEn?: string;
   capacity?: number | null; accent?: string; askEmail?: boolean; notifyEmails?: string;
   questions?: { labelAr: string; labelEn: string; type: string; optionsAr: string; optionsEn: string; required: boolean; id?: string }[];
-  priceMode?: string; price?: string; signupMode?: string; signupUrl?: string; waGroup?: string;
+  priceMode?: string; price?: string; signupMode?: string; signupUrl?: string; waGroup?: string; mapUrl?: string;
   logo?: Upload | null; cover?: Upload | null; removeCover?: boolean; newPhotos?: Upload[]; keepPhotos?: string[];
   meals?: { titleAr: string; titleEn: string; pointsAr: string; pointsEn: string; img: string | null; photo?: Upload | null; remove?: boolean; pick?: string }[];
 };
@@ -148,6 +148,12 @@ export async function saveCollab(v: CollabInput, actor: string): Promise<string>
   const grp = waGroupLink(v.waGroup);
   if (String(v.waGroup ?? '').trim() && !grp) throw new BookingError('INVALID_INPUT', 'The WhatsApp group link must look like https://chat.whatsapp.com/…');
   await q(`UPDATE collabs SET whatsapp_group=$2 WHERE id=$1`, [id, grp]);
+  // Where it happens when not at the villa: a Google Maps link (short links are saved as the full link with the pin).
+  let map = clean(v.mapUrl, 600);
+  if (map && !/^https?:\/\//i.test(map)) map = `https://${map}`;
+  if (map && !/^https:\/\/\S+$/i.test(map)) throw new BookingError('INVALID_INPUT', 'The map link must be a web address (https://maps.app.goo.gl/…)');
+  if (map) { const { resolveMapUrl } = await import('./maps'); const r = await resolveMapUrl(map); if (r?.lat != null) map = r.url; }
+  await q(`UPDATE collabs SET map_url=$2 WHERE id=$1`, [id, map || null]);
   const cover = v.cover ? await savePhoto(v.cover) : v.removeCover ? null : old?.cover ?? null;
   await q(`UPDATE collabs SET notify_emails=$2, questions=$3, price_mode=$4, price_cents=$5, cover=$6, signup_mode=$7, signup_url=$8 WHERE id=$1`,
     [id, parseEmails(v.notifyEmails), JSON.stringify(questions.slice(0, 8)), mode, pc > 0 ? Math.min(pc, 10_000_000) : null, cover, signupMode, signupUrl]);
@@ -274,9 +280,9 @@ export async function cloneCollab(id: string, date: string | null, actor: string
   let slug = base;
   if ((await q('SELECT 1 FROM collabs WHERE slug=$1', [slug])).length) slug = `${base}-${Date.now().toString(36).slice(-4)}`;
   const nid = (await q<any>(`INSERT INTO collabs(slug, active, partner_name, partner_logo, partner_link, title, description, event_date, start_time, end_time, place, price_note,
-      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, whatsapp_group, signup_mode, signup_url)
+      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, map_url, whatsapp_group, signup_mode, signup_url)
     SELECT $2, false, partner_name, partner_logo, partner_link, title, description, $3::date, start_time, end_time, place, price_note,
-      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, whatsapp_group, signup_mode, signup_url FROM collabs WHERE id=$1 RETURNING id`, [id, slug, d]))[0].id;
+      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, map_url, whatsapp_group, signup_mode, signup_url FROM collabs WHERE id=$1 RETURNING id`, [id, slug, d]))[0].id;
   await audit(actor, 'collab.clone', 'collab', nid, { from: id, date: d });
   return nid;
 }

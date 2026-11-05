@@ -70,6 +70,11 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
     return { ...m, title: d.title, points: { ar: pts('ar'), en: pts('en') }, img: d.img ?? m.img };
   }).filter((m) => t(m.title, ar));
   const place = t(c.place, ar);
+  // Somewhere else than the villa: its Google Maps link (pin) or its written place; else the villa.
+  const away = !!c.map_url || (!!(c.place.en || c.place.ar) && !/villa layla|فيلا ليلى/i.test(`${c.place.en ?? ''} ${c.place.ar ?? ''}`));
+  const mapHref = c.map_url || (away ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.place.en || c.place.ar || '')}` : MAP_URL);
+  const pinM = c.map_url?.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) ?? c.map_url?.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) ?? c.map_url?.match(/[?&](?:q|query|ll)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+  const mapQuery = pinM ? `${pinM[1]},${pinM[2]}` : away ? (c.place.en || c.place.ar || '') : 'Villa Layla Hostel, 20 Safiya Zaghloul St, El Sayeda Zeinab, Cairo';
   const cal = c.event_date ? (() => {
     const d = c.event_date!.replace(/-/g, '');
     const st = (c.start_time || '19:00').replace(':', '') + '00', en = (c.end_time || '23:00').replace(':', '') + '00';
@@ -128,7 +133,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
               })()}
               <div><dt>{L('Where', 'المكان')}</dt><dd className="evd-where">
                 <span>{place || L('Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab', 'فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب')}</span>
-                <a className="evd-map" href={MAP_URL} target="_blank" rel="noopener noreferrer" aria-label={L('Open in Google Maps', 'افتح المكان على خرائط جوجل')}>
+                <a className="evd-map" href={mapHref} target="_blank" rel="noopener noreferrer" aria-label={L('Open in Google Maps', 'افتح المكان على خرائط جوجل')}>
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z" /><circle cx="12" cy="10" r="2.6" /></svg>
                   <span>{L('Map', 'الخريطة')}</span>
                 </a>
@@ -138,6 +143,8 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
                 {c.partner_link ? <a href={c.partner_link} target="_blank" rel="noopener noreferrer">{c.partner_name}</a> : c.partner_name}
               </dd></div>
             </dl>
+
+            <div className="evd-mapbox"><iframe src={`https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&output=embed`} title={L('Map', 'الخريطة')} loading="lazy" referrerPolicy="no-referrer-when-downgrade" /></div>
 
             <EventAbout isAr={ar} text={t(c.description, ar)} includes={[]} note="" />
 

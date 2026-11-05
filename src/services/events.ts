@@ -384,8 +384,10 @@ export async function setEventExtras(eventId: string, v: { guestMode: string; ad
   const mode = ['pwyw', 'fixed', 'free', 'percent', 'none'].includes(v.guestMode) ? v.guestMode : 'pwyw';
   const pct = Math.round(Number(String(v.guestPct ?? '').replace(/[^\d.]/g, '')));
   if (mode === 'percent' && !(pct >= 1 && pct <= 100)) throw new BookingError('INVALID_INPUT', 'Write the discount for villa guests (1–100 %)');
-  const map = String(v.mapUrl ?? '').trim();
+  let map = String(v.mapUrl ?? '').trim();
   if (map && !/^https?:\/\/\S+$/i.test(map)) throw new BookingError('INVALID_INPUT', 'The map link must start with https://');
+  // A short Google Maps link (maps.app.goo.gl) is saved as the full link, which has the pin for the page's map.
+  if (map) { const { resolveMapUrl } = await import('./maps'); const r = await resolveMapUrl(map); if (r?.lat != null) map = r.url; }
   const { waGroupLink } = await import('./settings');
   const grp = waGroupLink(v.waGroup);
   if (String(v.waGroup ?? '').trim() && !grp) throw new BookingError('INVALID_INPUT', 'The WhatsApp group link must look like https://chat.whatsapp.com/…');

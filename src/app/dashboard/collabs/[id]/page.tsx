@@ -12,6 +12,7 @@ import { siteBase } from '@/lib/base-url';
 import { weeklyMenu, WEEKDAYS, BREAKFAST_SLOTS } from '@/services/weekly-menu';
 import { MealSlot, type MenuChoice } from './meal-slot';
 import { QuestionsEditor } from './questions-editor';
+import { MapPicker } from '../../events/edit/[id]/map-picker';
 import { ImageInput, UploadGuard } from '@/components/image-input';
 import { collabSaveAction, collabDeleteAction, collabRsvpAction, collabCloneAction } from '../actions';
 
@@ -132,8 +133,11 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
                   <div><Lbl htmlFor="c-s">Starts</Lbl><input id="c-s" name="startTime" type="time" defaultValue={c.start_time ?? ''} className={Input} /></div>
                   <div><Lbl htmlFor="c-e">Ends</Lbl><input id="c-e" name="endTime" type="time" defaultValue={c.end_time ?? ''} className={Input} /></div>
                 </div>
-                <div><Lbl htmlFor="c-pa">Place (Arabic)</Lbl><input id="c-pa" name="placeAr" dir="rtl" defaultValue={c.place?.ar ?? ''} className={Input} /></div>
-                <div><Lbl htmlFor="c-pe">Place (English)</Lbl><input id="c-pe" name="placeEn" defaultValue={c.place?.en ?? ''} className={Input} /></div>
+                <div className="rounded-lg border border-cocoa-200 p-3">
+                  <p className="mb-2 text-sm font-semibold text-cocoa-800">Place</p>
+                  <MapPicker names={{ ar: 'placeAr', en: 'placeEn' }} addressAr={c.place?.ar ?? ''} addressEn={c.place?.en ?? ''} mapUrl={c.map_url ?? ''} villaAr="فيلا ليلى، السيدة زينب" villaEn="Villa Layla, El Sayeda Zeinab" />
+                  <p className="mt-1 text-xs text-slate-500">At the partner’s place or anywhere else: paste its Google Maps link. Empty = at Villa Layla.</p>
+                </div>
                 <div><Lbl htmlFor="c-pra">Price / entry note (Arabic, optional)</Lbl><input id="c-pra" name="priceAr" dir="rtl" defaultValue={c.price_note?.ar ?? ''} placeholder="مثال: الدخول مجاني · العشا 300 ج.م" className={Input} /></div>
                 <div><Lbl htmlFor="c-pre">Price / entry note (English, optional)</Lbl><input id="c-pre" name="priceEn" defaultValue={c.price_note?.en ?? ''} placeholder="e.g. Free entry · dinner EGP 300" className={Input} /></div>
               </div>
