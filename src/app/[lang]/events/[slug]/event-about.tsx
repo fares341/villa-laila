@@ -2,9 +2,10 @@ import React from 'react';
 /**
  * The event's "About" text, laid out: the first paragraph is the lead, blank lines start new paragraphs, lines
  * starting with - • * · ✓ ✔ (or an emoji) become a tidy list, and a short line ending with ":" becomes a sub-heading.
+ * A line starting with «# » (the «Big» button in the dashboard) is shown as big text, where it is; only those lines are big.
  */
 export type AboutItem = { text: string; icon?: string };
-export type AboutPart = { kind: 'p' | 'h'; text: string } | { kind: 'ul'; items: AboutItem[] };
+export type AboutPart = { kind: 'p' | 'h' | 'big'; text: string } | { kind: 'ul'; items: AboutItem[] };
 // A plain marker (- • * …, "1.") or a whole emoji, including joined ones like 🕵️‍♂️ (kept and shown as the bullet).
 const MARK = /^\s*(?:[-•*·▪●➤→]|\d+[.)-])\s*/u;
 const EMOJI = /^\s*((?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200D|\uFE0F|\u20E3|[\u2640\u2642])+)\s*/u;
@@ -39,7 +40,8 @@ export function aboutParts(text: string): AboutPart[] {
     const line = raw.trim();
     const last = out[out.length - 1];
     if (!line) { out.push({ kind: 'p', text: '' }); continue; }
-    if (/^#{1,3}\s+/.test(line)) { out.push({ kind: 'h', text: line.replace(/^#{1,3}\s+/, '') }); continue; }
+    if (/^#\s+/.test(line)) { out.push({ kind: 'big', text: line.replace(/^#\s+/, '') }); continue; }
+    if (/^#{2,3}\s+/.test(line)) { out.push({ kind: 'h', text: line.replace(/^#{2,3}\s+/, '') }); continue; }
     if (BULLET.test(line) && !line.startsWith('**')) {
       const em = line.match(EMOJI);
       const icon = em && !MARK.test(line) ? em[1] : undefined;
@@ -55,25 +57,16 @@ export function aboutParts(text: string): AboutPart[] {
   return out.filter((x) => (x.kind === 'ul' ? x.items.length : x.text));
 }
 
-/** Split off the first sentence (it becomes the big tagline) when the text starts with a normal paragraph. */
-function splitTagline(parts: AboutPart[]): { tag: string | null; rest: AboutPart[] } {
-  const first = parts[0];
-  // Text that starts with one emoji line ("🕵️ Trust no one!"): that line is the tagline.
-  if (first?.kind === 'ul' && first.items.length === 1) return { tag: [first.items[0].icon, first.items[0].text].filter(Boolean).join(' '), rest: parts.slice(1) };
-  if (!first || first.kind !== 'p') return { tag: null, rest: parts };
-  const m = first.text.match(/^(.{12,140}?[.!؟?…])\s+(.+)$/su);
-  if (!m) return first.text.length <= 140 ? { tag: first.text, rest: parts.slice(1) } : { tag: null, rest: parts };
-  return { tag: m[1], rest: [{ kind: 'p', text: m[2] }, ...parts.slice(1)] };
-}
-
 /**
- * "About the event", laid out like a magazine intro rather than a box: a small gold heading, the first sentence as a
+ * "About the event", laid out like a magazine intro rather than a box: a small gold heading, the text marked «Big» as a
  * big tagline, the rest as calm body text and gold-diamond lists; then what the ticket includes and the note.
  */
 export function EventAbout({ text, includes, note, isAr }: { text: string; includes: string[]; note: string; isAr: boolean }) {
   const parts = aboutParts(text);
   if (!parts.length && !includes.length && !note) return null;
-  const { tag, rest: restRaw } = splitTagline(parts);
+  // Big text is only what was marked big in the dashboard («# » lines); a big line first sits right under the heading.
+  const tag = parts[0]?.kind === 'big' ? parts[0].text : null;
+  const restRaw = tag ? parts.slice(1) : parts;
   // Long paragraphs (4+ sentences) read better split into short ones.
   const rest: AboutPart[] = restRaw.flatMap((x) => {
     if (x.kind !== 'p') return [x];
@@ -93,6 +86,7 @@ export function EventAbout({ text, includes, note, isAr }: { text: string; inclu
         <div className="evd-about-body">
           {rest.map((x, i) => {
             if (x.kind === 'h') return <h3 key={i}>{x.text}</h3>;
+            if (x.kind === 'big') return <p key={i} className="evd-about-tag evd-about-big">{rich(x.text)}</p>;
             if (x.kind === 'ul') return (
               <ul key={i} className="evd-about-list">
                 {x.items.map((it, j) => <li key={j} className={it.icon ? 'ic' : undefined}>{it.icon && <span className="evd-about-ic" aria-hidden>{it.icon}</span>}<span>{rich(it.text)}</span></li>)}

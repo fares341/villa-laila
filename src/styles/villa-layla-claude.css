@@ -1985,3 +1985,7 @@ html.vl-mt body { top: 0 !important; position: static !important; }
 .sec-hd .wag-head { width: min(100%, 380px); flex: 0 0 auto; }
 .evd-side .wag-side { margin-top: 16px; }
 @media (max-width: 640px) { .sec-hd .wag-head { width: 100%; } .wag { padding: 14px; } }
+
+/* Text marked «Big» in the middle of the description: same look as the tagline, with room around it */
+.evd-about-body p.evd-about-big { margin: 22px 0 12px; max-width: 30ch; font-size: clamp(22px, 2.6vw, 30px); font-weight: 800; line-height: 1.45; color: var(--color-primary-dark); letter-spacing: -.005em; }
+[dir="rtl"] .evd-about-body p.evd-about-big { line-height: 1.6; }
