@@ -21,6 +21,7 @@ import { StoryStrip, type Story } from './story-strip';
 import { EventAbout } from './event-about';
 import { communityLink } from '@/services/settings';
 import { WaGroup } from '@/components/wa-group';
+import { ogImages } from '@/lib/og';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
   const { lang, slug } = await params;
   const ev = await getPublicEvent(slug).catch(() => null);
   if (!ev) return { title: 'Event' };
-  return { title: tr(ev.title, lang), description: tr(ev.summary, lang), openGraph: { images: ev.image ? [ev.image] : [] } };
+  return { title: tr(ev.title, lang), description: tr(ev.summary, lang), openGraph: { title: tr(ev.title, lang), description: tr(ev.summary, lang), type: 'website', images: ogImages(ev.image, tr(ev.title, lang)) }, twitter: { card: 'summary_large_image' } };
 }
 
 const ERR: Record<string, { en: string; ar: string }> = {

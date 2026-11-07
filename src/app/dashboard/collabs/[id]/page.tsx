@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { can } from '@/lib/permissions';
-import { PageHeader, Card, Flash, Btn, BtnGhost, BtnDanger, Input, Lbl, Empty, Pill, dt } from '@/components/dash';
+import { PageHeader, Card, Flash, Btn, BtnGhost, BtnDanger, Input, Lbl, Empty, Pill, dt, InputLg } from '@/components/dash';
 import { Icon } from '@/components/icons';
 import { CopyButton } from '@/components/copy-button';
 import { ConfirmButton } from '@/components/ConfirmButton';
@@ -14,7 +14,7 @@ import { MealSlot, type MenuChoice } from './meal-slot';
 import { QuestionsEditor } from './questions-editor';
 import { MapPicker } from '../../events/edit/[id]/map-picker';
 import { ImageInput, UploadGuard } from '@/components/image-input';
-import { collabSaveAction, collabDeleteAction, collabRsvpAction, collabCloneAction } from '../actions';
+import { collabSaveAction, collabDeleteAction, collabRsvpAction, collabCloneAction, collabCancelAction, collabUncancelAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -203,7 +203,11 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
               <tbody>{rsvps.map((r) => (
                 <tr key={r.id} className={`border-t border-slate-100 ${r.status !== 'going' ? 'opacity-50' : ''}`}>
                   <td className="py-2"><b>{r.full_name}</b>{r.instagram && <div className="text-xs text-slate-500">@{r.instagram}</div>}{r.email && <div className="text-xs text-slate-500">{r.email}</div>}</td>
-                  <td><a className="underline" href={`https://wa.me/${String(r.phone).replace(/\D/g, '')}`} target="_blank" rel="noopener" dir="ltr">{r.phone}</a></td>
+                  <td><a className="underline" href={`https://wa.me/${String(r.phone).replace(/\D/g, '')}`} target="_blank" rel="noopener" dir="ltr">{r.phone}</a>
+                    {c.cancelled_at && r.status === 'cancelled' && c.cancel_message && (String(r.cancel_notified ?? '').includes('wa')
+                      ? <div className="text-[11px] font-semibold text-emerald-700">Told on WhatsApp ✓</div>
+                      : <div><a className="mt-1 inline-block rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white" target="_blank" rel="noopener" href={`https://wa.me/${String(r.phone).replace(/\D/g, '')}?text=${encodeURIComponent(c.cancel_message.replace(/\{name\}/g, String(r.full_name).split(/\s+/)[0]))}`}>Send cancellation</a>{String(r.cancel_notified ?? '').includes('email') && <span className="ms-1 text-[11px] text-slate-500">e-mailed ✓</span>}</div>)}
+                  </td>
                   <td className="tabular-nums">{r.people}</td>
                   {c.price_mode !== 'free' && <td className="text-xs">{ticketMoney(r, c as Collab)}</td>}
                   <td className="max-w-xs text-xs text-slate-600">
@@ -225,6 +229,28 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
           )}
         </Card>
       )}
+
+      {!isNew && canEdit && (c.cancelled_at ? (
+        <Card title="This event is cancelled" className="mt-6">
+          <form action={collabUncancelAction} className="flex flex-wrap items-center gap-3 text-sm">
+            <input type="hidden" name="id" value={c.id} />
+            <p className="text-slate-700">The page says it is cancelled and takes no tickets. Message sent: <i>{c.cancel_message}</i></p>
+            <button className={BtnGhost}>Put the event back on</button>
+          </form>
+        </Card>
+      ) : (
+        <Card title="Cancel this event" className="mt-6">
+          <details>
+            <summary className="cursor-pointer text-sm font-semibold text-red-800">Cancel the event and message everyone who booked ({rsvps.filter((r) => r.status === 'going').length} ticket(s))</summary>
+            <form action={collabCancelAction} className="mt-3 grid gap-3">
+              <input type="hidden" name="id" value={c.id} />
+              <p className="text-xs text-slate-600"><b>{'{name}'}</b> = each person’s first name. Sent on WhatsApp (when the WhatsApp API is set up) and by e-mail to those who gave one; for the rest a green «Send cancellation» button with this message appears in the list. The page shows «Cancelled» and leaves the events list.</p>
+              <textarea name="message" rows={5} className={InputLg} defaultValue={`Hi {name}, we are sorry: ${c.title?.en || c.title?.ar || 'the event'}${c.event_date ? ` on ${c.event_date}` : ''} is cancelled. If you paid, you will get your money back. Reply here with any question.\nVilla Layla & ${c.partner_name ?? ''}`} />
+              <button className="justify-self-start rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800">Cancel the event and send</button>
+            </form>
+          </details>
+        </Card>
+      ))}
 
       {!isNew && canEdit && (
         <Card title="Make a copy for another date" className="mt-6">

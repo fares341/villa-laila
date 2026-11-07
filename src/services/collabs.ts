@@ -18,11 +18,11 @@ export type Collab = {
   id: string; slug: string; active: boolean; partner_name: string; partner_logo: string | null; partner_link: string | null;
   title: Loc; description: Loc; event_date: string | null; start_time: string | null; end_time: string | null; place: Loc; price_note: Loc;
   capacity: number | null; accent: string; photos: string[]; meals: CollabMeal[]; ask_email: boolean; notify_emails: string[]; questions: CollabQuestion[]; price_mode: PriceMode; price_cents: number | null;
-  cover: string | null; inner_cover: string | null; map_url: string | null; whatsapp_group: string | null; signup_mode: 'here' | 'link'; signup_url: string | null; created_at: string; updated_at: string;
+  cancelled_at: string | null; cancel_message: string | null; cover: string | null; inner_cover: string | null; map_url: string | null; whatsapp_group: string | null; signup_mode: 'here' | 'link'; signup_url: string | null; created_at: string; updated_at: string;
 };
 
 const COLS = `id, slug, active, partner_name, partner_logo, partner_link, title, description, event_date::text event_date, start_time, end_time, place, price_note,
-  capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, inner_cover, map_url, whatsapp_group, signup_mode, signup_url, created_at, updated_at`;
+  capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cancelled_at, cancel_message, cover, inner_cover, map_url, whatsapp_group, signup_mode, signup_url, created_at, updated_at`;
 const clean = (s: unknown, max: number) => String(s ?? '').trim().slice(0, max);
 const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'collab';
 const MAX_IMG = 12 * 1024 * 1024;
@@ -180,7 +180,7 @@ export async function addRsvp(v: RsvpInput) {
   if (phone.replace(/\D/g, '').length < 7) throw new BookingError('INVALID_INPUT', 'phone');
   if (!(people >= 1 && people <= 10)) throw new BookingError('INVALID_INPUT', 'people');
   return tx(async (c) => {
-    const ev = (await c.query(`SELECT ${COLS} FROM collabs WHERE slug=$1 AND active FOR UPDATE`, [v.slug])).rows[0] as Collab | undefined;
+    const ev = (await c.query(`SELECT ${COLS} FROM collabs WHERE slug=$1 AND active AND cancelled_at IS NULL FOR UPDATE`, [v.slug])).rows[0] as Collab | undefined;
     if (!ev || ev.signup_mode === 'link') throw new BookingError('NOT_FOUND');
     if (ev.event_date && ev.event_date < new Date(Date.now() + 2 * 3600_000).toISOString().slice(0, 10)) throw new BookingError('BAD_STATE', 'over');
     if (ev.ask_email && !/^\S+@\S+\.\S+$/.test(v.email || '')) throw new BookingError('INVALID_INPUT', 'email');
@@ -384,4 +384,39 @@ ${facts ? `<p style="margin:0 0 14px;font-size:14px;color:#6b5d52">${esc(facts)}
   }
   await audit(actor, 'collab.invite', 'collab', collabId, { sent, failed, skipped });
   return { sent, failed, skipped };
+}
+
+/**
+ * Cancels a whole collab event: the page says it is cancelled (no more tickets, off the events list), every ticket is
+ * cancelled and each person gets the message ({name} = first name) on WhatsApp when the API is set up and by e-mail
+ * when they gave one. The rest get a green «Send cancellation» button in the list.
+ */
+export async function cancelCollab(id: string, message: string, actor: string) {
+  const msg = message.trim();
+  if (!msg) throw new BookingError('INVALID_INPUT', 'Write the message for the people who booked');
+  const c = await getCollab(id);
+  if (!c) throw new BookingError('NOT_FOUND');
+  await q(`UPDATE collabs SET cancelled_at=now(), cancel_message=$2, updated_at=now() WHERE id=$1`, [id, msg.slice(0, 2000)]);
+  const rows = await q<any>(`SELECT id, full_name, phone, email FROM collab_rsvps WHERE collab_id=$1 AND status='going'`, [id]);
+  const { sendWhatsApp } = await import('./whatsapp');
+  const { sendMail, mailEnabled } = await import('@/lib/mailer');
+  const title = c.title.en || c.title.ar || 'the event';
+  let wa = 0, mail = 0;
+  for (const r of rows) {
+    const text = msg.replace(/\{name\}/g, String(r.full_name).split(/\s+/)[0]);
+    const w = await sendWhatsApp(r.phone, text);
+    let m = false;
+    if (mailEnabled() && r.email) { try { await sendMail({ to: [r.email], subject: `Cancelled: ${title}`, text }); m = true; } catch { /* not told */ } }
+    await q(`UPDATE collab_rsvps SET status='cancelled', cancel_notified=$2 WHERE id=$1`, [r.id, [w.sent ? 'wa' : '', m ? 'email' : ''].filter(Boolean).join('+') || null]);
+    if (w.sent) wa++;
+    if (m) mail++;
+  }
+  await audit(actor, 'collab.cancel', 'collab', id, { tickets: rows.length, wa, mail });
+  return { tickets: rows.length, wa, mail, toTell: rows.length - wa };
+}
+
+/** Undo a cancellation: the page takes tickets again (cancelled tickets stay cancelled; restore them one by one). */
+export async function uncancelCollab(id: string, actor: string) {
+  await q(`UPDATE collabs SET cancelled_at=NULL, updated_at=now() WHERE id=$1`, [id]);
+  await audit(actor, 'collab.uncancel', 'collab', id);
 }

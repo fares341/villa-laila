@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { can } from '@/lib/permissions';
 import { q } from '@/lib/db';
 import { todayLocal, addDays } from '@/lib/dates';
-import { PageHeader, Card, Flash, fmt, dt, Btn, BtnGhost, BtnDanger, Input, Lbl, Empty, SubTabs, Pill } from '@/components/dash';
+import { PageHeader, Card, Flash, fmt, dt, Btn, BtnGhost, BtnDanger, Input, InputLg, Lbl, Empty, SubTabs, Pill } from '@/components/dash';
 import { listInstapaySubmissions } from '@/services/online-payments';
 import { getWallets, walletOn, walletLabel } from '@/services/wallets';
 import { getAdminBotConfig } from '@/services/admin-bot';
@@ -11,7 +11,7 @@ import { getWhatsAppConfig, normalizePhone } from '@/services/whatsapp';
 import { tr, eventProfit, listPublicEvents, hiddenReason, EVENT_COLS } from '@/services/events';
 import { Icon } from '@/components/icons';
 import {
-  checkInEventAction, cancelEventBookingAction, confirmEventBookingAction, findTicketAction,
+  checkInEventAction, cancelEventBookingAction, cancelEventDayAction, reopenEventDayAction, confirmEventBookingAction, findTicketAction,
   saveWalletsAction, saveCommunityAction, saveAdminBotAction, testAdminBotAction, saveWhatsAppAction, moveEventAction,
 } from './actions';
 
@@ -61,7 +61,7 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
       <SubTabs tabs={tabs} current={current} />
       <Flash sp={sp} />
 
-      {tab === 'bookings' && <Bookings {...{ sp, from, to, today, receipts, canVerify }} />}
+      {tab === 'bookings' && <Bookings {...{ sp, from, to, today, receipts, canVerify, canEdit }} />}
       {tab === 'events' && <EventsList {...{ from, to, canEdit }} />}
       {tab === 'settings' && canEdit && <Settings {...{ wallets, bot, isOwner }} />}
       {tab === 'bookings' && canEdit && (!anyWallet || !bot.token) && (
@@ -75,9 +75,9 @@ export default async function EventsDashboard({ searchParams }: { searchParams: 
   );
 }
 
-async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
+async function Bookings({ sp, from, to, today, receipts, canVerify, canEdit }: any) {
   const bookings = await q<any>(`
-    SELECT b.*, e.title, e.slug, e.start_time, e.options, ax.title addon_title
+    SELECT b.*, e.title, e.slug, e.start_time, e.options, e.closed_dates, ax.title addon_title
     FROM event_bookings b JOIN events e ON e.id=b.event_id LEFT JOIN events ax ON ax.id=b.addon_event_id
     WHERE b.event_date BETWEEN $1 AND $2 AND ($3::text IS NULL OR b.status=$3)
       AND NOT (b.status='awaiting_payment' AND b.hold_expires_at < now())
@@ -129,6 +129,39 @@ async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
                 <span className="text-xs font-normal text-slate-500">{rows.filter((b: any) => !['cancelled', 'expired'].includes(b.status)).reduce((t: number, b: any) => t + b.quantity, 0)} guest(s)</span>
                 {dinners(rows) > 0 && <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">{dinners(rows)} dinner{dinners(rows) === 1 ? '' : 's'} for the kitchen</span>}
               </h3>
+              {canEdit && day >= today && [...new Map(rows.map((b: any) => [b.event_id, b])).values()].map((e: any) => {
+                const mine = rows.filter((b: any) => b.event_id === e.event_id);
+                const live = mine.filter((b: any) => !['cancelled', 'expired'].includes(b.status));
+                const closed = (e.closed_dates ?? []).includes(day);
+                const back = `/dashboard/events?from=${from}&to=${to}`;
+                if (closed && !live.length) return (
+                  <form key={e.event_id} action={reopenEventDayAction} className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+                    <input type="hidden" name="eventId" value={e.event_id} /><input type="hidden" name="date" value={day} /><input type="hidden" name="back" value={back} />
+                    <b>{tr(e.title, 'en')} is cancelled on this day</b> · closed for bookings
+                    <button className={BtnGhost + ' ms-auto px-2 py-1 text-xs'}>Open it again</button>
+                  </form>
+                );
+                if (!live.length) return null;
+                const title = tr(e.title, 'en'), titleAr = tr(e.title, 'ar') || title;
+                return (
+                  <details key={e.event_id} className="mb-2 rounded-xl border border-red-200 bg-red-50/40 px-3 py-2 text-sm">
+                    <summary className="cursor-pointer font-semibold text-red-800">Cancel «{title}» on this day and message everyone ({live.length} booking{live.length === 1 ? '' : 's'} · {live.reduce((t: number, b: any) => t + b.quantity, 0)} people)</summary>
+                    <form action={cancelEventDayAction} className="mt-3 grid gap-3">
+                      <input type="hidden" name="eventId" value={e.event_id} /><input type="hidden" name="date" value={day} /><input type="hidden" name="back" value={back} />
+                      <p className="text-xs text-slate-600">Each guest gets the message in their language. <b>{'{name}'}</b> = their first name, <b>{'{event}'}</b> = the event, <b>{'{date}'}</b> = the day. Sent on WhatsApp (when the WhatsApp API is set up) and by e-mail to guests who gave one; for the rest, a green WhatsApp button with the message ready appears next to each booking.</p>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className="block"><span className="mb-1 block text-xs font-semibold text-slate-700">Message in English</span>
+                          <textarea name="msgEn" rows={5} className={InputLg} defaultValue={'Hi {name}, we are sorry: {event} on {date} is cancelled. If you paid, we will refund you in full. Reply here with any question.\nVilla Layla'} /></label>
+                        <label className="block"><span className="mb-1 block text-xs font-semibold text-slate-700">الرسالة بالعربي</span>
+                          <textarea name="msgAr" dir="rtl" rows={5} className={InputLg} defaultValue={'أهلاً {name}، بنعتذر جدًا: {event} يوم {date} اتلغى. لو كنت دفعت هنرجعلك فلوسك كاملة. لو عندك أي سؤال رد علينا هنا.\nفيلا ليلى'} /></label>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" name="keepOpen" /> Keep the day open for new bookings (normally it closes)</label>
+                      <button className="justify-self-start rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800">Cancel the event on {day} and send</button>
+                      <p className="text-[11px] text-slate-500">Titles: {title}{titleAr !== title ? ` · ${titleAr}` : ''}</p>
+                    </form>
+                  </details>
+                );
+              })}
               <ul className="grid gap-2">
                 {[...rows].sort((x: any, y: any) => Number(['cancelled', 'expired'].includes(x.status)) - Number(['cancelled', 'expired'].includes(y.status))).map((b: any) => {
                   const [label, cls] = ST[b.status] ?? [b.status, 'bg-slate-100'];
@@ -151,13 +184,16 @@ async function Bookings({ sp, from, to, today, receipts, canVerify }: any) {
                       <div className="text-end">
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>
                         <p className="mt-1 text-sm font-semibold tabular-nums">{fmt(Number(b.total_cents), b.currency)}</p>
+                        {b.cancel_message && <p className="text-[11px] font-semibold text-red-700">{b.cancel_notified ? `Told: ${String(b.cancel_notified).replace('wa', 'WhatsApp').replace('email', 'e-mail').replace('+', ' + ')}` : 'Not told yet'}</p>}
                         <p className="text-[11px] text-slate-500">{METHOD[b.pay_method] ?? b.pay_method}{b.checked_in_at ? ' · checked in' : b.attendance_confirmed_at ? ' · coming' : open && b.confirmed_at ? ' · confirmed' : ''}</p>
                       </div>
                       <div className="flex w-full flex-wrap justify-end gap-1.5 sm:w-auto">
                         {b.status === 'paid' && !b.checked_in_at && <form action={checkInEventAction}><input type="hidden" name="id" value={b.id} /><button className={Btn}>Check in</button></form>}
                         {['pay_on_site', 'awaiting_payment'].includes(b.status) && <a href="/pos" target="_blank" rel="noopener" className={Btn} title="POS → Event ticket payment">Pay on POS</a>}
                         {open && !b.confirmed_at && b.status !== 'pending_verification' && <form action={confirmEventBookingAction}><input type="hidden" name="id" value={b.id} /><button className={BtnGhost} title="Tells the guest on WhatsApp the booking is confirmed">Confirm</button></form>}
-                        {phone && <a className={BtnGhost} href={`https://wa.me/${phone}`} target="_blank" rel="noopener" title="Open WhatsApp chat" aria-label="WhatsApp"><Icon name="message-square" size={16} /></a>}
+                        {b.cancel_message && phone && !String(b.cancel_notified ?? '').includes('wa')
+                          ? <a className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700" href={`https://wa.me/${phone}?text=${encodeURIComponent(b.cancel_message)}`} target="_blank" rel="noopener" title="Opens WhatsApp with the cancellation message ready"><Icon name="message-square" size={16} /> Send cancellation</a>
+                          : phone && <a className={BtnGhost} href={`https://wa.me/${phone}`} target="_blank" rel="noopener" title="Open WhatsApp chat" aria-label="WhatsApp"><Icon name="message-square" size={16} /></a>}
                         {open && !b.checked_in_at && <form action={cancelEventBookingAction}><input type="hidden" name="id" value={b.id} /><button className={BtnGhost + ' text-red-700'} title="The guest is told on WhatsApp">Cancel</button></form>}
                       </div>
                     </li>

@@ -14,6 +14,7 @@ import { moreEventsFor } from '@/services/event-view';
 import { visitorPriceView } from '@/services/visitor-currency';
 import { communityLink } from '@/services/settings';
 import { WaGroup } from '@/components/wa-group';
+import { ogImages } from '@/lib/og';
 import './collab.css';
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const c = await getCollabBySlug(slug);
   if (!c) return {};
   const title = `${c.title.en || c.title.ar} · Villa Layla & ${c.partner_name}`;
-  return { title, description: (c.description.en || c.description.ar || '').replace(/[*_#-]/g, '').slice(0, 160), openGraph: { title, images: c.cover ? [c.cover] : c.photos[0] ? [c.photos[0]] : c.partner_logo ? [c.partner_logo] : [] } };
+  return { title, description: (c.description.en || c.description.ar || '').replace(/[*_#-]/g, '').slice(0, 160), openGraph: { title, description: (c.description.en || c.description.ar || '').replace(/[*_#-]/g, '').slice(0, 160), type: 'website', images: ogImages(c.cover || c.inner_cover || c.photos[0] || c.partner_logo, title) }, twitter: { card: 'summary_large_image' } };
 }
 
 /**
@@ -179,7 +180,12 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
           <div className="evd-side">
             <aside className="evd-book" id="join" aria-labelledby="joinH">
               <h2 id="joinH">{L('Get your ticket', 'احجز تذكرتك')}</h2>
-              {over ? (
+              {c.cancelled_at ? (
+                <div className="evd-off">
+                  <p><b>{L('This event is cancelled', 'الإيفنت ده اتلغى')}</b> · {L('Sorry! Everyone who booked has been told. Have a look at our other events.', 'بنعتذر! كل اللي حجزوا اتبلّغوا. شوف الإيفنتات التانية بتاعتنا.')}</p>
+                  <a className="btn btn-line" href={`/${lang}/events`}>{L('See other events', 'شوف فعاليات تانية')}</a>
+                </div>
+              ) : over ? (
                 <div className="evd-off">
                   <p><b>{L('This event has taken place', 'الإيفنت ده خلص')}</b> · {L('Thank you to everyone who came! Follow us for the next one.', 'شكرًا لكل اللي حضروا! تابعنا عشان تعرف الجاي.')}</p>
                   <a className="btn btn-line" href={`/${lang}/events`}>{L('See other events', 'شوف فعاليات تانية')}</a>

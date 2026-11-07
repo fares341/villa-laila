@@ -12,7 +12,19 @@ import './globals.css';
 import { headers } from 'next/headers';
 import type { Metadata, Viewport } from 'next';
 
-export const metadata: Metadata = { title: 'Villa Layla Hostel', description: 'Villa Layla Hostel — Cairo, Egypt' };
+/**
+ * metadataBase: the site's real address, so shared links get full picture addresses (https://villalaylahostel.com/…)
+ * instead of http://localhost:3000/…, which WhatsApp and others cannot open.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const h = await headers();
+  const host = (h.get('x-forwarded-host') || h.get('host') || '').split(',')[0].trim();
+  const local = !host || /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(host);
+  const base = process.env.PUBLIC_SITE_URL || (local ? process.env.PUBLIC_BASE_URL || 'https://villalaylahostel.com' : `${h.get('x-forwarded-proto')?.split(',')[0] || 'https'}://${host}`);
+  let metadataBase: URL | undefined;
+  try { metadataBase = new URL(base); } catch { metadataBase = new URL('https://villalaylahostel.com'); }
+  return { metadataBase, title: 'Villa Layla Hostel', description: 'Villa Layla Hostel — Cairo, Egypt', openGraph: { siteName: 'Villa Layla Hostel', type: 'website' } };
+}
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,

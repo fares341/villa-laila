@@ -280,3 +280,55 @@ export async function sendDueReminders(): Promise<number> {
   }
   return due.length;
 }
+
+/* ───────── Cancel an event on one day and tell everyone ───────── */
+
+export type DayCancelResult = { bookings: number; people: number; waSent: number; emailed: number; toTell: number; paid: number };
+
+/**
+ * Cancels every open booking of an event on one day and sends each guest the owner's message — on WhatsApp (when
+ * the WhatsApp API is set up) and by e-mail (when the guest gave one). {name}, {event} and {date} in the message are
+ * filled in per guest; English or Arabic by the guest's language. The day is closed for new bookings unless `keepOpen`.
+ * Guests not reached are listed in the dashboard with a WhatsApp button that opens the same message.
+ */
+export async function cancelEventDay(eventId: string, date: string, msg: { en: string; ar: string }, actor: string, keepOpen = false): Promise<DayCancelResult> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new BookingError('INVALID_INPUT', 'Pick the day');
+  if (!msg.en.trim() && !msg.ar.trim()) throw new BookingError('INVALID_INPUT', 'Write the message for the guests');
+  const ev = (await q<any>(`SELECT id, title, start_time FROM events WHERE id=$1`, [eventId]))[0];
+  if (!ev) throw new BookingError('NOT_FOUND');
+  if (!keepOpen) await q(`UPDATE events SET closed_dates = (SELECT array_agg(DISTINCT d) FROM unnest(array_append(closed_dates, $2::text)) d), updated_at=now() WHERE id=$1`, [eventId, date]);
+  const rows = await q<any>(`SELECT id FROM event_bookings WHERE event_id=$1 AND event_date=$2 AND status NOT IN ('cancelled','expired') ORDER BY created_at`, [eventId, date]);
+  const { sendMail, mailEnabled } = await import('@/lib/mailer');
+  const out: DayCancelResult = { bookings: 0, people: 0, waSent: 0, emailed: 0, toTell: 0, paid: 0 };
+  for (const { id } of rows) {
+    const b = await bookingDetail(id);
+    const ar = b.language === 'ar';
+    const base = (ar ? msg.ar : msg.en).trim() || (ar ? msg.en : msg.ar).trim();
+    const text = base
+      .replace(/\{name\}/g, String(b.full_name).split(/\s+/)[0])
+      .replace(/\{event\}/g, tr(b.title, ar ? 'ar' : 'en'))
+      .replace(/\{date\}/g, dateLabel(b.event_date, ar ? 'ar' : 'en', { weekday: 'long', day: 'numeric', month: 'long' }));
+    if (b.status === 'paid') out.paid++;
+    await cancelEventBooking(id, actor).catch(() => {});
+    await q(`UPDATE online_payments SET status='rejected', updated_at=now() WHERE event_booking_id=$1 AND status='submitted'`, [id]);
+    const wa = await sendWhatsApp(b.phone, text);
+    let mailed = false;
+    if (mailEnabled() && b.email) {
+      try { await sendMail({ to: [b.email], subject: ar ? `إلغاء: ${tr(b.title, 'ar')}` : `Cancelled: ${tr(b.title, 'en')}`, text }); mailed = true; } catch { /* counted as not told */ }
+    }
+    const told = [wa.sent ? 'wa' : '', mailed ? 'email' : ''].filter(Boolean).join('+') || null;
+    await q(`UPDATE event_bookings SET cancel_reason=$2, cancel_message=$3, cancel_notified=$4 WHERE id=$1`, [id, 'The event was cancelled', text, told]);
+    out.bookings++; out.people += Number(b.quantity) || 0;
+    if (wa.sent) out.waSent++;
+    if (mailed) out.emailed++;
+    if (!wa.sent) out.toTell++;
+  }
+  await audit(actor, 'event.cancel_day', 'event', eventId, { date, ...out, closed: !keepOpen });
+  return out;
+}
+
+/** Reopens a cancelled day for bookings (the cancelled bookings stay cancelled). */
+export async function reopenEventDay(eventId: string, date: string, actor: string) {
+  await q(`UPDATE events SET closed_dates = array_remove(closed_dates, $2::text), updated_at=now() WHERE id=$1`, [eventId, date]);
+  await audit(actor, 'event.reopen_day', 'event', eventId, { date });
+}

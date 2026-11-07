@@ -115,7 +115,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEvent | null> 
 
 /** Every column except the image bytes. */
 export const EVENT_COLS = `id, slug, title, summary, description, includes, image, price_cents, guest_price_cents, deposit_cents, dinner_cents, currency, start_time, end_time, recurrence, weekdays,
-  once_date, ends_on, capacity, options, pay_methods, note, active, sort_order, cost_per_attendee_cents, kind, guest_mode, guest_discount_pct, address, map_url, whatsapp_group, addon_event_ids, menu_kind, (image_bytes IS NOT NULL) has_upload`;
+  once_date, ends_on, capacity, options, pay_methods, note, active, sort_order, cost_per_attendee_cents, kind, guest_mode, guest_discount_pct, address, map_url, whatsapp_group, addon_event_ids, menu_kind, closed_dates, (image_bytes IS NOT NULL) has_upload`;
 
 const HELD = `(status IN ('paid','pending_verification','pay_on_site') OR (status='awaiting_payment' AND (hold_expires_at IS NULL OR hold_expires_at > now())))`;
 

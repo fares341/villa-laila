@@ -85,3 +85,26 @@ export async function collabInviteAction(f: FormData) {
   revalidatePath(back);
   go(back, r.failed ? 'err' : 'ok', `Sent ${r.sent}${r.failed ? `, failed ${r.failed}` : ''}${r.skipped ? `, skipped ${r.skipped} (asked for no invitations)` : ''}.`);
 }
+
+export async function collabCancelAction(f: FormData) {
+  const u = await requireUser('events.manage');
+  const id = S(f, 'id');
+  let r: Awaited<ReturnType<typeof import('@/services/collabs').cancelCollab>>;
+  try { const { cancelCollab } = await import('@/services/collabs'); r = await cancelCollab(id, String(f.get('message') ?? ''), u.email); }
+  catch (e) { redirect(`/dashboard/collabs/${id}?err=${encodeURIComponent((e as Error).message)}`); }
+  revalidatePath(`/dashboard/collabs/${id}`);
+  const parts = [`Event cancelled · ${r.tickets} ticket(s)`];
+  if (r.wa) parts.push(`${r.wa} told on WhatsApp`);
+  if (r.mail) parts.push(`${r.mail} by e-mail`);
+  if (r.toTell) parts.push(`${r.toTell} still to send: tap «Send cancellation» in the list`);
+  redirect(`/dashboard/collabs/${id}?ok=${encodeURIComponent(parts.join(' · '))}#list`);
+}
+
+export async function collabUncancelAction(f: FormData) {
+  const u = await requireUser('events.manage');
+  const id = S(f, 'id');
+  const { uncancelCollab } = await import('@/services/collabs');
+  await uncancelCollab(id, u.email);
+  revalidatePath(`/dashboard/collabs/${id}`);
+  redirect(`/dashboard/collabs/${id}?ok=${encodeURIComponent('The event is on again and takes tickets')}`);
+}

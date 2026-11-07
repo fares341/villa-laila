@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { AutoTranslate } from '@/components/auto-translate';
 import { CurrencySync } from '@/components/currency-sync';
 import { visitorPriceView } from '@/services/visitor-currency';
+import { ogImages } from '@/lib/og';
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
   const { lang } = await params;
@@ -12,7 +13,8 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
   return {
     title: { default: d.meta.title, template: '%s — Villa Layla' }, description: d.meta.description,
     alternates: { languages: { en: '/en', es: '/es', fr: '/fr', ar: '/ar' } },
-    openGraph: { title: d.meta.title, description: d.meta.description, locale: lang },
+    openGraph: { title: d.meta.title, description: d.meta.description, locale: lang, type: 'website', images: ogImages('/photos/hero-02-poster.jpg', d.meta.title) },
+    twitter: { card: 'summary_large_image' },
   };
 }
 

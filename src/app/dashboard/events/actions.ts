@@ -210,3 +210,27 @@ export async function saveCommunityAction(f: FormData) {
   revalidatePath('/en'); revalidatePath('/ar');
   done('WhatsApp community link saved', SET);
 }
+
+/** Cancel an event on one day: every booking is cancelled and the guests get the owner's message. */
+export async function cancelEventDayAction(f: FormData) {
+  const u = await requireUser('events.manage');
+  const back = safeBack(f.get('back'));
+  let r: import('@/services/event-admin').DayCancelResult;
+  try {
+    const { cancelEventDay } = await import('@/services/event-admin');
+    r = await cancelEventDay(S(f, 'eventId'), S(f, 'date'), { en: String(f.get('msgEn') ?? ''), ar: String(f.get('msgAr') ?? '') }, u.email, f.get('keepOpen') === 'on');
+  } catch (e) { return fail(e, back); }
+  const parts = [`Event cancelled · ${r.bookings} booking(s), ${r.people} people`];
+  if (r.waSent) parts.push(`${r.waSent} told on WhatsApp`);
+  if (r.emailed) parts.push(`${r.emailed} by e-mail`);
+  if (r.toTell) parts.push(`${r.toTell} still to send on WhatsApp: tap the green button next to each one, the message is ready`);
+  if (r.paid) parts.push(`${r.paid} had paid: refund them`);
+  done(parts.join(' · '), back);
+}
+
+export async function reopenEventDayAction(f: FormData) {
+  const u = await requireUser('events.manage');
+  const back = safeBack(f.get('back'));
+  try { const { reopenEventDay } = await import('@/services/event-admin'); await reopenEventDay(S(f, 'eventId'), S(f, 'date'), u.email); } catch (e) { return fail(e, back); }
+  done('The day is open for bookings again', back);
+}

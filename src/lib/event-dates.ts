@@ -9,6 +9,7 @@ export type Schedule = {
   ends_on?: string | null;
   start_time: string;        // HH:MM
   end_time: string;          // HH:MM
+  closed_dates?: string[] | null; // days the event was cancelled (no bookings)
 };
 
 /** 'HH:MM' wall clock in the hostel timezone right now. */
@@ -22,7 +23,8 @@ const weekday = (iso: string) => new Date(iso + 'T12:00:00Z').getUTCDay();
 export function upcomingDates(s: Schedule, count = 30, now: Date = new Date(), horizonDays = 120): string[] {
   const today = todayLocal(now);
   const time = nowHHMM(now);
-  const open = (d: string) => d > today || (d === today && time < s.end_time);
+  const closed = new Set(s.closed_dates ?? []);
+  const open = (d: string) => !closed.has(d) && (d > today || (d === today && time < s.end_time));
   if (s.recurrence === 'once') return s.once_date && open(s.once_date) ? [s.once_date] : [];
   const out: string[] = [];
   for (let i = 0; i <= horizonDays && out.length < count; i++) {
