@@ -9,7 +9,9 @@ import { paymobEnabled } from './paymob';
 import { getWallets, type Wallets } from './wallets';
 
 export type Loc = { en?: string; ar?: string; [k: string]: string | undefined };
-export type EventOption = { key: string; en: string; ar: string };
+export type EventOption = { key: string; en: string; ar: string; hidden?: boolean };
+/** Choices shown on the website booking form (hidden ones stay for the POS and old bookings). */
+export const visibleOptions = (ev: { options?: EventOption[] | null }) => (ev.options ?? []).filter((o) => !o.hidden);
 export type PayMethod = 'paymob' | 'instapay' | 'vodafone_cash' | 'cash';
 
 export type EventRow = Schedule & {
@@ -167,8 +169,9 @@ export async function createEventBooking(input: EventBookingInput) {
     if (!methodsFor(liveMethods(ev, wallets), !!input.isHotelGuest).includes(input.payMethod)) throw new BookingError('INVALID_INPUT', 'pay_method');
 
     let optionKey: string | null = null;
-    if (ev.options.length) {
-      const opt = ev.options.find((o) => o.key === input.optionKey);
+    const shown = visibleOptions(ev);
+    if (shown.length) {
+      const opt = shown.find((o) => o.key === input.optionKey);
       if (!opt) throw new BookingError('INVALID_INPUT', 'option');
       optionKey = opt.key;
     }
@@ -310,6 +313,13 @@ export async function saveEvent(v: EventInput, actor: string) {
   if (v.recurrence === 'once' && !v.onceDate) throw new BookingError('INVALID_INPUT', 'Pick the event date');
   if (v.recurrence === 'weekly' && !v.weekdays.length) throw new BookingError('INVALID_INPUT', 'Pick at least one weekday');
   if (!(v.priceCents >= 0) || !(v.costCents >= 0)) throw new BookingError('INVALID_INPUT', 'Prices must be zero or more');
+  const MAXP = 1_000_000_00; // EGP 1,000,000
+  if (v.priceCents > MAXP || v.costCents > MAXP || (v.guestPriceCents ?? 0) > MAXP) throw new BookingError('INVALID_INPUT', 'A price looks too high, check the number');
+  if (v.guestPriceCents != null && v.guestPriceCents < 0) throw new BookingError('INVALID_INPUT', 'The villa-guest price must be zero or more');
+  if (v.capacity != null && !(Number.isInteger(v.capacity) && v.capacity >= 1 && v.capacity <= 5000)) throw new BookingError('INVALID_INPUT', 'Capacity must be a whole number from 1 to 5000 (or empty = unlimited)');
+  if (v.startTime === v.endTime) throw new BookingError('INVALID_INPUT', 'Start and end time must be different');
+  if (v.recurrence === 'once' && v.onceDate && !/^\d{4}-\d{2}-\d{2}$/.test(v.onceDate)) throw new BookingError('INVALID_INPUT', 'Pick a valid date');
+  if (v.endsOn && v.recurrence !== 'once' && v.endsOn < new Date().toISOString().slice(0, 10) && v.active) throw new BookingError('INVALID_INPUT', '«Repeat until» is in the past: the event would have no dates. Change it or switch the event off');
   const loc = (en?: string, ar?: string) => JSON.stringify({ en: (en || '').trim(), ar: (ar || '').trim() || (en || '').trim() });
   const includes = JSON.stringify((v.includesEn || '').split(/\n|,/).map((x) => x.trim()).filter(Boolean).map((x) => ({ en: x, ar: x })));
   const methods = v.payMethods.filter((m) => ['paymob', 'instapay', 'vodafone_cash', 'cash'].includes(m));
@@ -402,4 +412,29 @@ export async function setEventExtras(eventId: string, v: { guestMode: string; ad
   const menu = ['dinner', 'breakfast', 'none'].includes(v.menuKind) ? v.menuKind : null;
   await q(`UPDATE events SET guest_mode=$2, addon_event_ids=$3::uuid[], menu_kind=$4, updated_at=now() WHERE id=$1`, [eventId, mode, ids, menu]);
   await audit(actor, 'event.extras', 'event', eventId, { mode, addons: ids.length, menu });
+}
+
+/**
+ * The booking-form choices of an event, from the dashboard editor (JSON). Keeps each choice's key when its English
+ * name is the same, so old bookings and the POS still match; at most 10; a choice needs a name in one language.
+ */
+export async function setEventOptions(eventId: string, json: string, actor: string) {
+  let raw: any[] = [];
+  try { raw = JSON.parse(json || '[]'); } catch { throw new BookingError('INVALID_INPUT', 'Could not read the booking choices'); }
+  if (!Array.isArray(raw)) raw = [];
+  const old = ((await q<any>(`SELECT options FROM events WHERE id=$1`, [eventId]))[0]?.options ?? []) as EventOption[];
+  const used = new Set<string>();
+  const out: EventOption[] = [];
+  for (const r of raw.slice(0, 10)) {
+    const en = String(r?.en ?? '').trim().slice(0, 80), ar = String(r?.ar ?? '').trim().slice(0, 80);
+    if (!en && !ar) continue;
+    let key = String(r?.key ?? '').trim() || old.find((o) => o.en.trim().toLowerCase() === en.toLowerCase())?.key || slugify(en || ar).slice(0, 30) || 'option';
+    let k = key, n = 2;
+    while (used.has(k)) k = `${key}-${n++}`;
+    used.add(k);
+    out.push({ key: k, en: en || ar, ar: ar || en, ...(r?.hidden ? { hidden: true } : {}) });
+  }
+  if (out.length && out.every((o) => o.hidden)) throw new BookingError('INVALID_INPUT', 'Show at least one booking choice, or remove them all');
+  await q(`UPDATE events SET options=$2::jsonb, updated_at=now() WHERE id=$1`, [eventId, JSON.stringify(out)]);
+  await audit(actor, 'event.options', 'event', eventId, { options: out.map((o) => `${o.key}${o.hidden ? ' (hidden)' : ''}`) });
 }

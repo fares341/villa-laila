@@ -283,7 +283,7 @@ export async function sendDueReminders(): Promise<number> {
 
 /* ───────── Cancel an event on one day and tell everyone ───────── */
 
-export type DayCancelResult = { bookings: number; people: number; waSent: number; emailed: number; toTell: number; paid: number };
+export type DayCancelResult = { bookings: number; people: number; waSent: number; emailed: number; toTell: number; paid: number; addonBookings: number };
 
 /**
  * Cancels every open booking of an event on one day and sends each guest the owner's message — on WhatsApp (when
@@ -299,7 +299,7 @@ export async function cancelEventDay(eventId: string, date: string, msg: { en: s
   if (!keepOpen) await q(`UPDATE events SET closed_dates = (SELECT array_agg(DISTINCT d) FROM unnest(array_append(closed_dates, $2::text)) d), updated_at=now() WHERE id=$1`, [eventId, date]);
   const rows = await q<any>(`SELECT id FROM event_bookings WHERE event_id=$1 AND event_date=$2 AND status NOT IN ('cancelled','expired') ORDER BY created_at`, [eventId, date]);
   const { sendMail, mailEnabled } = await import('@/lib/mailer');
-  const out: DayCancelResult = { bookings: 0, people: 0, waSent: 0, emailed: 0, toTell: 0, paid: 0 };
+  const out: DayCancelResult = { bookings: 0, people: 0, waSent: 0, emailed: 0, toTell: 0, paid: 0, addonBookings: 0 };
   for (const { id } of rows) {
     const b = await bookingDetail(id);
     const ar = b.language === 'ar';
@@ -322,6 +322,23 @@ export async function cancelEventDay(eventId: string, date: string, msg: { en: s
     if (wa.sent) out.waSent++;
     if (mailed) out.emailed++;
     if (!wa.sent) out.toTell++;
+  }
+  // Bookings of another event that added this one the same day (e.g. Pool Day + Karaoke): their own event still
+  // happens, so they are not cancelled; they get the message about this event and staff adjust the total on the POS.
+  const addons = await q<any>(`SELECT id FROM event_bookings WHERE addon_event_id=$1 AND event_date=$2 AND status NOT IN ('cancelled','expired')`, [eventId, date]);
+  for (const { id } of addons) {
+    const b = await bookingDetail(id);
+    const ar = b.language === 'ar';
+    const text = ((ar ? msg.ar : msg.en).trim() || (ar ? msg.en : msg.ar).trim())
+      .replace(/\{name\}/g, String(b.full_name).split(/\s+/)[0])
+      .replace(/\{event\}/g, tr(ev.title, ar ? 'ar' : 'en'))
+      .replace(/\{date\}/g, dateLabel(date, ar ? 'ar' : 'en', { weekday: 'long', day: 'numeric', month: 'long' }));
+    const wa = await sendWhatsApp(b.phone, text);
+    let mailed = false;
+    if (mailEnabled() && b.email) { try { await sendMail({ to: [b.email], subject: ar ? `إلغاء: ${tr(ev.title, 'ar')}` : `Cancelled: ${tr(ev.title, 'en')}`, text }); mailed = true; } catch { /* not told */ } }
+    await q(`UPDATE event_bookings SET cancel_message=$2, cancel_notified=$3, staff_note=concat_ws(E'\n', NULLIF(staff_note,''), $4::text) WHERE id=$1`,
+      [id, text, [wa.sent ? 'wa' : '', mailed ? 'email' : ''].filter(Boolean).join('+') || null, `Add-on «${tr(ev.title, 'en')}» cancelled on ${date}: take it off the total`]);
+    out.addonBookings++;
   }
   await audit(actor, 'event.cancel_day', 'event', eventId, { date, ...out, closed: !keepOpen });
   return out;

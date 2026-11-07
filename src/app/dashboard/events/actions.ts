@@ -225,6 +225,7 @@ export async function cancelEventDayAction(f: FormData) {
   if (r.emailed) parts.push(`${r.emailed} by e-mail`);
   if (r.toTell) parts.push(`${r.toTell} still to send on WhatsApp: tap the green button next to each one, the message is ready`);
   if (r.paid) parts.push(`${r.paid} had paid: refund them`);
+  if (r.addonBookings) parts.push(`${r.addonBookings} booking(s) of another event had it as an add-on: they got the message, take it off their total on the POS`);
   done(parts.join(' · '), back);
 }
 

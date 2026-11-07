@@ -264,7 +264,8 @@ export async function eventSave(fd: FormData) {
     const { setEventDeposit, setEventDinner } = await import('@/services/events');
     await setEventDeposit(savedId, cents(fd.get('deposit')) ?? null, u.email);
     await setEventDinner(savedId, fd.get('dinnerOn') === 'on' ? (cents(fd.get('dinner')) ?? null) : null, u.email);
-    const { setEventExtras } = await import('@/services/events');
+    const { setEventExtras, setEventOptions } = await import('@/services/events');
+    if (fd.has('optionsJson')) await setEventOptions(savedId, str(fd.get('optionsJson')), u.email);
     await setEventExtras(savedId, {
       guestMode: str(fd.get('guestMode')), addonEventIds: fd.getAll('addonEvents').map(String), menuKind: str(fd.get('menuKind')),
       guestPct: str(fd.get('guestPct')), addressAr: str(fd.get('addressAr')), addressEn: str(fd.get('addressEn')), mapUrl: str(fd.get('mapUrl')), waGroup: str(fd.get('waGroup')),

@@ -22,6 +22,7 @@ import { EventAbout } from './event-about';
 import { communityLink } from '@/services/settings';
 import { WaGroup } from '@/components/wa-group';
 import { ogImages } from '@/lib/og';
+import { visibleOptions } from '@/services/events';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,7 +86,15 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const isBreakfastEvent = /breakfast|فطار|فطور/i.test(`${ev.slug} ${tr(ev.title, 'en')} ${tr(ev.title, 'ar')}`);
   const menuKind = ev.menu_kind ?? (ev.dinner_cents || meals.length || isDinnerEvent ? 'dinner' : isBreakfastEvent ? 'breakfast' : 'none');
   // Breakfast: the same two meals every day, shown side by side (no week view).
-  const breakfasts = (menuKind === 'breakfast' || isBreakfastEvent) ? await breakfastPair() : [];
+  // A breakfast hidden in the booking choices is not shown on the page either. With as many choices as breakfasts,
+  // the 1st choice is «Breakfast 1» of the weekly menu and the 2nd is «Breakfast 2»; otherwise matched by name.
+  const allOpts = ev.options ?? [];
+  const pairAll = (menuKind === 'breakfast' || isBreakfastEvent) ? await breakfastPair() : [];
+  const word = (s: string) => (s.toLowerCase().match(/[\p{L}]{4,}/gu) ?? []).filter((w) => !/^(breakfast|فطور|فطار|meal|وجبة)$/.test(w));
+  const hiddenNames = allOpts.filter((o) => o.hidden).map((o) => `${o.en} ${o.ar}`.toLowerCase());
+  const breakfasts = pairAll.filter((m: any, i: number) => allOpts.length === pairAll.length
+    ? !allOpts[i]?.hidden
+    : !hiddenNames.some((h) => word(`${m.title?.en ?? ''} ${m.title?.ar ?? ''}`).some((w) => h.includes(w))));
   // For dinner (either event itself or dinner add-on): always load weeklyMenu('dinner')
   const dinnerMenu = (ev.dinner_cents || menuKind === 'dinner' || isDinnerEvent) ? await weeklyMenu('dinner') : {};
   const menu = menuKind === 'dinner' || isDinnerEvent ? dinnerMenu : (menuKind === 'none' || menuKind === 'breakfast' ? {} : await weeklyMenu(menuKind));
@@ -189,7 +198,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 slug={ev.slug}
                 dates={dates}
                 initialDate={initialDate}
-                options={ev.options.map((o) => ({ key: o.key, label: isAr ? o.ar : o.en }))}
+                options={visibleOptions(ev).map((o) => ({ key: o.key, label: isAr ? o.ar : o.en }))}
                 priceCents={ev.price_cents}
                 guestPriceCents={guestUnitCents(ev) ?? ev.guest_price_cents}
                 guestPct={ev.guest_discount_pct ?? null}

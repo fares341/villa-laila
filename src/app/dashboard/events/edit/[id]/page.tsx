@@ -11,6 +11,7 @@ import { RichTextarea } from '@/components/rich-textarea';
 
 import { MapPicker } from './map-picker';
 import { ImageInput } from '@/components/image-input';
+import { OptionsEditor } from './options-editor';
 
 export const dynamic = 'force-dynamic';
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -122,6 +123,10 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
             <input id="e-wg" name="waGroup" dir="ltr" defaultValue={e.whatsapp_group ?? ''} placeholder="https://chat.whatsapp.com/…" className={Input} />
             <p className="mt-1 text-xs text-slate-500">Shown on the event page as «Join the event’s WhatsApp group». Empty = the page shows the Villa Layla community instead. In WhatsApp: group → Invite via link → Copy link.</p>
           </Card>
+          <Card title="Choices on the booking form (meals / ticket types)">
+            <OptionsEditor initial={(e.options ?? []) as any} />
+            <p className="mt-2 text-xs text-slate-500">The guest must pick one of the shown choices; it appears on the ticket, the booking list and the POS. Breakfast events: the 1st choice is «Breakfast 1» of the weekly menu and the 2nd is «Breakfast 2»; hiding one here also hides its photo card on the event page.</p>
+          </Card>
           <Card title="Meal shown on the page">
             <select name="menuKind" defaultValue={e.menu_kind ?? ''} className={Input}>
               <option value="">Automatic (dinner menu when there is a dinner add-on or meal photos)</option>
@@ -139,6 +144,7 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
               <div className="pt-2"><Lbl htmlFor="e-dep">Deposit per ticket for InstaPay (EGP)</Lbl>
                 <input id="e-dep" name="deposit" type="number" min={1} step="0.01" placeholder="Empty = pay the full price online" defaultValue={v(e.deposit_cents)} className={Input} />
                 <p className="mt-1 text-xs text-slate-500">The guest sends only the deposit online; the rest is taken at the villa on the POS (Events → Booked online).</p></div>
+              {process.env.EVENT_PAYMOB !== '1' && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">Paymob is switched off on the server for now (EVENT_PAYMOB), so guests don’t see it even when ticked; they pay by InstaPay or at the villa.</p>}
               <p className="text-xs text-slate-500">Accounts are set in <Link className="underline" href="/dashboard/events?tab=settings">Events → Payment accounts</Link>.</p>
             </div>
           </Card>
