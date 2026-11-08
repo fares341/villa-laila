@@ -22,7 +22,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: '/',
+        // Link previews (WhatsApp, Facebook, X…) must be able to fetch the page pictures: /og/ and /api/media/.
+        allow: ['/', '/og/', '/api/og', '/api/media/'],
         disallow: ['/dashboard', '/pos', '/api', '/print'],
       },
       ...AI_BOTS.map((bot) => ({

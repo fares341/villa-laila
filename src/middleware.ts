@@ -57,4 +57,4 @@ export function middleware(req: NextRequest) {
   }
   return NextResponse.next();
 }
-export const config = { matcher: ['/((?!_next|api|photos|favicon.ico|robots.txt|sitemap.xml).*)'] };
+export const config = { matcher: ['/((?!_next|api|og/|photos|favicon.ico|robots.txt|sitemap.xml).*)'] };

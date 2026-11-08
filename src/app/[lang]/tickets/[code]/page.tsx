@@ -11,7 +11,7 @@ import { liveMethods } from '@/services/events';
 import { methodsFor } from '@/lib/event-pay';
 import { timeLabel, dateLabel } from '@/lib/event-dates';
 import { qrSvg } from '@/lib/qr';
-import { ogImages } from '@/lib/og';
+import { ogImages, eventShareImage } from '@/lib/og';
 import { siteBase } from '@/lib/base-url';
 import { currentUser } from '@/lib/auth';
 import { can } from '@/lib/permissions';
@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
     title: `${L === 'ar' ? 'تذكرة' : 'Ticket'} · ${title}`,
     description: `${title} — ${when} · Villa Layla Hostel`,
     robots: { index: false },
-    openGraph: { title: `${title} · Villa Layla`, description: when, type: 'website', images: ogImages(t.event.image, title) },
+    openGraph: { title: `${title} · Villa Layla`, description: when, type: 'website', images: ogImages(await eventShareImage(t.event), title) },
     twitter: { card: 'summary_large_image' },
   };
 }
