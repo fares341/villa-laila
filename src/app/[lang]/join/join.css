@@ -2,7 +2,7 @@
 .jn-hero { min-height: clamp(300px, 40vw, 460px); }
 .jn-about { margin-top: 0; padding-top: 0; border-top: 0; }
 .jn-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 26px; }
-@media (max-width: 640px) { .jn-cards { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .jn-cards { grid-template-columns: minmax(0, 1fr); } }
 .jn-card { display: grid; gap: 8px; padding: 18px; border: 1.5px solid var(--color-border); border-radius: var(--r); background: #fff; color: var(--color-text-secondary); text-decoration: none; transition: border-color .2s, transform .2s, box-shadow .2s; }
 .jn-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
 .jn-card.on { border-color: var(--color-gold); box-shadow: 0 0 0 3px rgba(210,154,69,.18); }

@@ -27,11 +27,11 @@
 .pol-steps li { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--r-sm); background: var(--color-section-light, #FBF6EE); color: var(--color-primary-dark); font-weight: 700; font-size: 14.5px; line-height: 1.4; }
 .pol-steps b { flex: 0 0 auto; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--color-primary-dark, #4A3222); color: #fff; font-size: 14px; }
 @media (max-width: 900px) { .pol-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 480px) { .pol-steps { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .pol-steps { grid-template-columns: minmax(0, 1fr); } }
 .pol-cta { margin-top: 18px; }
 
 .pol-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-@media (max-width: 720px) { .pol-cards { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .pol-cards { grid-template-columns: minmax(0, 1fr); } }
 .pol-card { padding: 18px; border: 1px solid var(--color-border); border-radius: var(--r); background: #fff; }
 .pol-card h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 18px; color: var(--color-primary-dark); }
 .pol-card .pol-ic { width: 36px; height: 36px; border-radius: 10px; }
