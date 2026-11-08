@@ -3,9 +3,47 @@
  * the bot whenever Dashboard → Settings has no text of its own for that language.
  * Format: "## Heading", "- point", other lines are paragraphs. French/Spanish pages are translated from English.
  */
-export type PolicyKey = 'booking_howto' | 'payment_instructions' | 'cancellation_policy' | 'house_rules';
+export type PolicyKey = 'booking_howto' | 'payment_instructions' | 'cancellation_policy' | 'house_rules' | 'privacy_policy';
 
 export const POLICY_TEXT: Record<PolicyKey, { en: string; ar: string }> = {
+  privacy_policy: {
+    en: `At Villa Layla Hostel, we respect your privacy and handle your personal information responsibly.
+## Information we collect
+When you make a reservation or use our services, we may collect information such as your name, contact details, booking information, payment details, and identification documents required by local regulations.
+## How we use your information
+We use your information to manage reservations, process payments, communicate with you about your stay, provide requested services, and comply with applicable legal requirements.
+## Payments & third parties
+Online payments may be processed through third-party payment providers. We may share necessary information with service providers involved in managing reservations and delivering our services, or with authorities when legally required.
+## Data protection & retention
+We take reasonable measures to protect your personal information. We retain it for the periods necessary for our services and applicable legal requirements.
+## Your rights
+You may contact us to request access to, correction of, or deletion of your personal information, subject to applicable legal requirements.
+## Cookies
+Our website may use cookies to support its functionality. Additional information about cookies will be provided where required.
+## Contact us
+For any questions or requests regarding your personal information, please contact us at:
+- Villa Layla Hostel, Cairo, Egypt
+- Email: hostel.layla@gmail.com
+Last updated: 5 November 2026`,
+    ar: `في فيلا ليلى هوستل بنحترم خصوصيتك وبنتعامل مع بياناتك الشخصية بمسؤولية.
+## البيانات اللي بنجمعها
+لما تحجز أو تستخدم خدماتنا، ممكن نجمع بيانات زي اسمك، وطرق التواصل معاك، وتفاصيل الحجز، وبيانات الدفع، ووثائق إثبات الشخصية المطلوبة بالقانون المحلي.
+## بنستخدم بياناتك في إيه
+بنستخدمها عشان ندير الحجوزات، ونستلم المدفوعات، ونتواصل معاك بخصوص إقامتك، ونقدم الخدمات اللي بتطلبها، ونلتزم بالقوانين المطبّقة.
+## الدفع والجهات التانية
+الدفع أونلاين ممكن يتم عن طريق شركات دفع خارجية. وممكن نشارك البيانات اللازمة بس مع مقدمي الخدمات اللي بيساعدونا في إدارة الحجوزات وتقديم خدماتنا، أو مع الجهات الرسمية لما القانون يطلب ده.
+## حماية البيانات ومدة الاحتفاظ بيها
+بناخد إجراءات مناسبة لحماية بياناتك الشخصية، وبنحتفظ بيها المدة اللازمة لخدماتنا وللمتطلبات القانونية.
+## حقوقك
+تقدر تكلّمنا تطلب تشوف بياناتك أو تصححها أو تمسحها، في حدود المتطلبات القانونية.
+## الكوكيز
+موقعنا ممكن يستخدم كوكيز عشان يشتغل كويس. وهنوضح معلومات أكتر عن الكوكيز لما يكون ده مطلوب.
+## تواصل معانا
+لأي سؤال أو طلب بخصوص بياناتك الشخصية، كلّمنا على:
+- فيلا ليلى هوستل، القاهرة، مصر
+- الإيميل: hostel.layla@gmail.com
+آخر تحديث: 5 نوفمبر 2026`,
+  },
   booking_howto: {
     en: `Booking your stay at Villa Layla is simple!
 Choose your room, select your dates, and complete your reservation directly through our website.

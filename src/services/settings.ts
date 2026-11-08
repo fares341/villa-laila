@@ -17,6 +17,7 @@ export const DEFAULTS: Record<string, unknown> = {
   cancellation_policy: { en: null, es: null, fr: null, ar: null },
   house_rules: { en: null, es: null, fr: null, ar: null },
   booking_howto: { en: null, es: null, fr: null, ar: null },
+  privacy_policy: { en: null, es: null, fr: null, ar: null },
   // The villa's WhatsApp community (shown next to «Events» on the website).
   whatsapp_community: 'https://chat.whatsapp.com/J6jCghuH4DJ5Lzyqeu3jdU',
   staff_notify_telegram: true,

@@ -14,7 +14,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
   const h: any = await hostelInfo();
   const vids = (await getSetting<string[] | undefined>('guest_videos')) ?? [];
   const cur = await getSetting<string>('currency');
-  const howto = await getSetting<any>('booking_howto'), pay = await getSetting<any>('payment_instructions'), canc = await getSetting<any>('cancellation_policy'), rules = await getSetting<any>('house_rules');
+  const howto = await getSetting<any>('booking_howto'), privacy = await getSetting<any>('privacy_policy'), pay = await getSetting<any>('payment_instructions'), canc = await getSetting<any>('cancellation_policy'), rules = await getSetting<any>('house_rules');
   const faq = await getSetting<any>('faq');
   const users = await q<any>('SELECT * FROM users ORDER BY created_at');
   const pol = await q<any>('SELECT * FROM policy_rules ORDER BY created_at DESC NULLS LAST, name').catch(() => q<any>('SELECT * FROM policy_rules ORDER BY name'));
@@ -44,10 +44,10 @@ export default async function Settings({ searchParams }: { searchParams: Promise
             <div><Lbl htmlFor="dp">Verified deposit needed before confirming ({cur}, 0 = none)</Lbl><input id="dp" name="deposit" defaultValue={(await num('confirm_requires_deposit_cents')) / 100} className={Input} /></div>
             <div className="sm:col-span-4"><button className={Btn}>Save booking rules</button></div></form>
         </Card>
-        <Card title="Policies: how booking works, payment, cancellation, house rules">
+        <Card title="Policies: how booking works, payment, cancellation, house rules, privacy">
           <p className="mb-3 text-sm text-slate-600">Shown on the website (Policies page and the booking page) and used by the bot word-for-word. «## Title» makes a heading, «- » a point. French and Spanish can stay empty: those pages are translated from English.</p>
-          <form action={saveTextsAction} className="space-y-5">{[['booking_howto', 'How booking works', howto], ['payment_instructions', 'Payment policy', pay], ['cancellation_policy', 'Cancellation policy', canc], ['house_rules', 'House rules', rules]].map(([k, l, v]: any) => (
-            <fieldset key={k}><legend className="mb-2 font-semibold">{l}</legend><div className="grid gap-3 sm:grid-cols-2">{LANGS.map(([c, n]) => <div key={c}><Lbl htmlFor={`${k}_${c}`}>{n}</Lbl><textarea id={`${k}_${c}`} rows={k === 'house_rules' ? 14 : 7} name={`${k}_${c}`} defaultValue={v?.[c] || (POLICY_TEXT as any)[k]?.[c] || ''} dir={c === 'ar' ? 'rtl' : 'ltr'} className={Input} /></div>)}</div></fieldset>))}
+          <form action={saveTextsAction} className="space-y-5">{[['booking_howto', 'How booking works', howto], ['payment_instructions', 'Payment policy', pay], ['cancellation_policy', 'Cancellation policy', canc], ['house_rules', 'House rules', rules], ['privacy_policy', 'Privacy policy', privacy]].map(([k, l, v]: any) => (
+            <fieldset key={k}><legend className="mb-2 font-semibold">{l}</legend><div className="grid gap-3 sm:grid-cols-2">{LANGS.map(([c, n]) => <div key={c}><Lbl htmlFor={`${k}_${c}`}>{n}</Lbl><textarea id={`${k}_${c}`} rows={k === 'house_rules' || k === 'privacy_policy' ? 14 : 7} name={`${k}_${c}`} defaultValue={v?.[c] || (POLICY_TEXT as any)[k]?.[c] || ''} dir={c === 'ar' ? 'rtl' : 'ltr'} className={Input} /></div>)}</div></fieldset>))}
             <button className={Btn}>Save texts</button></form>
         </Card>
         <Card title="Telegram & AI connection (set in the server .env file, not here)">

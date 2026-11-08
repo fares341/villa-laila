@@ -4,6 +4,7 @@ import React from 'react';
 import { isSiteLang } from '@/i18n/site';
 import { policyText } from '@/services/settings';
 import { ClaudeHeader, ClaudeFooter, ClaudeFabs } from '@/components/claude-shell';
+import { groups, Body } from './policy-text';
 import './policies.css';
 
 export const dynamic = 'force-dynamic';
@@ -14,30 +15,6 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
     ? { title: 'السياسات وقواعد البيت', description: 'إزاي الحجز بيتم، الدفع، الإلغاء وقواعد البيت في فيلا ليلى هوستل.' }
     : { title: 'Policies & house rules', description: 'How booking works, payment, cancellation and house rules at Villa Layla Hostel, Cairo.' };
 }
-
-type Group = { title: string | null; lines: string[] };
-/** "## Title" starts a group; "- " lines are points; other lines are paragraphs. */
-const groups = (text: string): Group[] => {
-  const out: Group[] = [{ title: null, lines: [] }];
-  for (const raw of text.split(/\r?\n/)) {
-    const l = raw.trim();
-    if (!l) continue;
-    if (l.startsWith('## ')) out.push({ title: l.slice(3).trim(), lines: [] });
-    else out[out.length - 1].lines.push(l);
-  }
-  return out.filter((g) => g.title || g.lines.length);
-};
-const Body = ({ lines }: { lines: string[] }) => {
-  const out: React.ReactNode[] = [];
-  let pts: string[] = [];
-  const flush = () => { if (pts.length) out.push(<ul key={out.length}>{pts.map((x, i) => <li key={i}>{x}</li>)}</ul>); pts = []; };
-  for (const l of lines) {
-    if (/^[-•*]\s+/.test(l)) pts.push(l.replace(/^[-•*]\s+/, ''));
-    else { flush(); out.push(<p key={out.length}>{l}</p>); }
-  }
-  flush();
-  return <>{out}</>;
-};
 
 const IC: Record<string, string> = {
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
