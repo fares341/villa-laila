@@ -18,11 +18,11 @@ export type Collab = {
   id: string; slug: string; active: boolean; partner_name: string; partner_logo: string | null; partner_link: string | null;
   title: Loc; description: Loc; event_date: string | null; start_time: string | null; end_time: string | null; place: Loc; price_note: Loc;
   capacity: number | null; accent: string; photos: string[]; meals: CollabMeal[]; ask_email: boolean; notify_emails: string[]; questions: CollabQuestion[]; price_mode: PriceMode; price_cents: number | null;
-  cancelled_at: string | null; cancel_message: string | null; cover: string | null; inner_cover: string | null; map_url: string | null; whatsapp_group: string | null; signup_mode: 'here' | 'link'; signup_url: string | null; created_at: string; updated_at: string;
+  cancelled_at: string | null; cancel_message: string | null; cover: string | null; cover_video: string | null; inner_cover: string | null; map_url: string | null; whatsapp_group: string | null; signup_mode: 'here' | 'link'; signup_url: string | null; created_at: string; updated_at: string;
 };
 
 const COLS = `id, slug, active, partner_name, partner_logo, partner_link, title, description, event_date::text event_date, start_time, end_time, place, price_note,
-  capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cancelled_at, cancel_message, cover, inner_cover, map_url, whatsapp_group, signup_mode, signup_url, created_at, updated_at`;
+  capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cancelled_at, cancel_message, cover, cover_video, inner_cover, map_url, whatsapp_group, signup_mode, signup_url, created_at, updated_at`;
 const clean = (s: unknown, max: number) => String(s ?? '').trim().slice(0, max);
 const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'collab';
 const MAX_IMG = 12 * 1024 * 1024;
@@ -73,7 +73,7 @@ export type CollabInput = {
   capacity?: number | null; accent?: string; askEmail?: boolean; notifyEmails?: string;
   questions?: { labelAr: string; labelEn: string; type: string; optionsAr: string; optionsEn: string; required: boolean; id?: string }[];
   priceMode?: string; price?: string; signupMode?: string; signupUrl?: string; waGroup?: string; mapUrl?: string;
-  logo?: Upload | null; cover?: Upload | null; removeCover?: boolean; innerCover?: Upload | null; removeInnerCover?: boolean; newPhotos?: Upload[]; keepPhotos?: string[];
+  logo?: Upload | null; cover?: Upload | null; removeCover?: boolean; innerCover?: Upload | null; removeInnerCover?: boolean; coverVideo?: string; removeCoverVideo?: boolean; newPhotos?: Upload[]; keepPhotos?: string[];
   meals?: { titleAr: string; titleEn: string; pointsAr: string; pointsEn: string; img: string | null; photo?: Upload | null; remove?: boolean; pick?: string }[];
 };
 
@@ -157,6 +157,10 @@ export async function saveCollab(v: CollabInput, actor: string): Promise<string>
   const cover = v.cover ? await savePhoto(v.cover) : v.removeCover ? null : old?.cover ?? null;
   const inner = v.innerCover ? await savePhoto(v.innerCover) : v.removeInnerCover ? null : old?.inner_cover ?? null;
   await q(`UPDATE collabs SET inner_cover=$2 WHERE id=$1`, [id, inner]);
+  // Video cover: uploaded in pieces from the Covers card (only our own uploaded videos are accepted).
+  const vid = String(v.coverVideo ?? '').trim();
+  if (vid && !/^\/api\/media\/site\/[0-9a-f-]{36}\.[a-z0-9]{2,5}$/i.test(vid)) throw new BookingError('INVALID_INPUT', 'Upload the video again from the Covers card');
+  await q(`UPDATE collabs SET cover_video=$2 WHERE id=$1`, [id, v.removeCoverVideo ? null : vid || old?.cover_video || null]);
   await q(`UPDATE collabs SET notify_emails=$2, questions=$3, price_mode=$4, price_cents=$5, cover=$6, signup_mode=$7, signup_url=$8 WHERE id=$1`,
     [id, parseEmails(v.notifyEmails), JSON.stringify(questions.slice(0, 8)), mode, pc > 0 ? Math.min(pc, 10_000_000) : null, cover, signupMode, signupUrl]);
   await audit(actor, old ? 'collab.update' : 'collab.create', 'collab', id!, { partner });
@@ -282,9 +286,9 @@ export async function cloneCollab(id: string, date: string | null, actor: string
   let slug = base;
   if ((await q('SELECT 1 FROM collabs WHERE slug=$1', [slug])).length) slug = `${base}-${Date.now().toString(36).slice(-4)}`;
   const nid = (await q<any>(`INSERT INTO collabs(slug, active, partner_name, partner_logo, partner_link, title, description, event_date, start_time, end_time, place, price_note,
-      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, inner_cover, map_url, whatsapp_group, signup_mode, signup_url)
+      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, cover_video, inner_cover, map_url, whatsapp_group, signup_mode, signup_url)
     SELECT $2, false, partner_name, partner_logo, partner_link, title, description, $3::date, start_time, end_time, place, price_note,
-      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, inner_cover, map_url, whatsapp_group, signup_mode, signup_url FROM collabs WHERE id=$1 RETURNING id`, [id, slug, d]))[0].id;
+      capacity, accent, photos, meals, ask_email, notify_emails, questions, price_mode, price_cents, cover, cover_video, inner_cover, map_url, whatsapp_group, signup_mode, signup_url FROM collabs WHERE id=$1 RETURNING id`, [id, slug, d]))[0].id;
   await audit(actor, 'collab.clone', 'collab', nid, { from: id, date: d });
   return nid;
 }

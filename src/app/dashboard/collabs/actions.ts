@@ -36,7 +36,7 @@ export async function collabSaveAction(f: FormData) {
       date: S(f, 'date'), startTime: S(f, 'startTime'), endTime: S(f, 'endTime'), placeAr: S(f, 'placeAr'), placeEn: S(f, 'placeEn'),
       priceAr: S(f, 'priceAr'), priceEn: S(f, 'priceEn'), capacity: S(f, 'capacity') ? Number(S(f, 'capacity')) : null,
       accent: S(f, 'accent'), askEmail: f.get('askEmail') === 'on', notifyEmails: S(f, 'notifyEmails'),
-      logo: await fileOf(f.get('logo')), cover: await fileOf(f.get('cover')), removeCover: f.get('removeCover') === 'on', innerCover: await fileOf(f.get('innerCover')), removeInnerCover: f.get('removeInnerCover') === 'on', newPhotos: photos, keepPhotos: f.getAll('keepPhoto').map(String), meals,
+      logo: await fileOf(f.get('logo')), cover: await fileOf(f.get('cover')), removeCover: f.get('removeCover') === 'on', innerCover: await fileOf(f.get('innerCover')), removeInnerCover: f.get('removeInnerCover') === 'on', coverVideo: S(f, 'coverVideo'), removeCoverVideo: f.get('removeCoverVideo') === 'on', newPhotos: photos, keepPhotos: f.getAll('keepPhoto').map(String), meals,
       priceMode: S(f, 'priceMode'), price: S(f, 'price'), signupMode: S(f, 'signupMode'), signupUrl: S(f, 'signupUrl'), waGroup: S(f, 'waGroup'), mapUrl: S(f, 'mapUrl'),
       questions: Array.from({ length: 8 }, (_, i) => i).filter((i) => f.get(`q${i}_present`) != null && f.get(`q${i}_remove`) !== 'on').map((i) => ({
         id: S(f, `q${i}_id`), labelAr: S(f, `q${i}_labelAr`), labelEn: S(f, `q${i}_labelEn`), type: S(f, `q${i}_type`),

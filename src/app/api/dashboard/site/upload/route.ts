@@ -18,7 +18,8 @@ const err = (m: string, status = 400) => NextResponse.json({ error: m }, { statu
  */
 export async function POST(req: Request) {
   const u = await currentUser();
-  if (!u || !can(u.role, 'site.manage')) return err('Sign in again', 401);
+  // Website management, and the events team for collab-event video covers.
+  if (!u || !(can(u.role, 'site.manage') || can(u.role, 'events.manage'))) return err('Sign in again', 401);
   const h = (k: string) => req.headers.get(k) ?? '';
   const uploadId = h('x-upload-id');
   const index = parseInt(h('x-chunk-index'), 10), count = parseInt(h('x-chunk-count'), 10), total = parseInt(h('x-file-size'), 10);

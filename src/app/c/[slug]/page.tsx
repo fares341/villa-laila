@@ -91,7 +91,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
       <ClaudeHeader lang={lang} />
       <main id="main" className="flex-1">
         <section className="evd-hero cbx-hero">
-          <HeroMedia video={null} photos={c.inner_cover || c.cover ? [(c.inner_cover || c.cover)!] : c.photos} cover={c.partner_logo} />
+          <HeroMedia video={c.cover_video || null} photos={c.inner_cover || c.cover ? [(c.inner_cover || c.cover)!] : c.photos} cover={c.partner_logo} />
           <div className="wrap evd-hero-in">
             <a href={`/${lang}/events`} className="evd-back">{ar ? '→ كل الفعاليات' : '← All events'}</a>
             {/* Each logo with its name under it; both open that side's Instagram */}

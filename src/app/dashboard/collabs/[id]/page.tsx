@@ -12,6 +12,7 @@ import { siteBase } from '@/lib/base-url';
 import { weeklyMenu, WEEKDAYS, BREAKFAST_SLOTS } from '@/services/weekly-menu';
 import { MealSlot, type MenuChoice } from './meal-slot';
 import { QuestionsEditor } from './questions-editor';
+import { VideoCover } from './video-cover';
 import { MapPicker } from '../../events/edit/[id]/map-picker';
 import { ImageInput, UploadGuard } from '@/components/image-input';
 import { collabSaveAction, collabDeleteAction, collabRsvpAction, collabCloneAction, collabCancelAction, collabUncancelAction } from '../actions';
@@ -102,6 +103,7 @@ export default async function EditCollab({ params, searchParams }: { params: Pro
                     {img && <label className="flex items-center gap-2 text-sm text-red-700"><input type="checkbox" name={rm} /> Remove</label>}
                   </div>
                 ))}
+                <div className="md:col-span-2"><VideoCover current={c.cover_video ?? null} /></div>
               </div>
             </Card>
             <Card title="Photos">

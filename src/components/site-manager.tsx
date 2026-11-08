@@ -18,7 +18,7 @@ type Loc = { ar?: string; en?: string };
 const isVideo = (u: string) => /\.(mp4|mov|webm|m4v)(\?|$)/i.test(u);
 
 /** Send one file in 8 MB pieces (resumes after a dropped connection); returns its address on the website. */
-async function upload(file: File, want: 'photo' | 'video', onProgress: (sent: number) => void): Promise<string> {
+export async function upload(file: File, want: 'photo' | 'video', onProgress: (sent: number) => void): Promise<string> {
   const uploadId = crypto.randomUUID();
   const count = Math.max(1, Math.ceil(file.size / CHUNK));
   let offset = 0, index = 0;
