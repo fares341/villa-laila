@@ -11,6 +11,7 @@ import { liveMethods } from '@/services/events';
 import { methodsFor } from '@/lib/event-pay';
 import { timeLabel, dateLabel } from '@/lib/event-dates';
 import { qrSvg } from '@/lib/qr';
+import { ogImages } from '@/lib/og';
 import { siteBase } from '@/lib/base-url';
 import { currentUser } from '@/lib/auth';
 import { can } from '@/lib/permissions';
@@ -20,7 +21,25 @@ import { CopyButton } from '@/components/copy-button';
 import { bookingWhatsAppLink } from '@/services/event-admin';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Your ticket', robots: { index: false } };
+/**
+ * The ticket link is what guests send to reception on WhatsApp: its preview shows the event's own cover, title and
+ * day (never the guest's name or details), instead of the website's general photo.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ lang: string; code: string }> }) {
+  const { lang, code } = await params;
+  const t = await getTicket(code).catch(() => null);
+  if (!t?.event) return { title: 'Your ticket', robots: { index: false } };
+  const L = lang === 'ar' ? 'ar' : 'en';
+  const title = tr(t.event.title, L);
+  const when = `${dateLabel(t.booking.event_date, L, { weekday: 'long', day: 'numeric', month: 'long' })} · ${timeLabel(t.event.start_time, L)}`;
+  return {
+    title: `${L === 'ar' ? 'تذكرة' : 'Ticket'} · ${title}`,
+    description: `${title} — ${when} · Villa Layla Hostel`,
+    robots: { index: false },
+    openGraph: { title: `${title} · Villa Layla`, description: when, type: 'website', images: ogImages(t.event.image, title) },
+    twitter: { card: 'summary_large_image' },
+  };
+}
 
 export default async function TicketPage({ params, searchParams }: { params: Promise<{ lang: string; code: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { lang, code } = await params;
