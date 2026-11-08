@@ -132,7 +132,7 @@ export default async function CollabPage({ params, searchParams }: { params: Pro
                 const note = t(c.price_note, ar);
                 return v || note ? <div><dt>{L('Entry', 'الدخول')}</dt><dd>{[v, note].filter(Boolean).join(' · ')}</dd></div> : null;
               })()}
-              <div><dt>{L('Where', 'المكان')}</dt><dd className="evd-where">
+              <div className="evd-where-row"><dt>{L('Where', 'المكان')}</dt><dd className="evd-where">
                 <span>{place || L('Villa Layla, 20 Safiya Zaghloul St, El Sayeda Zeinab', 'فيلا ليلى، ٢٠ شارع صفية زغلول، السيدة زينب')}</span>
                 <a className="evd-map" href={mapHref} target="_blank" rel="noopener noreferrer" aria-label={L('Open in Google Maps', 'افتح المكان على خرائط جوجل')}>
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z" /><circle cx="12" cy="10" r="2.6" /></svg>

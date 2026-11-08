@@ -1113,7 +1113,7 @@ export function ClaudeHome({ lang = 'en', community = null, view, initialRates, 
 
                     <p className="desc">{r.desc}</p>
 
-                    <div className="row">
+                    <div className="row has-acts">
                       <div className="price">
                         <small>{isAr ? 'ابتداءً من' : 'From'}</small>
                         <b className="num">

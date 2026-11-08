@@ -123,7 +123,7 @@ export function BookingDetails(p: {
         <legend><span className="evb-n">4</span>{L('Payment', 'الدفع')}</legend>
         <div className="evb-pay" role="radiogroup">
           {p.methods.map((m) => (
-            <label key={m} className={`evb-method ${method === m ? 'on' : ''}`}>
+            <label key={m} className={`evb-method no-ic ${method === m ? 'on' : ''}`}>
               <input type="radio" name="payMethod" value={m} checked={method === m} onChange={() => setMethod(m)} />
               <span><b>{M[m].t}</b><small>{M[m].d}</small></span>
             </label>

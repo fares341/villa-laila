@@ -144,7 +144,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 <span className="evd-pr-row"><b dir="ltr">{showPrice(ev.price_cents, ev.currency, view, lang)}</b> <small>{guestNote ? (isAr ? '/ للزوار من بره' : '/ visitors') : isAr ? '/ للشخص' : '/ person'}</small></span>
                 {guestNote && <span className="evd-pr-row evd-pr-guest"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 10.5 12 3l9 7.5V21H3z" /><path d="M9 21v-6h6v6" /></svg>{isAr ? 'نزلاء فيلا ليلى: ' : 'Villa Layla guests: '}<b>{guestNote}</b></span>}
               </dd></div>
-              <div><dt>{isAr ? 'المكان' : 'Where'}</dt><dd className="evd-where">
+              <div className="evd-where-row"><dt>{isAr ? 'المكان' : 'Where'}</dt><dd className="evd-where">
                 <span>{address}</span>
                 <a className="evd-map" href={mapUrl} target="_blank" rel="noopener noreferrer" aria-label={isAr ? 'افتح المكان على خرائط جوجل' : 'Open in Google Maps'} title={isAr ? 'افتح على خرائط جوجل' : 'Open in Google Maps'}>
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z" /><circle cx="12" cy="10" r="2.6" /></svg>

@@ -36,8 +36,10 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = (await headers()).get('x-lang') ?? 'en';
   return (
-    <html lang={lang} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <html lang={lang} dir={lang === 'ar' ? 'rtl' : 'ltr'} suppressHydrationWarning>
       <head>
+        {/* Older phones' browsers (Chrome < 84) have no gap in flex rows: mark them so compat.css adds the spacing. */}
+        <script dangerouslySetInnerHTML={{ __html: "(function(){try{var d=document.createElement('div');d.style.display='flex';d.style.flexDirection='column';d.style.rowGap='1px';d.appendChild(document.createElement('div'));d.appendChild(document.createElement('div'));document.documentElement.appendChild(d);var ok=d.scrollHeight===1;d.parentNode.removeChild(d);if(!ok)document.documentElement.className+=' no-flexgap'}catch(e){}})()" }} />
         <link rel="preload" href="/fonts/almarai-arabic-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/almarai-arabic-700.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/plus-jakarta-sans-normal.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />

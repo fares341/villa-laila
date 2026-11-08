@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/css-compat.mjs",
     "build": "next build",
     "start": "next start",
     "migrate": "tsx scripts/migrate.ts",

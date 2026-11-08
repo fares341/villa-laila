@@ -12,5 +12,6 @@ test_*.mjs
 *.mjs
 # …but the Next.js settings must reach the server (upload size limit for photos)
 !next.config.mjs
+!scripts/css-compat.mjs
 uploads/
 data/uploads/
